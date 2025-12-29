@@ -1,0 +1,43 @@
+{
+  "name": "@kustodian/cli",
+  "version": "0.0.0",
+  "description": "CLI framework with DI and middleware for Kustodian",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "kustodian": "./dist/bin.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "coverage:check": "vitest run --coverage",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "keywords": ["kustodian", "cli"],
+  "author": "Luca Silverentand <luca@onezero.company>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lucasilverentand/kustodian.git",
+    "directory": "packages/cli"
+  },
+  "dependencies": {
+    "@kustodian/core": "workspace:*",
+    "@kustodian/loader": "workspace:*",
+    "@kustodian/schema": "workspace:*"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^3.2.3",
+    "vitest": "^3.2.3"
+  }
+}

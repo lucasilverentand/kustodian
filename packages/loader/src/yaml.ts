@@ -1,0 +1,35 @@
+import { Errors, type ResultType, failure, success } from '@kustodian/core';
+import type { KustodianErrorType } from '@kustodian/core';
+import { parse, stringify } from 'yaml';
+
+/**
+ * Parses a YAML string into an object.
+ */
+export function parse_yaml<T>(content: string): ResultType<T, KustodianErrorType> {
+  try {
+    const result = parse(content) as T;
+    return success(result);
+  } catch (error) {
+    return failure(
+      Errors.yaml_parse_error(error instanceof Error ? error.message : String(error), error),
+    );
+  }
+}
+
+/**
+ * Converts an object to a YAML string.
+ */
+export function stringify_yaml<T>(data: T): ResultType<string, KustodianErrorType> {
+  try {
+    const result = stringify(data, {
+      indent: 2,
+      lineWidth: 0,
+      singleQuote: false,
+    });
+    return success(result);
+  } catch (error) {
+    return failure(
+      Errors.parse_error('YAML', error instanceof Error ? error.message : String(error), error),
+    );
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "@kustodian/core",
+  "version": "0.0.0",
+  "description": "Core utilities, error handling, and Result type for Kustodian",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "coverage:check": "vitest run --coverage",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "keywords": ["kustodian", "core", "utilities"],
+  "author": "Luca Silverentand <luca@onezero.company>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lucasilverentand/kustodian.git",
+    "directory": "packages/core"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^3.2.3",
+    "vitest": "^3.2.3"
+  }
+}

@@ -1,0 +1,91 @@
+import type { ClusterType, KustomizationType, TemplateType } from '@kustodian/schema';
+
+/**
+ * Options for the generation process.
+ */
+export interface GenerateOptionsType {
+  dry_run?: boolean;
+  output_dir?: string;
+  skip_validation?: boolean;
+}
+
+/**
+ * A resolved template with its values.
+ */
+export interface ResolvedTemplateType {
+  template: TemplateType;
+  values: Record<string, string>;
+  enabled: boolean;
+}
+
+/**
+ * A resolved kustomization with substitution values applied.
+ */
+export interface ResolvedKustomizationType {
+  template: TemplateType;
+  kustomization: KustomizationType;
+  values: Record<string, string>;
+  namespace: string;
+}
+
+/**
+ * Generation context for a cluster.
+ */
+export interface GenerationContextType {
+  cluster: ClusterType;
+  templates: ResolvedTemplateType[];
+  output_dir: string;
+}
+
+/**
+ * Result of a single kustomization generation.
+ */
+export interface GeneratedKustomizationType {
+  name: string;
+  template: string;
+  path: string;
+  flux_kustomization: FluxKustomizationType;
+}
+
+/**
+ * Result of the full generation process.
+ */
+export interface GenerationResultType {
+  cluster: string;
+  output_dir: string;
+  kustomizations: GeneratedKustomizationType[];
+}
+
+/**
+ * Flux Kustomization resource type.
+ */
+export interface FluxKustomizationType {
+  apiVersion: 'kustomize.toolkit.fluxcd.io/v1';
+  kind: 'Kustomization';
+  metadata: {
+    name: string;
+    namespace: string;
+  };
+  spec: {
+    interval: string;
+    path: string;
+    prune: boolean;
+    wait: boolean;
+    timeout?: string;
+    retryInterval?: string;
+    sourceRef: {
+      kind: 'GitRepository';
+      name: string;
+    };
+    dependsOn?: Array<{ name: string }>;
+    postBuild?: {
+      substitute?: Record<string, string>;
+    };
+    healthChecks?: Array<{
+      apiVersion: string;
+      kind: string;
+      name: string;
+      namespace: string;
+    }>;
+  };
+}

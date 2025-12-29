@@ -1,0 +1,10 @@
+{
+  "packages/core": "0.0.0",
+  "packages/schema": "0.0.0",
+  "packages/loader": "0.0.0",
+  "packages/cli": "0.0.0",
+  "packages/nodes": "0.0.0",
+  "packages/bootstrap": "0.0.0",
+  "packages/plugins": "0.0.0",
+  "packages/generator": "0.0.0"
+}

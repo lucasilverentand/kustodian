@@ -1,0 +1,58 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "node",
+  "packages": {
+    "packages/core": {
+      "package-name": "@kustodian/core",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "packages/schema": {
+      "package-name": "@kustodian/schema",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "packages/loader": {
+      "package-name": "@kustodian/loader",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "packages/cli": {
+      "package-name": "@kustodian/cli",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "packages/nodes": {
+      "package-name": "@kustodian/nodes",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "packages/bootstrap": {
+      "package-name": "@kustodian/bootstrap",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "packages/plugins": {
+      "package-name": "@kustodian/plugins",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "packages/generator": {
+      "package-name": "@kustodian/generator",
+      "changelog-path": "CHANGELOG.md"
+    }
+  },
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": true,
+  "include-component-in-tag": true,
+  "include-v-in-tag": true,
+  "group-pull-request-title-pattern": "chore: release ${version}",
+  "pull-request-title-pattern": "chore: release${component} ${version}",
+  "changelog-sections": [
+    { "type": "feat", "section": "Features" },
+    { "type": "fix", "section": "Bug Fixes" },
+    { "type": "perf", "section": "Performance Improvements" },
+    { "type": "deps", "section": "Dependencies" },
+    { "type": "revert", "section": "Reverts" },
+    { "type": "docs", "section": "Documentation", "hidden": true },
+    { "type": "style", "section": "Styles", "hidden": true },
+    { "type": "chore", "section": "Miscellaneous", "hidden": true },
+    { "type": "refactor", "section": "Code Refactoring", "hidden": true },
+    { "type": "test", "section": "Tests", "hidden": true },
+    { "type": "build", "section": "Build System", "hidden": true },
+    { "type": "ci", "section": "Continuous Integration", "hidden": true }
+  ]
+}
