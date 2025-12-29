@@ -82,6 +82,9 @@ importers:
       '@kustodian/schema':
         specifier: workspace:*
         version: link:../schema
+      yaml:
+        specifier: ^2.8.2
+        version: 2.8.2
     devDependencies:
       '@vitest/coverage-v8':
         specifier: ^3.2.3
