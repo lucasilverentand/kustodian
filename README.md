@@ -1,12 +1,14 @@
 # Kustodian
 
-A GitOps templating framework for Kubernetes with Flux CD. Define templates in YAML, extend with plugins.
+A GitOps templating framework for Kubernetes with Flux CD. Define templates in YAML, bootstrap clusters, and extend with plugins.
 
 ## What is Kustodian?
 
 Kustodian is a framework for managing Kubernetes cluster configurations using a declarative, YAML-based approach. It generates [Flux CD](https://fluxcd.io/) Kustomizations from simple template definitions, making it easy to:
 
 - **Define reusable templates** for Kubernetes applications
+- **Bootstrap clusters** with k0s, Talos, or other providers
+- **Manage nodes** with declarative labeling and configuration
 - **Manage multiple clusters** with shared or unique configurations
 - **Extend functionality** through a plugin system
 - **Keep everything in YAML** - no TypeScript or code required
@@ -17,6 +19,8 @@ Managing Kubernetes configurations at scale is hard. You end up with:
 
 - Duplicated YAML across clusters
 - Complex Kustomize overlays that are hard to reason about
+- Manual cluster provisioning with ad-hoc scripts
+- Inconsistent node labeling across environments
 - Custom scripts to generate configurations
 - No standard way to handle secrets, auth providers, or monitoring
 
@@ -26,6 +30,8 @@ Kustodian solves this by providing:
 |---------|-------------------|
 | Duplicated configs | Reusable templates with substitutions |
 | Complex overlays | Simple YAML template definitions |
+| Manual provisioning | Declarative cluster bootstrap with k0s/Talos |
+| Inconsistent nodes | YAML-based node definitions with auto-labeling |
 | Custom scripts | Standardized generation engine |
 | No extensibility | Plugin system for secrets, auth, etc. |
 
@@ -80,6 +86,44 @@ spec:
         image_tag: "1.25"
 ```
 
+### Define Nodes
+
+```yaml
+# clusters/production/nodes.yaml
+apiVersion: kustodian.io/v1
+kind: NodeList
+metadata:
+  cluster: production
+spec:
+  label_prefix: myorg.io
+  ssh:
+    user: admin
+    key_path: ~/.ssh/cluster_key
+  nodes:
+    - name: node-1
+      role: controller+worker
+      address: 10.0.0.11
+      labels:
+        metallb: true
+        storage: nvme
+
+    - name: node-2
+      role: worker
+      address: 10.0.0.12
+      labels:
+        gpu: nvidia
+```
+
+### Bootstrap the Cluster
+
+```bash
+# Bootstrap a k0s cluster from node definitions
+kustodian bootstrap --cluster production
+
+# Apply node labels
+kustodian nodes label --cluster production
+```
+
 ### Generate Flux Resources
 
 ```bash
@@ -130,6 +174,65 @@ spec:
         replicas: "1"
 ```
 
+### Nodes
+
+Nodes define the physical or virtual machines in your cluster. Kustodian manages node configuration, labeling, and can bootstrap entire clusters.
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: NodeList
+metadata:
+  cluster: staging
+spec:
+  label_prefix: myorg.io          # Labels will be myorg.io/metallb, etc.
+  ssh:
+    user: admin
+    key_path: ~/.ssh/cluster_key
+  nodes:
+    - name: control-1
+      role: controller+worker     # Runs control plane + workloads
+      address: 10.0.0.10
+      labels:
+        metallb: true             # Applied as myorg.io/metallb=true
+    - name: worker-1
+      role: worker
+      address: 10.0.0.11
+```
+
+**Node Roles:**
+
+| Role | Description |
+|------|-------------|
+| `controller` | Control plane only (no workloads) |
+| `worker` | Worker node only |
+| `controller+worker` | Combined control plane and worker |
+
+### Bootstrap
+
+Kustodian can provision Kubernetes clusters using pluggable providers. The default provider is [k0s](https://k0sproject.io/).
+
+```bash
+# Full cluster bootstrap: provision + configure + label
+kustodian bootstrap --cluster production
+
+# Resume an interrupted bootstrap
+kustodian bootstrap --cluster production --resume
+
+# Skip cluster provisioning, just apply labels
+kustodian bootstrap --cluster production --skip-cluster
+
+# Preview what would happen
+kustodian bootstrap --cluster production --dry-run
+```
+
+The bootstrap process:
+
+1. **Validate** - Check node definitions and SSH connectivity
+2. **Install** - Provision Kubernetes via k0s/Talos/RKE2
+3. **Configure** - Merge kubeconfig into `~/.kube/config`
+4. **Wait** - Wait for all nodes to reach Ready state
+5. **Label** - Apply configured node labels
+
 ### Plugins
 
 Plugins extend Kustodian's functionality. They can:
@@ -159,6 +262,8 @@ Kustodian is built as a collection of packages:
 | `@kustodian/schema` | JSON Schema definitions for YAML validation |
 | `@kustodian/loader` | YAML file loading and validation |
 | `@kustodian/cli` | CLI framework with DI and middleware |
+| `@kustodian/nodes` | Node definitions, roles, and labeling |
+| `@kustodian/bootstrap` | Cluster bootstrap orchestration |
 | `@kustodian/plugins` | Plugin system infrastructure |
 | `@kustodian/generator` | Template processing and Flux generation |
 
@@ -166,6 +271,7 @@ Kustodian is built as a collection of packages:
 
 | Plugin | Description |
 |--------|-------------|
+| `@kustodian/plugin-k0s` | k0s cluster provisioning (built-in) |
 | `@kustodian/plugin-authentik` | Generate Authentik SSO blueprints |
 | `@kustodian/plugin-doppler` | Doppler secret management |
 | `@kustodian/plugin-1password` | 1Password secret management |
@@ -200,7 +306,8 @@ my-infrastructure/
 │           └── kustomization.yaml
 ├── clusters/
 │   └── local/
-│       └── cluster.yaml
+│       ├── cluster.yaml
+│       └── nodes.yaml
 └── kustodian.yaml
 ```
 
@@ -225,6 +332,38 @@ kustodian validate
 
 # Validate a specific cluster
 kustodian validate --cluster production
+```
+
+### Bootstrap Clusters
+
+```bash
+# Bootstrap a new cluster with k0s
+kustodian bootstrap --cluster production
+
+# Use a different provider
+kustodian bootstrap --cluster production --provider talos
+
+# Resume an interrupted bootstrap
+kustodian bootstrap --cluster production --resume
+
+# Preview bootstrap steps
+kustodian bootstrap --cluster production --dry-run
+```
+
+### Manage Nodes
+
+```bash
+# Sync node labels from configuration
+kustodian nodes label --cluster production
+
+# Preview label changes
+kustodian nodes label --cluster production --dry-run
+
+# Show current node status and labels
+kustodian nodes status --cluster production
+
+# Remove all managed labels
+kustodian nodes reset --cluster production
 ```
 
 ## Documentation
@@ -253,3 +392,5 @@ Kustodian builds on the excellent work of:
 
 - [Flux CD](https://fluxcd.io/) - GitOps toolkit for Kubernetes
 - [Kustomize](https://kustomize.io/) - Kubernetes configuration management
+- [k0s](https://k0sproject.io/) - Zero friction Kubernetes
+- [k0sctl](https://github.com/k0sproject/k0sctl) - k0s cluster management tool
