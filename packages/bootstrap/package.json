@@ -1,6 +1,6 @@
 {
   "name": "@kustodian/bootstrap",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Cluster bootstrap orchestration for Kustodian",
   "type": "module",
   "main": "./dist/index.js",
@@ -11,7 +11,9 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "bun run tsc --build",
     "test": "bun test",
@@ -19,7 +21,11 @@
     "typecheck": "bun run tsc --noEmit",
     "clean": "rm -rf dist *.tsbuildinfo"
   },
-  "keywords": ["kustodian", "bootstrap", "kubernetes"],
+  "keywords": [
+    "kustodian",
+    "bootstrap",
+    "kubernetes"
+  ],
   "author": "Luca Silverentand <luca@onezero.company>",
   "license": "MIT",
   "repository": {
