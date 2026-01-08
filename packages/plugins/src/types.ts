@@ -1,20 +1,91 @@
-import type { ResultType } from '@kustodian/core';
-import type { KustodianErrorType } from '@kustodian/core';
+import type { CommandType, ContainerType } from '@kustodian/cli';
+import type { KustodianErrorType, ResultType } from '@kustodian/core';
 import type { ClusterType, TemplateType } from '@kustodian/schema';
 
-/**
- * Plugin types indicating their functionality.
- */
-export type PluginTypeType = 'secret-provider' | 'resource-generator' | 'validator' | 'transformer';
+import type { PluginGeneratorType } from './generators.js';
+import type { PluginHookContributionType } from './hooks.js';
+import type { PluginObjectTypeType } from './object-types.js';
 
 /**
- * Plugin metadata.
+ * Plugin capabilities indicating what a plugin can provide.
+ */
+export type PluginCapabilityType = 'commands' | 'hooks' | 'generators' | 'object-types';
+
+/**
+ * Plugin manifest with metadata.
  */
 export interface PluginManifestType {
+  /** Unique plugin identifier (e.g., "@kustodian/plugin-helm") */
   name: string;
+  /** Semantic version */
   version: string;
-  type: PluginTypeType;
+  /** Human-readable description */
   description?: string;
+  /** Capabilities this plugin provides */
+  capabilities: PluginCapabilityType[];
+  /** Minimum kustodian version required */
+  kustodian_version?: string;
+}
+
+/**
+ * Plugin activation context with runtime information.
+ */
+export interface PluginActivationContextType {
+  /** DI container for service registration */
+  container: ContainerType;
+  /** Plugin configuration from cluster.spec.plugins */
+  config: Record<string, unknown>;
+  /** Current working directory */
+  cwd: string;
+}
+
+/**
+ * Command contribution from a plugin.
+ */
+export interface PluginCommandContributionType {
+  /** Command definition */
+  command: CommandType;
+}
+
+/**
+ * Main plugin interface.
+ * Plugins implement this interface and provide contributions via getter methods.
+ */
+export interface KustodianPluginType {
+  /** Plugin manifest with metadata */
+  readonly manifest: PluginManifestType;
+
+  /**
+   * Called when the plugin is activated.
+   * Use this to initialize resources and register services.
+   */
+  activate?(ctx: PluginActivationContextType): Promise<ResultType<void, KustodianErrorType>>;
+
+  /**
+   * Called when the plugin is deactivated.
+   * Use this to clean up resources.
+   */
+  deactivate?(): Promise<ResultType<void, KustodianErrorType>>;
+
+  /**
+   * Returns commands contributed by this plugin.
+   */
+  get_commands?(): PluginCommandContributionType[];
+
+  /**
+   * Returns hooks contributed by this plugin.
+   */
+  get_hooks?(): PluginHookContributionType[];
+
+  /**
+   * Returns generators contributed by this plugin.
+   */
+  get_generators?(): PluginGeneratorType[];
+
+  /**
+   * Returns object types contributed by this plugin.
+   */
+  get_object_types?(): PluginObjectTypeType[];
 }
 
 /**
@@ -30,10 +101,12 @@ export interface GeneratedResourceType {
     annotations?: Record<string, string>;
   };
   spec?: Record<string, unknown>;
+  data?: Record<string, unknown>;
+  string_data?: Record<string, string>;
 }
 
 /**
- * Context provided to plugins during execution.
+ * Context provided to plugins during generation.
  */
 export interface PluginContextType {
   cluster: ClusterType;
@@ -42,21 +115,55 @@ export interface PluginContextType {
 }
 
 /**
- * Secret provider plugin interface.
- * Generates secret resources from references.
+ * Plugin source types for discovery.
+ */
+export type PluginSourceType = 'npm' | 'local';
+
+/**
+ * Information about a discovered plugin location.
+ */
+export interface PluginLocationInfoType {
+  source: PluginSourceType;
+  /** Module path or npm package name */
+  module_path: string;
+  /** Resolved absolute path */
+  resolved_path: string;
+}
+
+/**
+ * Loaded plugin with location metadata.
+ */
+export interface LoadedPluginType {
+  plugin: KustodianPluginType;
+  location: PluginLocationInfoType;
+}
+
+// ============================================================
+// Legacy types for backward compatibility
+// ============================================================
+
+/**
+ * @deprecated Use PluginCapabilityType instead
+ */
+export type PluginTypeType = 'secret-provider' | 'resource-generator' | 'validator' | 'transformer';
+
+/**
+ * @deprecated Use PluginManifestType instead
+ */
+export interface LegacyPluginManifestType {
+  name: string;
+  version: string;
+  type: PluginTypeType;
+  description?: string;
+}
+
+/**
+ * @deprecated Secret provider plugin interface.
  */
 export interface SecretProviderPluginType {
-  readonly manifest: PluginManifestType;
+  readonly manifest: LegacyPluginManifestType;
   readonly scheme: string;
-
-  /**
-   * Parses a secret reference string.
-   */
   parse_ref(ref: string): ResultType<Record<string, string>, KustodianErrorType>;
-
-  /**
-   * Generates a secret resource from a parsed reference.
-   */
   generate(
     ref: Record<string, string>,
     ctx: PluginContextType,
@@ -64,41 +171,26 @@ export interface SecretProviderPluginType {
 }
 
 /**
- * Resource generator plugin interface.
- * Generates additional resources during generation.
+ * @deprecated Resource generator plugin interface.
  */
 export interface ResourceGeneratorPluginType {
-  readonly manifest: PluginManifestType;
-
-  /**
-   * Generates resources for a template.
-   */
+  readonly manifest: LegacyPluginManifestType;
   generate(ctx: PluginContextType): ResultType<GeneratedResourceType[], KustodianErrorType>;
 }
 
 /**
- * Validator plugin interface.
- * Validates templates or clusters.
+ * @deprecated Validator plugin interface.
  */
 export interface ValidatorPluginType {
-  readonly manifest: PluginManifestType;
-
-  /**
-   * Validates a template or cluster.
-   */
+  readonly manifest: LegacyPluginManifestType;
   validate(ctx: PluginContextType): ResultType<void, KustodianErrorType>;
 }
 
 /**
- * Transformer plugin interface.
- * Transforms resources before output.
+ * @deprecated Transformer plugin interface.
  */
 export interface TransformerPluginType {
-  readonly manifest: PluginManifestType;
-
-  /**
-   * Transforms a resource.
-   */
+  readonly manifest: LegacyPluginManifestType;
   transform(
     resource: GeneratedResourceType,
     ctx: PluginContextType,
@@ -106,38 +198,40 @@ export interface TransformerPluginType {
 }
 
 /**
- * Union type of all plugin types.
+ * @deprecated Union type of legacy plugin types.
  */
-export type PluginType =
+export type LegacyPluginType =
   | SecretProviderPluginType
   | ResourceGeneratorPluginType
   | ValidatorPluginType
   | TransformerPluginType;
 
 /**
- * Type guard for secret provider plugins.
+ * @deprecated Type guard for secret provider plugins.
  */
-export function is_secret_provider(plugin: PluginType): plugin is SecretProviderPluginType {
+export function is_secret_provider(plugin: LegacyPluginType): plugin is SecretProviderPluginType {
   return plugin.manifest.type === 'secret-provider';
 }
 
 /**
- * Type guard for resource generator plugins.
+ * @deprecated Type guard for resource generator plugins.
  */
-export function is_resource_generator(plugin: PluginType): plugin is ResourceGeneratorPluginType {
+export function is_resource_generator(
+  plugin: LegacyPluginType,
+): plugin is ResourceGeneratorPluginType {
   return plugin.manifest.type === 'resource-generator';
 }
 
 /**
- * Type guard for validator plugins.
+ * @deprecated Type guard for validator plugins.
  */
-export function is_validator(plugin: PluginType): plugin is ValidatorPluginType {
+export function is_validator(plugin: LegacyPluginType): plugin is ValidatorPluginType {
   return plugin.manifest.type === 'validator';
 }
 
 /**
- * Type guard for transformer plugins.
+ * @deprecated Type guard for transformer plugins.
  */
-export function is_transformer(plugin: PluginType): plugin is TransformerPluginType {
+export function is_transformer(plugin: LegacyPluginType): plugin is TransformerPluginType {
   return plugin.manifest.type === 'transformer';
 }

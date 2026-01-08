@@ -3,7 +3,7 @@ import type { KustodianErrorType } from '@kustodian/core';
 import type {
   GeneratedResourceType,
   PluginContextType,
-  PluginRegistryType,
+  LegacyPluginRegistryType,
 } from '@kustodian/plugins';
 import type { ClusterType, TemplateConfigType, TemplateType } from '@kustodian/schema';
 
@@ -106,7 +106,7 @@ export interface GeneratorType {
  */
 export function create_generator(
   options: GeneratorOptionsType = {},
-  registry?: PluginRegistryType,
+  registry?: LegacyPluginRegistryType,
 ): GeneratorType {
   const flux_namespace = options.flux_namespace ?? 'flux-system';
   const git_repository_name = options.git_repository_name ?? 'flux-system';

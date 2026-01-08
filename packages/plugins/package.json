@@ -11,7 +11,9 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc --build",
     "test": "vitest run",
@@ -20,7 +22,10 @@
     "coverage:check": "vitest run --coverage",
     "clean": "rm -rf dist *.tsbuildinfo"
   },
-  "keywords": ["kustodian", "plugins"],
+  "keywords": [
+    "kustodian",
+    "plugins"
+  ],
   "author": "Luca Silverentand <luca@onezero.company>",
   "license": "MIT",
   "repository": {
@@ -29,8 +34,10 @@
     "directory": "packages/plugins"
   },
   "dependencies": {
+    "@kustodian/cli": "workspace:*",
     "@kustodian/core": "workspace:*",
-    "@kustodian/schema": "workspace:*"
+    "@kustodian/schema": "workspace:*",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^3.2.3",

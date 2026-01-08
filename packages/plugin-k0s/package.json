@@ -30,8 +30,10 @@
   },
   "dependencies": {
     "@kustodian/bootstrap": "workspace:*",
+    "@kustodian/cli": "workspace:*",
     "@kustodian/core": "workspace:*",
     "@kustodian/nodes": "workspace:*",
+    "@kustodian/plugins": "workspace:*",
     "yaml": "^2.8.2"
   },
   "devDependencies": {

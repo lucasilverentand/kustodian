@@ -133,12 +133,18 @@ importers:
       '@kustodian/bootstrap':
         specifier: workspace:*
         version: link:../bootstrap
+      '@kustodian/cli':
+        specifier: workspace:*
+        version: link:../cli
       '@kustodian/core':
         specifier: workspace:*
         version: link:../core
       '@kustodian/nodes':
         specifier: workspace:*
         version: link:../nodes
+      '@kustodian/plugins':
+        specifier: workspace:*
+        version: link:../plugins
       yaml:
         specifier: ^2.8.2
         version: 2.8.2
@@ -152,12 +158,18 @@ importers:
 
   packages/plugins:
     dependencies:
+      '@kustodian/cli':
+        specifier: workspace:*
+        version: link:../cli
       '@kustodian/core':
         specifier: workspace:*
         version: link:../core
       '@kustodian/schema':
         specifier: workspace:*
         version: link:../schema
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
     devDependencies:
       '@vitest/coverage-v8':
         specifier: ^3.2.3

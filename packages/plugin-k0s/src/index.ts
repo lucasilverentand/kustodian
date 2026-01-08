@@ -1,4 +1,14 @@
+// Plugin exports
+export { create_k0s_plugin, plugin } from './plugin.js';
+export { plugin as default } from './plugin.js';
+
+// Provider exports
+export { create_k0s_provider, validate_k0s_config } from './provider.js';
+
+// Config generation
 export { generate_k0sctl_config, node_to_k0sctl_host, serialize_k0sctl_config } from './config.js';
+
+// Executor
 export {
   check_k0sctl_available,
   exec_command,
@@ -8,7 +18,8 @@ export {
   type CommandResultType,
   type ExecOptionsType,
 } from './executor.js';
-export { create_k0s_provider, validate_k0s_config } from './provider.js';
+
+// Types
 export {
   to_k0sctl_role,
   to_k0sctl_ssh_config,
