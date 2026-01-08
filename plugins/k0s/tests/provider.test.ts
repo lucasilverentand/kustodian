@@ -1,5 +1,5 @@
+import { describe, expect, it } from 'bun:test';
 import type { NodeListType, NodeType } from '@kustodian/nodes';
-import { describe, expect, it } from 'vitest';
 
 import { create_k0s_provider, validate_k0s_config } from '../src/provider.js';
 

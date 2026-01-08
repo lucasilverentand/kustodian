@@ -1,6 +1,6 @@
-import { define_command } from '@kustodian/cli';
 import { success } from '@kustodian/core';
 import type {
+  CommandType,
   HookContextType,
   HookEventType,
   KustodianPluginType,
@@ -40,25 +40,22 @@ export function create_k0s_plugin(options: K0sProviderOptionsType = {}): Kustodi
     },
 
     get_commands(): PluginCommandContributionType[] {
-      return [
-        {
-          command: define_command({
-            name: 'k0s',
-            description: 'k0s cluster management commands',
-            subcommands: [
-              {
-                name: 'info',
-                description: 'Show k0s provider information',
-                handler: async () => {
-                  console.log('k0s cluster provider');
-                  console.log('Provider name:', provider.name);
-                  return success(undefined);
-                },
-              },
-            ],
-          }),
-        },
-      ];
+      const k0s_command: CommandType = {
+        name: 'k0s',
+        description: 'k0s cluster management commands',
+        subcommands: [
+          {
+            name: 'info',
+            description: 'Show k0s provider information',
+            handler: async () => {
+              console.log('k0s cluster provider');
+              console.log('Provider name:', provider.name);
+              return success(undefined);
+            },
+          },
+        ],
+      };
+      return [{ command: k0s_command }];
     },
 
     get_hooks(): PluginHookContributionType[] {

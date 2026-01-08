@@ -1,5 +1,5 @@
+import { describe, expect, it } from 'bun:test';
 import { success } from '@kustodian/core';
-import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import type { PluginGeneratorType } from '../src/generators.js';

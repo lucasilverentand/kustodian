@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 
 import { parse_yaml, stringify_yaml } from '../src/yaml.js';
 

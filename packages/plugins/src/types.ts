@@ -1,10 +1,67 @@
-import type { CommandType, ContainerType } from '@kustodian/cli';
 import type { KustodianErrorType, ResultType } from '@kustodian/core';
 import type { ClusterType, TemplateType } from '@kustodian/schema';
 
 import type { PluginGeneratorType } from './generators.js';
 import type { PluginHookContributionType } from './hooks.js';
 import type { PluginObjectTypeType } from './object-types.js';
+
+/**
+ * Service identifier type (compatible with CLI container).
+ */
+export type ServiceIdType<T> = symbol & { __type?: T };
+
+/**
+ * Factory function type for creating services.
+ */
+export type FactoryType<T> = (container: ContainerType) => T;
+
+/**
+ * Container interface for dependency injection (compatible with CLI container).
+ */
+export interface ContainerType {
+  register_singleton<T>(id: ServiceIdType<T>, factory: FactoryType<T>): void;
+  register_transient<T>(id: ServiceIdType<T>, factory: FactoryType<T>): void;
+  register_instance<T>(id: ServiceIdType<T>, instance: T): void;
+  resolve<T>(id: ServiceIdType<T>): T;
+  has<T>(id: ServiceIdType<T>): boolean;
+}
+
+/**
+ * CLI option type (compatible with CLI command options).
+ */
+export interface OptionType {
+  name: string;
+  short?: string;
+  description: string;
+  required?: boolean;
+  default_value?: unknown;
+  type?: 'string' | 'boolean' | 'number';
+}
+
+/**
+ * CLI argument type (compatible with CLI command arguments).
+ */
+export interface ArgumentType {
+  name: string;
+  description: string;
+  required?: boolean;
+  variadic?: boolean;
+}
+
+/**
+ * CLI command type (compatible with CLI commands).
+ */
+export interface CommandType {
+  name: string;
+  description: string;
+  options?: OptionType[];
+  arguments?: ArgumentType[];
+  subcommands?: CommandType[];
+  handler?: (
+    ctx: { args: string[]; options: Record<string, unknown>; data: Record<string, unknown> },
+    container: ContainerType,
+  ) => Promise<ResultType<void, KustodianErrorType>>;
+}
 
 /**
  * Plugin capabilities indicating what a plugin can provide.

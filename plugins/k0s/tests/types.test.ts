@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 
 import { to_k0sctl_role, to_k0sctl_ssh_config } from '../src/types.js';
 

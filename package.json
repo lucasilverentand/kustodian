@@ -4,15 +4,15 @@
   "private": true,
   "description": "A GitOps templating framework for Kubernetes with Flux CD",
   "type": "module",
+  "workspaces": ["packages/*", "plugins/*"],
   "scripts": {
-    "build": "turbo run build",
-    "test": "turbo run test",
+    "build": "bun run --filter '*' build",
+    "test": "bun run --filter '*' test",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "fmt": "biome format --write .",
-    "typecheck": "turbo run typecheck",
-    "coverage:check": "turbo run coverage:check",
-    "clean": "turbo run clean && rm -rf node_modules"
+    "typecheck": "bun run --filter '*' typecheck",
+    "clean": "bun run --filter '*' clean && rm -rf node_modules"
   },
   "keywords": [
     "kubernetes",
@@ -25,14 +25,9 @@
   ],
   "author": "Luca Silverentand <luca@onezero.company>",
   "license": "MIT",
-  "packageManager": "pnpm@10.11.0",
-  "engines": {
-    "node": ">=22.0.0"
-  },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
-    "@types/node": "^25.0.3",
-    "turbo": "^2.5.4",
+    "@types/bun": "^1.2.9",
     "typescript": "^5.8.3"
   }
 }

@@ -1,5 +1,5 @@
+import { describe, expect, it, vi } from 'bun:test';
 import type { NodeListType } from '@kustodian/schema';
-import { describe, expect, it, vi } from 'vitest';
 
 import { create_mock_provider } from '../src/provider.js';
 import { create_initial_state, update_step_status } from '../src/types.js';

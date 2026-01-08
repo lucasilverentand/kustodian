@@ -16,11 +16,10 @@
   },
   "files": ["dist"],
   "scripts": {
-    "build": "tsc --build",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
-    "coverage:check": "vitest run --coverage",
+    "build": "bun run tsc --build",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "typecheck": "bun run tsc --noEmit",
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "keywords": ["kustodian", "cli"],
@@ -32,12 +31,13 @@
     "directory": "packages/cli"
   },
   "dependencies": {
+    "@kustodian/bootstrap": "workspace:*",
     "@kustodian/core": "workspace:*",
+    "@kustodian/generator": "workspace:*",
     "@kustodian/loader": "workspace:*",
+    "@kustodian/nodes": "workspace:*",
+    "@kustodian/plugins": "workspace:*",
     "@kustodian/schema": "workspace:*"
   },
-  "devDependencies": {
-    "@vitest/coverage-v8": "^3.2.3",
-    "vitest": "^3.2.3"
-  }
+  "devDependencies": {}
 }
