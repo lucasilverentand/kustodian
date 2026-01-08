@@ -9,7 +9,13 @@
       "@/*": ["./src/*"]
     }
   },
-  "references": [{ "path": "../core" }, { "path": "../bootstrap" }, { "path": "../nodes" }],
+  "references": [
+    { "path": "../../packages/core" },
+    { "path": "../../packages/bootstrap" },
+    { "path": "../../packages/nodes" },
+    { "path": "../../packages/cli" },
+    { "path": "../../packages/plugins" }
+  ],
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tests"]
 }

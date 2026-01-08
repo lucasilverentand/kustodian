@@ -26,7 +26,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/lucasilverentand/kustodian.git",
-    "directory": "packages/plugin-k0s"
+    "directory": "plugins/k0s"
   },
   "dependencies": {
     "@kustodian/bootstrap": "workspace:*",

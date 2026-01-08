@@ -11,9 +11,7 @@
       "import": "./dist/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "build": "tsc --build",
     "test": "vitest run",
@@ -22,10 +20,7 @@
     "coverage:check": "vitest run --coverage",
     "clean": "rm -rf dist *.tsbuildinfo"
   },
-  "keywords": [
-    "kustodian",
-    "plugins"
-  ],
+  "keywords": ["kustodian", "plugins"],
   "author": "Luca Silverentand <luca@onezero.company>",
   "license": "MIT",
   "repository": {

@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
 import { success } from '@kustodian/core';
+import { describe, expect, it } from 'vitest';
 
-import { create_hook_dispatcher, type GeneratorHookContextType } from '../src/hooks.js';
+import { type GeneratorHookContextType, create_hook_dispatcher } from '../src/hooks.js';
 
 describe('Hook Dispatcher', () => {
   const create_mock_context = (): GeneratorHookContextType => ({

@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import {
+  type PluginObjectTypeType,
   create_object_type_registry,
   define_object_type,
-  type PluginObjectTypeType,
 } from '../src/object-types.js';
 
 describe('Object Type Registry', () => {
@@ -206,7 +206,7 @@ describe('Object Type Registry', () => {
         api_version: 'test/v1',
         kind: 'Test',
         schema: z.object({}),
-        locations: ['standalone'] as ('standalone')[],
+        locations: ['standalone'] as 'standalone'[],
       };
 
       const result = define_object_type(config);

@@ -1,12 +1,12 @@
-import { success } from '@kustodian/core';
 import { define_command } from '@kustodian/cli';
+import { success } from '@kustodian/core';
 import type {
+  HookContextType,
+  HookEventType,
   KustodianPluginType,
-  PluginManifestType,
   PluginCommandContributionType,
   PluginHookContributionType,
-  HookEventType,
-  HookContextType,
+  PluginManifestType,
 } from '@kustodian/plugins';
 
 import { create_k0s_provider } from './provider.js';

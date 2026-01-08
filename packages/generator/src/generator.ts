@@ -2,8 +2,8 @@ import { type ResultType, success } from '@kustodian/core';
 import type { KustodianErrorType } from '@kustodian/core';
 import type {
   GeneratedResourceType,
-  PluginContextType,
   LegacyPluginRegistryType,
+  PluginContextType,
 } from '@kustodian/plugins';
 import type { ClusterType, TemplateConfigType, TemplateType } from '@kustodian/schema';
 

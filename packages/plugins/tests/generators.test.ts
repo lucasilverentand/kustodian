@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
 import { success } from '@kustodian/core';
+import { describe, expect, it } from 'vitest';
 
-import { define_generator, type PluginGeneratorType } from '../src/generators.js';
+import { type PluginGeneratorType, define_generator } from '../src/generators.js';
 
 describe('Plugin Generators', () => {
   describe('define_generator', () => {
@@ -35,14 +35,17 @@ describe('Plugin Generators', () => {
         name: 'configmap-generator',
         handles: [{ api_version: 'test/v1', kind: 'ConfigData' }],
         generate: async (object, context) => {
-          const obj = object as { metadata: { name: string }; spec: { data: Record<string, string> } };
+          const obj = object as {
+            metadata: { name: string };
+            spec: { data: Record<string, string> };
+          };
           return success([
             {
               api_version: 'v1',
               kind: 'ConfigMap',
               metadata: {
                 name: obj.metadata.name,
-                namespace: context.config['namespace'] as string || 'default',
+                namespace: (context.config['namespace'] as string) || 'default',
               },
               data: obj.spec.data,
             },

@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
 import { success } from '@kustodian/core';
+import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { create_plugin_registry, create_legacy_plugin_registry } from '../src/registry.js';
+import type { PluginGeneratorType } from '../src/generators.js';
+import { create_legacy_plugin_registry, create_plugin_registry } from '../src/registry.js';
 import type {
   KustodianPluginType,
   LoadedPluginType,
@@ -11,7 +12,6 @@ import type {
   SecretProviderPluginType,
   ValidatorPluginType,
 } from '../src/types.js';
-import type { PluginGeneratorType } from '../src/generators.js';
 
 describe('Plugin Registry', () => {
   // Helper to create a mock plugin
@@ -76,7 +76,7 @@ describe('Plugin Registry', () => {
             apiVersion: z.string(),
             kind: z.string(),
           }),
-          locations: ['standalone'] as ('standalone')[],
+          locations: ['standalone'] as 'standalone'[],
         },
       ];
     }
