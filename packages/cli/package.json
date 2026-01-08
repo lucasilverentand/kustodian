@@ -1,6 +1,6 @@
 {
   "name": "@kustodian/cli",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "CLI framework with DI and middleware for Kustodian",
   "type": "module",
   "main": "./dist/index.js",
@@ -14,7 +14,9 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "bun run tsc --build",
     "test": "bun test",
@@ -22,7 +24,10 @@
     "typecheck": "bun run tsc --noEmit",
     "clean": "rm -rf dist *.tsbuildinfo"
   },
-  "keywords": ["kustodian", "cli"],
+  "keywords": [
+    "kustodian",
+    "cli"
+  ],
   "author": "Luca Silverentand <luca@onezero.company>",
   "license": "MIT",
   "repository": {
