@@ -54,6 +54,34 @@ export interface GenerationResultType {
   cluster: string;
   output_dir: string;
   kustomizations: GeneratedKustomizationType[];
+  oci_repository?: FluxOCIRepositoryType;
+}
+
+/**
+ * Flux OCIRepository resource type.
+ */
+export interface FluxOCIRepositoryType {
+  apiVersion: 'source.toolkit.fluxcd.io/v1';
+  kind: 'OCIRepository';
+  metadata: {
+    name: string;
+    namespace: string;
+  };
+  spec: {
+    interval: string;
+    url: string;
+    ref: {
+      tag?: string;
+      digest?: string;
+      semver?: string;
+    };
+    provider?: 'aws' | 'azure' | 'gcp' | 'generic';
+    secretRef?: {
+      name: string;
+    };
+    insecure?: boolean;
+    timeout?: string;
+  };
 }
 
 /**
@@ -74,7 +102,7 @@ export interface FluxKustomizationType {
     timeout?: string;
     retryInterval?: string;
     sourceRef: {
-      kind: 'GitRepository';
+      kind: 'GitRepository' | 'OCIRepository';
       name: string;
     };
     dependsOn?: Array<{ name: string }>;

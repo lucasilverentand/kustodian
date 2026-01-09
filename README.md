@@ -114,23 +114,14 @@ spec:
         gpu: nvidia
 ```
 
-### Bootstrap the Cluster
+### Apply Configuration
 
 ```bash
-# Bootstrap a k0s cluster from node definitions
-kustodian bootstrap --cluster production
-
-# Apply node labels
-kustodian nodes label --cluster production
+# Apply full cluster configuration (bootstrap + Flux + templates)
+kustodian apply --cluster production
 ```
 
-### Generate Flux Resources
-
-```bash
-kustodian generate --cluster production
-```
-
-This generates Flux Kustomization CRs that deploy your templates to the cluster.
+This bootstraps the cluster, installs Flux CD, and deploys your templates.
 
 ## Core Concepts
 
@@ -207,25 +198,11 @@ spec:
 | `worker` | Worker node only |
 | `controller+worker` | Combined control plane and worker |
 
-### Bootstrap
+### Cluster Provisioning
 
-Kustodian can provision Kubernetes clusters using pluggable providers. The default provider is [k0s](https://k0sproject.io/).
+Kustodian can provision Kubernetes clusters using pluggable providers. The default provider is [k0s](https://k0sproject.io/). Cluster provisioning is part of the `apply` command.
 
-```bash
-# Full cluster bootstrap: provision + configure + label
-kustodian bootstrap --cluster production
-
-# Resume an interrupted bootstrap
-kustodian bootstrap --cluster production --resume
-
-# Skip cluster provisioning, just apply labels
-kustodian bootstrap --cluster production --skip-cluster
-
-# Preview what would happen
-kustodian bootstrap --cluster production --dry-run
-```
-
-The bootstrap process:
+The provisioning process:
 
 1. **Validate** - Check node definitions and SSH connectivity
 2. **Install** - Provision Kubernetes via k0s/Talos/RKE2
@@ -311,19 +288,6 @@ my-infrastructure/
 └── kustodian.yaml
 ```
 
-### Generate Configurations
-
-```bash
-# Generate for a specific cluster
-kustodian generate --cluster production
-
-# Generate for all clusters
-kustodian generate --all
-
-# Dry run (show what would be generated)
-kustodian generate --cluster production --dry-run
-```
-
 ### Validate Configurations
 
 ```bash
@@ -334,36 +298,22 @@ kustodian validate
 kustodian validate --cluster production
 ```
 
-### Bootstrap Clusters
+### Apply Full Configuration
 
 ```bash
-# Bootstrap a new cluster with k0s
-kustodian bootstrap --cluster production
+# Apply complete cluster setup (bootstrap + Flux + templates)
+kustodian apply --cluster production
 
 # Use a different provider
-kustodian bootstrap --cluster production --provider talos
+kustodian apply --cluster production --provider talos
 
-# Resume an interrupted bootstrap
-kustodian bootstrap --cluster production --resume
+# Preview without making changes
+kustodian apply --cluster production --dry-run
 
-# Preview bootstrap steps
-kustodian bootstrap --cluster production --dry-run
-```
-
-### Manage Nodes
-
-```bash
-# Sync node labels from configuration
-kustodian nodes label --cluster production
-
-# Preview label changes
-kustodian nodes label --cluster production --dry-run
-
-# Show current node status and labels
-kustodian nodes status --cluster production
-
-# Remove all managed labels
-kustodian nodes reset --cluster production
+# Skip specific phases
+kustodian apply --cluster production --skip-bootstrap
+kustodian apply --cluster production --skip-flux
+kustodian apply --cluster production --skip-templates
 ```
 
 ## Documentation

@@ -1,9 +1,71 @@
 import type { KustodianErrorType, ResultType } from '@kustodian/core';
+import type { NodeListType } from '@kustodian/nodes';
 import type { ClusterType, TemplateType } from '@kustodian/schema';
 
 import type { PluginGeneratorType } from './generators.js';
 import type { PluginHookContributionType } from './hooks.js';
 import type { PluginObjectTypeType } from './object-types.js';
+
+// ============================================================
+// Cluster Provider Types
+// ============================================================
+
+/**
+ * Bootstrap options for cluster provisioning.
+ */
+export interface BootstrapOptionsType {
+  dry_run?: boolean;
+  timeout?: number;
+}
+
+/**
+ * Reset options for cluster teardown.
+ */
+export interface ResetOptionsType {
+  force?: boolean;
+  dry_run?: boolean;
+}
+
+/**
+ * Cluster provider interface.
+ * Implementations handle specific cluster technologies (k0s, Talos, etc.).
+ */
+export interface ClusterProviderType {
+  /**
+   * Provider name (e.g., "k0s", "talos").
+   */
+  readonly name: string;
+
+  /**
+   * Validates the cluster configuration.
+   */
+  validate(node_list: NodeListType): ResultType<void, KustodianErrorType>;
+
+  /**
+   * Installs the cluster.
+   */
+  install(
+    node_list: NodeListType,
+    options: BootstrapOptionsType,
+  ): Promise<ResultType<void, KustodianErrorType>>;
+
+  /**
+   * Gets the kubeconfig for the cluster.
+   */
+  get_kubeconfig(node_list: NodeListType): Promise<ResultType<string, KustodianErrorType>>;
+
+  /**
+   * Resets/destroys the cluster.
+   */
+  reset(
+    node_list: NodeListType,
+    options: ResetOptionsType,
+  ): Promise<ResultType<void, KustodianErrorType>>;
+}
+
+// ============================================================
+// Dependency Injection Types
+// ============================================================
 
 /**
  * Service identifier type (compatible with CLI container).

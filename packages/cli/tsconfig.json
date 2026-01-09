@@ -14,9 +14,9 @@
     { "path": "../schema" },
     { "path": "../loader" },
     { "path": "../generator" },
-    { "path": "../bootstrap" },
     { "path": "../plugins" },
-    { "path": "../nodes" }
+    { "path": "../nodes" },
+    { "path": "../../plugins/k0s" }
   ],
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tests"]

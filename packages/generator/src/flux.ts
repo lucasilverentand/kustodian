@@ -1,6 +1,6 @@
-import type { KustomizationType, TemplateType } from '@kustodian/schema';
+import type { ClusterType, KustomizationType, OciConfigType, TemplateType } from '@kustodian/schema';
 
-import type { FluxKustomizationType, ResolvedKustomizationType } from './types.js';
+import type { FluxKustomizationType, FluxOCIRepositoryType, ResolvedKustomizationType } from './types.js';
 
 /**
  * Default interval for Flux reconciliation.
@@ -68,11 +68,61 @@ export function generate_health_checks(
 }
 
 /**
+ * Generates a Flux OCIRepository resource.
+ */
+export function generate_flux_oci_repository(
+  cluster: ClusterType,
+  oci_config: OciConfigType,
+  repository_name: string,
+  flux_namespace: string,
+): FluxOCIRepositoryType {
+  const url = `oci://${oci_config.registry}/${oci_config.repository}`;
+
+  const ref: FluxOCIRepositoryType['spec']['ref'] = {};
+  switch (oci_config.tag_strategy) {
+    case 'cluster':
+      ref.tag = cluster.metadata.name;
+      break;
+    case 'manual':
+      ref.tag = oci_config.tag || 'latest';
+      break;
+    default:
+      ref.tag = 'latest'; // CI will update this
+  }
+
+  const spec: FluxOCIRepositoryType['spec'] = {
+    interval: DEFAULT_INTERVAL,
+    url,
+    ref,
+    provider: oci_config.provider || 'generic',
+  };
+
+  if (oci_config.secret_ref) {
+    spec.secretRef = { name: oci_config.secret_ref };
+  }
+
+  if (oci_config.insecure) {
+    spec.insecure = true;
+  }
+
+  return {
+    apiVersion: 'source.toolkit.fluxcd.io/v1',
+    kind: 'OCIRepository',
+    metadata: {
+      name: repository_name,
+      namespace: flux_namespace,
+    },
+    spec,
+  };
+}
+
+/**
  * Generates a Flux Kustomization resource.
  */
 export function generate_flux_kustomization(
   resolved: ResolvedKustomizationType,
-  git_repository_name = 'flux-system',
+  source_repository_name = 'flux-system',
+  source_kind: 'GitRepository' | 'OCIRepository' = 'GitRepository',
 ): FluxKustomizationType {
   const { template, kustomization, values, namespace } = resolved;
   const name = generate_flux_name(template.metadata.name, kustomization.name);
@@ -84,8 +134,8 @@ export function generate_flux_kustomization(
     prune: kustomization.prune ?? true,
     wait: kustomization.wait ?? true,
     sourceRef: {
-      kind: 'GitRepository',
-      name: git_repository_name,
+      kind: source_kind,
+      name: source_repository_name,
     },
   };
 

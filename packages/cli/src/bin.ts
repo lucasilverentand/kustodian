@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 
-import { bootstrap_command } from './commands/bootstrap.js';
-import { generate_command } from './commands/generate.js';
+import { apply_command } from './commands/apply.js';
 import { init_command } from './commands/init.js';
-import { nodes_command } from './commands/nodes.js';
+import { push_command } from './commands/push.js';
 import { validate_command } from './commands/validate.js';
 import { create_container } from './container.js';
 import { create_cli } from './runner.js';
@@ -27,17 +26,15 @@ async function main() {
     console.log('Commands:');
     console.log('  init <name>        Initialize a new Kustodian project');
     console.log('  validate           Validate cluster and template configurations');
-    console.log('  generate           Generate Flux resources from templates');
-    console.log('  bootstrap          Bootstrap a Kubernetes cluster');
-    console.log('  nodes              Manage cluster node labels\n');
+    console.log('  push               Package and push manifests to OCI registry');
+    console.log('  apply              Apply full cluster configuration\n');
     console.log('Options:');
     console.log('  --help, -h         Show help');
     console.log('  --version, -v      Show version\n');
     console.log('Examples:');
     console.log('  kustodian init my-project');
     console.log('  kustodian validate');
-    console.log('  kustodian generate --cluster production');
-    console.log('  kustodian bootstrap --cluster production');
+    console.log('  kustodian apply --cluster production');
     process.exit(0);
   }
 
@@ -51,9 +48,8 @@ async function main() {
   // Register commands
   cli.command(init_command);
   cli.command(validate_command);
-  cli.command(generate_command);
-  cli.command(bootstrap_command);
-  cli.command(nodes_command);
+  cli.command(push_command);
+  cli.command(apply_command);
 
   // Create container
   const container = create_container();

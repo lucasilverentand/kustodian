@@ -44,3 +44,7 @@ CHANGELOG.md
 # Temporary files
 tmp/
 temp/
+
+# Test repositories
+test-repo/
+test-kustodian-oci/

@@ -26,11 +26,10 @@
         "kustodian": "./dist/bin.js",
       },
       "dependencies": {
-        "@kustodian/bootstrap": "workspace:*",
         "@kustodian/core": "workspace:*",
-        "@kustodian/generator": "workspace:*",
         "@kustodian/loader": "workspace:*",
         "@kustodian/nodes": "workspace:*",
+        "@kustodian/plugin-k0s": "workspace:*",
         "@kustodian/plugins": "workspace:*",
         "@kustodian/schema": "workspace:*",
       },
@@ -72,6 +71,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kustodian/core": "workspace:*",
+        "@kustodian/nodes": "workspace:*",
         "@kustodian/schema": "workspace:*",
         "zod": "^3.25.76",
       },
@@ -87,7 +87,6 @@
       "name": "@kustodian/plugin-k0s",
       "version": "0.0.0",
       "dependencies": {
-        "@kustodian/bootstrap": "workspace:*",
         "@kustodian/core": "workspace:*",
         "@kustodian/nodes": "workspace:*",
         "@kustodian/plugins": "workspace:*",

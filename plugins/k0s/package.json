@@ -28,7 +28,6 @@
     "directory": "plugins/k0s"
   },
   "dependencies": {
-    "@kustodian/bootstrap": "workspace:*",
     "@kustodian/core": "workspace:*",
     "@kustodian/nodes": "workspace:*",
     "@kustodian/plugins": "workspace:*",

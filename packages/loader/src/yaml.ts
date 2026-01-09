@@ -1,6 +1,6 @@
 import { Errors, type ResultType, failure, success } from '@kustodian/core';
 import type { KustodianErrorType } from '@kustodian/core';
-import { parse, stringify } from 'yaml';
+import { parse, parseAllDocuments, stringify } from 'yaml';
 
 /**
  * Parses a YAML string into an object.
@@ -9,6 +9,21 @@ export function parse_yaml<T>(content: string): ResultType<T, KustodianErrorType
   try {
     const result = parse(content) as T;
     return success(result);
+  } catch (error) {
+    return failure(
+      Errors.yaml_parse_error(error instanceof Error ? error.message : String(error), error),
+    );
+  }
+}
+
+/**
+ * Parses a multi-document YAML string (separated by ---) into an array of objects.
+ */
+export function parse_multi_yaml<T>(content: string): ResultType<T[], KustodianErrorType> {
+  try {
+    const docs = parseAllDocuments(content);
+    const results = docs.map((doc) => doc.toJSON() as T);
+    return success(results);
   } catch (error) {
     return failure(
       Errors.yaml_parse_error(error instanceof Error ? error.message : String(error), error),

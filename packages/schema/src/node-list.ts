@@ -40,7 +40,7 @@ export const node_role_schema = z.enum(['controller', 'worker', 'controller+work
 export type NodeRoleType = z.infer<typeof node_role_schema>;
 
 /**
- * Single node definition schema.
+ * Single node definition schema (for inline use in NodeList).
  */
 export const node_schema = z.object({
   name: z.string().min(1),
@@ -55,40 +55,63 @@ export const node_schema = z.object({
 export type NodeSchemaType = z.infer<typeof node_schema>;
 
 /**
- * NodeList metadata schema.
+ * Node metadata schema (for standalone Node resources).
  */
-export const node_list_metadata_schema = z.object({
+export const node_metadata_schema = z.object({
+  name: z.string().min(1),
   cluster: z.string().min(1),
 });
 
-export type NodeListMetadataType = z.infer<typeof node_list_metadata_schema>;
+export type NodeMetadataType = z.infer<typeof node_metadata_schema>;
 
 /**
- * NodeList spec schema.
+ * Node spec schema (for standalone Node resources).
  */
-export const node_list_spec_schema = z.object({
-  label_prefix: z.string().optional(),
+export const node_spec_schema = z.object({
+  role: node_role_schema,
+  address: z.string().min(1),
   ssh: ssh_config_schema.optional(),
-  nodes: z.array(node_schema).min(1),
+  labels: z.record(z.union([z.string(), z.boolean(), z.number()])).optional(),
+  taints: z.array(taint_schema).optional(),
+  annotations: z.record(z.string()).optional(),
 });
 
-export type NodeListSpecType = z.infer<typeof node_list_spec_schema>;
+export type NodeSpecType = z.infer<typeof node_spec_schema>;
 
 /**
- * Complete NodeList resource definition.
+ * Standalone Node resource definition.
+ * Used for individual node files at clusters/<cluster>/nodes/<node>.yml
  */
-export const node_list_schema = z.object({
+export const node_resource_schema = z.object({
   apiVersion: api_version_schema,
-  kind: z.literal('NodeList'),
-  metadata: node_list_metadata_schema,
-  spec: node_list_spec_schema,
+  kind: z.literal('Node'),
+  metadata: node_metadata_schema,
+  spec: node_spec_schema,
 });
 
-export type NodeListType = z.infer<typeof node_list_schema>;
+export type NodeResourceType = z.infer<typeof node_resource_schema>;
 
 /**
- * Validates a NodeList object and returns the result.
+ * Validates a Node resource and returns the result.
  */
-export function validate_node_list(data: unknown): z.SafeParseReturnType<unknown, NodeListType> {
-  return node_list_schema.safeParse(data);
+export function validate_node_resource(data: unknown): z.SafeParseReturnType<unknown, NodeResourceType> {
+  return node_resource_schema.safeParse(data);
 }
+
+/**
+ * Converts a Node resource to a NodeType for internal use.
+ */
+export function node_resource_to_node(resource: NodeResourceType): NodeSchemaType {
+  return {
+    name: resource.metadata.name,
+    role: resource.spec.role,
+    address: resource.spec.address,
+    ssh: resource.spec.ssh,
+    labels: resource.spec.labels,
+    taints: resource.spec.taints,
+    annotations: resource.spec.annotations,
+  };
+}
+
+// NodeList is no longer a schema kind - it's just an internal construct
+// Nodes are defined as individual Node resources and aggregated in code

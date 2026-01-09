@@ -12,6 +12,7 @@ import {
   DEFAULT_TIMEOUT,
   generate_depends_on,
   generate_flux_kustomization,
+  generate_flux_oci_repository,
   generate_flux_name,
   generate_health_checks,
   resolve_kustomization,
@@ -164,6 +165,10 @@ export function create_generator(
     async generate(cluster, templates, generate_options = {}) {
       const output_dir = generate_options.output_dir ?? './output';
 
+      // Detect source kind and repository name
+      const source_kind = cluster.spec.oci ? 'OCIRepository' : 'GitRepository';
+      const source_repository_name = git_repository_name;
+
       // Run before_generate hook
       await run_hooks('before_generate', { cluster });
 
@@ -196,7 +201,8 @@ export function create_generator(
           // Generate Flux resource with configurable namespace
           const flux_kustomization = generate_flux_kustomization(
             resolved_kustomization,
-            git_repository_name,
+            source_repository_name,
+            source_kind,
           );
 
           // Override namespace to configured value
@@ -223,6 +229,16 @@ export function create_generator(
         output_dir,
         kustomizations: generated_kustomizations,
       };
+
+      // Generate OCIRepository if using OCI mode
+      if (cluster.spec.oci) {
+        result.oci_repository = generate_flux_oci_repository(
+          cluster,
+          cluster.spec.oci,
+          source_repository_name,
+          flux_namespace,
+        );
+      }
 
       // Run after_generate hook
       await run_hooks('after_generate', {

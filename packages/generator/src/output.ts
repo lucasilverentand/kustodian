@@ -118,6 +118,20 @@ export async function write_generation_result(
   const format = options.format ?? 'yaml';
   const written_files: string[] = [];
 
+  // Write OCIRepository first if present
+  if (result.oci_repository) {
+    const ext = format === 'json' ? 'json' : 'yaml';
+    const oci_path = path.join(result.output_dir, `oci-repository.${ext}`);
+    const oci_content = serialize_resource(result.oci_repository, format);
+    const oci_result = await write_file(oci_path, oci_content, options);
+
+    if (!oci_result.success) {
+      return oci_result;
+    }
+
+    written_files.push(oci_path);
+  }
+
   for (const generated of result.kustomizations) {
     const file_result = await write_flux_kustomization(
       generated.flux_kustomization,
@@ -134,14 +148,23 @@ export async function write_generation_result(
 
   // Write a kustomization.yaml that includes all generated files
   const kustomization_path = path.join(result.output_dir, 'kustomization.yaml');
+  const resources: string[] = [];
+
+  if (result.oci_repository) {
+    const ext = format === 'json' ? 'json' : 'yaml';
+    resources.push(`oci-repository.${ext}`);
+  }
+
+  resources.push(...result.kustomizations.map((k) => {
+    const ext = format === 'json' ? 'json' : 'yaml';
+    return `${k.flux_kustomization.metadata.name}.${ext}`;
+  }));
+
   const kustomization_content = serialize_resource(
     {
       apiVersion: 'kustomize.config.k8s.io/v1beta1',
       kind: 'Kustomization',
-      resources: result.kustomizations.map((k) => {
-        const ext = format === 'json' ? 'json' : 'yaml';
-        return `${k.flux_kustomization.metadata.name}.${ext}`;
-      }),
+      resources,
     },
     'yaml',
   );

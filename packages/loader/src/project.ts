@@ -4,12 +4,15 @@ import { Errors, type ResultType, failure, is_success, success } from '@kustodia
 import type { KustodianErrorType } from '@kustodian/core';
 import {
   type ClusterType,
+  type NodeSchemaType,
   type TemplateType,
+  node_resource_to_node,
   validate_cluster,
+  validate_node_resource,
   validate_template,
 } from '@kustodian/schema';
 
-import { file_exists, list_directories, read_yaml_file } from './file.js';
+import { file_exists, list_directories, list_files, read_yaml_file } from './file.js';
 
 /**
  * Standard file names used in Kustodian projects.
@@ -27,6 +30,7 @@ export const StandardFiles = {
 export const StandardDirs = {
   TEMPLATES: 'templates',
   CLUSTERS: 'clusters',
+  NODES: 'nodes',
 } as const;
 
 /**
@@ -43,6 +47,7 @@ export interface LoadedTemplateType {
 export interface LoadedClusterType {
   path: string;
   cluster: ClusterType;
+  nodes: NodeSchemaType[];
 }
 
 /**
@@ -104,6 +109,96 @@ export async function load_template(
 }
 
 /**
+ * Loads nodes from a single YAML file (supports multi-document).
+ */
+async function load_nodes_from_file(file_path: string): Promise<ResultType<NodeSchemaType[], KustodianErrorType>> {
+  const { read_multi_yaml_file } = await import('./file.js');
+  const docs_result = await read_multi_yaml_file<unknown>(file_path);
+
+  if (!is_success(docs_result)) {
+    return docs_result;
+  }
+
+  const nodes: NodeSchemaType[] = [];
+  const errors: string[] = [];
+
+  for (const doc of docs_result.value) {
+    const validation = validate_node_resource(doc);
+    if (!validation.success) {
+      const validation_errors = validation.error.issues.map(
+        (issue) => `${issue.path.join('.')}: ${issue.message}`,
+      );
+      errors.push(`${path.basename(file_path)}:\n  ${validation_errors.join('\n  ')}`);
+      continue;
+    }
+
+    nodes.push(node_resource_to_node(validation.data));
+  }
+
+  if (errors.length > 0) {
+    return failure(Errors.validation_error(`Failed to load nodes:\n${errors.join('\n')}`));
+  }
+
+  return success(nodes);
+}
+
+/**
+ * Loads all node files from specified paths (files or directories).
+ */
+export async function load_cluster_nodes(
+  cluster_dir: string,
+  node_file_paths?: string[],
+): Promise<ResultType<NodeSchemaType[], KustodianErrorType>> {
+  const nodes: NodeSchemaType[] = [];
+  const errors: string[] = [];
+
+  // If no paths specified, try default nodes/ directory
+  const paths_to_scan = node_file_paths || [StandardDirs.NODES];
+
+  for (const ref_path of paths_to_scan) {
+    const full_path = path.isAbsolute(ref_path)
+      ? ref_path
+      : path.join(cluster_dir, ref_path);
+
+    // Check if it's a directory
+    const { is_directory } = await import('./file.js');
+    if (await is_directory(full_path)) {
+      // Load all YAML files from directory
+      const yml_files = await list_files(full_path, '.yml');
+      const yaml_files = await list_files(full_path, '.yaml');
+
+      const all_files = [
+        ...(is_success(yml_files) ? yml_files.value : []),
+        ...(is_success(yaml_files) ? yaml_files.value : []),
+      ];
+
+      for (const file_path of all_files) {
+        const result = await load_nodes_from_file(file_path);
+        if (is_success(result)) {
+          nodes.push(...result.value);
+        } else {
+          errors.push(result.error.message);
+        }
+      }
+    } else if (await file_exists(full_path)) {
+      // Load single file (may contain multiple documents)
+      const result = await load_nodes_from_file(full_path);
+      if (is_success(result)) {
+        nodes.push(...result.value);
+      } else {
+        errors.push(result.error.message);
+      }
+    }
+  }
+
+  if (errors.length > 0) {
+    return failure(Errors.validation_error(`Failed to load nodes:\n${errors.join('\n')}`));
+  }
+
+  return success(nodes);
+}
+
+/**
  * Loads a single cluster from its directory.
  */
 export async function load_cluster(
@@ -124,9 +219,17 @@ export async function load_cluster(
     return failure(Errors.schema_validation_error(errors));
   }
 
+  // Load nodes from specified paths or default nodes/ directory
+  const node_file_paths = validation.data.spec.nodes;
+  const nodes_result = await load_cluster_nodes(cluster_dir, node_file_paths);
+  if (!is_success(nodes_result)) {
+    return nodes_result;
+  }
+
   return success({
     path: cluster_dir,
     cluster: validation.data,
+    nodes: nodes_result.value,
   });
 }
 

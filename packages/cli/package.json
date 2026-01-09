@@ -36,11 +36,10 @@
     "directory": "packages/cli"
   },
   "dependencies": {
-    "@kustodian/bootstrap": "workspace:*",
     "@kustodian/core": "workspace:*",
-    "@kustodian/generator": "workspace:*",
     "@kustodian/loader": "workspace:*",
     "@kustodian/nodes": "workspace:*",
+    "@kustodian/plugin-k0s": "workspace:*",
     "@kustodian/plugins": "workspace:*",
     "@kustodian/schema": "workspace:*"
   },

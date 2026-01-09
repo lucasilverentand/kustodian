@@ -78,6 +78,21 @@ export async function read_yaml_file<T>(
 }
 
 /**
+ * Reads a multi-document YAML file and parses it.
+ */
+export async function read_multi_yaml_file<T>(
+  file_path: string,
+): Promise<ResultType<T[], KustodianErrorType>> {
+  const content_result = await read_file(file_path);
+  if (!content_result.success) {
+    return content_result;
+  }
+
+  const { parse_multi_yaml } = await import('./yaml.js');
+  return parse_multi_yaml<T>(content_result.value);
+}
+
+/**
  * Writes an object to a YAML file.
  */
 export async function write_yaml_file<T>(
