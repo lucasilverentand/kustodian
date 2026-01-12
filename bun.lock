@@ -10,18 +10,9 @@
         "typescript": "^5.8.3",
       },
     },
-    "packages/bootstrap": {
-      "name": "@kustodian/bootstrap",
-      "version": "0.0.0",
-      "dependencies": {
-        "@kustodian/core": "workspace:*",
-        "@kustodian/nodes": "workspace:*",
-        "@kustodian/schema": "workspace:*",
-      },
-    },
     "packages/cli": {
       "name": "@kustodian/cli",
-      "version": "0.0.0",
+      "version": "1.0.0",
       "bin": {
         "kustodian": "./dist/bin.js",
       },
@@ -36,11 +27,11 @@
     },
     "packages/core": {
       "name": "@kustodian/core",
-      "version": "0.0.0",
+      "version": "1.0.0",
     },
     "packages/generator": {
       "name": "@kustodian/generator",
-      "version": "0.0.0",
+      "version": "1.0.0",
       "dependencies": {
         "@kustodian/core": "workspace:*",
         "@kustodian/loader": "workspace:*",
@@ -51,7 +42,7 @@
     },
     "packages/loader": {
       "name": "@kustodian/loader",
-      "version": "0.0.0",
+      "version": "1.0.0",
       "dependencies": {
         "@kustodian/core": "workspace:*",
         "@kustodian/schema": "workspace:*",
@@ -60,7 +51,7 @@
     },
     "packages/nodes": {
       "name": "@kustodian/nodes",
-      "version": "0.0.0",
+      "version": "1.0.0",
       "dependencies": {
         "@kustodian/core": "workspace:*",
         "@kustodian/schema": "workspace:*",
@@ -68,7 +59,7 @@
     },
     "packages/plugins": {
       "name": "@kustodian/plugins",
-      "version": "0.0.0",
+      "version": "1.0.0",
       "dependencies": {
         "@kustodian/core": "workspace:*",
         "@kustodian/nodes": "workspace:*",
@@ -78,7 +69,7 @@
     },
     "packages/schema": {
       "name": "@kustodian/schema",
-      "version": "0.0.0",
+      "version": "1.0.0",
       "dependencies": {
         "zod": "^3.25.30",
       },
@@ -113,8 +104,6 @@
 
     "@biomejs/cli-win32-x64": ["@biomejs/cli-win32-x64@1.9.4", "", { "os": "win32", "cpu": "x64" }, "sha512-8Y5wMhVIPaWe6jw2H+KlEm4wP/f7EW3810ZLmDlrEEy5KvBsb9ECEfu/kMWD484ijfQ8+nIi0giMgu9g1UAuuA=="],
 
-    "@kustodian/bootstrap": ["@kustodian/bootstrap@workspace:packages/bootstrap"],
-
     "@kustodian/cli": ["@kustodian/cli@workspace:packages/cli"],
 
     "@kustodian/core": ["@kustodian/core@workspace:packages/core"],
@@ -133,7 +122,7 @@
 
     "@types/bun": ["@types/bun@1.3.5", "", { "dependencies": { "bun-types": "1.3.5" } }, "sha512-RnygCqNrd3srIPEWBd5LFeUYG7plCoH2Yw9WaZGyNmdTEei+gWaHqydbaIRkIkcbXwhBT94q78QljxN0Sk838w=="],
 
-    "@types/node": ["@types/node@25.0.3", "", { "dependencies": { "undici-types": "~7.16.0" } }, "sha512-W609buLVRVmeW693xKfzHeIV6nJGGz98uCPfeXI1ELMLXVeKYZ9m15fAMSaUPBHYLGFsVRcMmSCksQOrZV9BYA=="],
+    "@types/node": ["@types/node@25.0.6", "", { "dependencies": { "undici-types": "~7.16.0" } }, "sha512-NNu0sjyNxpoiW3YuVFfNz7mxSQ+S4X2G28uqg2s+CzoqoQjLPsWSbsFFyztIAqt2vb8kfEAsJNepMGPTxFDx3Q=="],
 
     "bun-types": ["bun-types@1.3.5", "", { "dependencies": { "@types/node": "*" } }, "sha512-inmAYe2PFLs0SUbFOWSVD24sg1jFlMPxOjOSSCYqUgn4Hsc3rDc7dFvfVYjFPNHtov6kgUeulV4SxbuIV/stPw=="],
 

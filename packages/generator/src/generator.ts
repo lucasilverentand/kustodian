@@ -12,8 +12,8 @@ import {
   DEFAULT_TIMEOUT,
   generate_depends_on,
   generate_flux_kustomization,
-  generate_flux_oci_repository,
   generate_flux_name,
+  generate_flux_oci_repository,
   generate_health_checks,
   resolve_kustomization,
 } from './flux.js';

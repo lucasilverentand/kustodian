@@ -82,11 +82,11 @@ export const apply_command = define_command({
       };
     }
 
-    console.log(`\n━━━ Kustodian Apply ━━━`);
+    console.log('\n━━━ Kustodian Apply ━━━');
     console.log(`Cluster: ${cluster_name}`);
     console.log(`Provider: ${provider_name}`);
     if (dry_run) {
-      console.log(`Mode: DRY RUN\n`);
+      console.log('Mode: DRY RUN\n');
     }
 
     // ===== PHASE 1: Load Project =====
@@ -118,7 +118,7 @@ export const apply_command = define_command({
       };
     }
 
-    console.log(`  ✓ Loaded cluster configuration`);
+    console.log('  ✓ Loaded cluster configuration');
     console.log(`  ✓ Loaded ${project.templates.length} templates`);
     console.log(`  ✓ Loaded ${loaded_cluster.nodes.length} nodes`);
 
@@ -437,7 +437,6 @@ async function get_oci_tag(cluster: ClusterType, project_root: string): Promise<
         return 'latest';
       }
     }
-    case 'git-sha':
     default: {
       try {
         const { stdout } = await execAsync('git rev-parse --short HEAD', { cwd: project_root });
