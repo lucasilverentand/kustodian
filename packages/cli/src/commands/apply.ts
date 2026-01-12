@@ -1,9 +1,14 @@
+import { exec } from 'node:child_process';
 import * as path from 'node:path';
+import { promisify } from 'node:util';
 import { is_success, success } from '@kustodian/core';
 import { find_project_root, load_project } from '@kustodian/loader';
 import type { NodeListType } from '@kustodian/nodes';
+import type { ClusterType } from '@kustodian/schema';
 
 import { define_command } from '../command.js';
+
+const execAsync = promisify(exec);
 
 
 /**
@@ -221,8 +226,49 @@ export const apply_command = define_command({
 
       if (!flux_installed) {
         console.log('  → Installing Flux CD...');
-        console.log('  → TODO: Run flux install command');
-        console.log('  → For now, install manually: flux install');
+
+        // Check if flux CLI is available
+        try {
+          await execAsync('flux --version', { timeout: 5000 });
+        } catch {
+          console.error('  ✗ Error: flux CLI not found');
+          console.error('  → Install with: brew install fluxcd/tap/flux');
+          return {
+            success: false as const,
+            error: { code: 'MISSING_DEPENDENCY', message: 'flux CLI not found' },
+          };
+        }
+
+        if (dry_run) {
+          console.log('    [dry-run] Would run: flux install');
+        } else {
+          try {
+            console.log('    Running: flux install');
+            const { stderr } = await execAsync('flux install', {
+              timeout: 300000, // 5 minutes timeout
+            });
+            if (stderr && !stderr.includes('successfully')) {
+              console.log(`    ${stderr}`);
+            }
+            console.log('    ✓ Flux CD installed successfully');
+          } catch (error) {
+            const err = error as { message?: string; stderr?: string };
+            console.error(`  ✗ Flux installation failed: ${err.message || err.stderr}`);
+            return {
+              success: false as const,
+              error: { code: 'FLUX_INSTALL_FAILED', message: 'Flux installation failed' },
+            };
+          }
+
+          // Wait for Flux to be ready
+          console.log('    Waiting for Flux components to be ready...');
+          try {
+            await execAsync('flux check --timeout=2m', { timeout: 150000 });
+            console.log('    ✓ Flux components are ready');
+          } catch {
+            console.log('    ⚠ Flux components may not be fully ready yet');
+          }
+        }
       }
     } else {
       console.log('\n[3/3] Skipping Flux CD installation');
@@ -262,11 +308,66 @@ export const apply_command = define_command({
         }
 
         console.log(`  ✓ Generated ${write_result.value.length} files to ${output_dir}`);
-        console.log('\n  Next steps for OCI deployment:');
-        console.log(`    1. Review generated files in ${output_dir}`);
-        console.log(`    2. Push to OCI registry: kustodian push --cluster ${cluster_name}`);
-        console.log(`    3. Apply Flux resources: kubectl apply -f ${output_dir}/`);
-        console.log('    4. Flux will automatically pull from OCI and reconcile');
+
+        if (dry_run) {
+          console.log('\n  [dry-run] Would push to OCI and apply Flux resources');
+        } else {
+          // Push to OCI registry
+          console.log('  → Pushing to OCI registry...');
+          try {
+            const tag = await get_oci_tag(loaded_cluster.cluster, project_root);
+            const oci = loaded_cluster.cluster.spec.oci;
+            const oci_url = `oci://${oci.registry}/${oci.repository}:${tag}`;
+            const git_source = await get_git_source(project_root);
+            const git_revision = await get_git_revision(project_root);
+
+            const push_cmd = `flux push artifact ${oci_url} --path="${project_root}" --source="${git_source}" --revision="${git_revision}"`;
+            await execAsync(push_cmd, { timeout: 120000 });
+            console.log(`    ✓ Pushed to ${oci_url}`);
+
+            // Update the OCI repository manifest with the actual tag
+            const oci_repo_path = path.join(output_dir, 'oci-repository.yaml');
+            const oci_content = await import('node:fs/promises').then((fs) =>
+              fs.readFile(oci_repo_path, 'utf-8'),
+            );
+            const updated_content = oci_content.replace(/tag: .+/, `tag: ${tag}`);
+            await import('node:fs/promises').then((fs) =>
+              fs.writeFile(oci_repo_path, updated_content),
+            );
+          } catch (error) {
+            const err = error as Error;
+            console.error(`  ✗ Push failed: ${err.message}`);
+            return {
+              success: false as const,
+              error: { code: 'PUSH_FAILED', message: err.message },
+            };
+          }
+
+          // Apply Flux resources
+          console.log('  → Applying Flux resources...');
+          try {
+            // Get all generated yaml files except kustomization.yaml (which is for kustomize build)
+            const fs = await import('node:fs/promises');
+            const files = await fs.readdir(output_dir);
+            const flux_files = files
+              .filter((f) => f.endsWith('.yaml') && f !== 'kustomization.yaml')
+              .map((f) => `${output_dir}/${f}`)
+              .join(' -f ');
+
+            const { stdout } = await execAsync(`kubectl apply -f ${flux_files}`, { timeout: 30000 });
+            if (stdout) console.log(`    ${stdout.trim()}`);
+            console.log('    ✓ Flux resources applied');
+          } catch (error) {
+            const err = error as Error;
+            console.error(`  ✗ Apply failed: ${err.message}`);
+            return {
+              success: false as const,
+              error: { code: 'APPLY_FAILED', message: err.message },
+            };
+          }
+
+          console.log('\n  ✓ Deployment complete - Flux will reconcile from OCI');
+        }
       } else if (loaded_cluster.cluster.spec.git) {
         // Git Mode - legacy deployment
         console.log('  → Cluster uses Git deployment (legacy mode)');
@@ -288,3 +389,62 @@ export const apply_command = define_command({
     return success(undefined);
   },
 });
+
+/**
+ * Resolves the OCI tag based on cluster strategy.
+ */
+async function get_oci_tag(cluster: ClusterType, project_root: string): Promise<string> {
+  if (!cluster.spec.oci) {
+    return 'latest';
+  }
+
+  const strategy = cluster.spec.oci.tag_strategy || 'git-sha';
+
+  switch (strategy) {
+    case 'cluster':
+      return cluster.metadata.name;
+    case 'manual':
+      return cluster.spec.oci.tag || 'latest';
+    case 'version': {
+      try {
+        const { stdout } = await execAsync('git describe --tags --abbrev=0', { cwd: project_root });
+        return stdout.trim();
+      } catch {
+        return 'latest';
+      }
+    }
+    case 'git-sha':
+    default: {
+      try {
+        const { stdout } = await execAsync('git rev-parse --short HEAD', { cwd: project_root });
+        return `sha1-${stdout.trim()}`;
+      } catch {
+        return 'latest';
+      }
+    }
+  }
+}
+
+/**
+ * Gets the git remote URL for source metadata.
+ */
+async function get_git_source(project_root: string): Promise<string> {
+  try {
+    const { stdout } = await execAsync('git config --get remote.origin.url', { cwd: project_root });
+    return stdout.trim();
+  } catch {
+    return 'unknown';
+  }
+}
+
+/**
+ * Gets the current git revision for source metadata.
+ */
+async function get_git_revision(project_root: string): Promise<string> {
+  try {
+    const { stdout } = await execAsync('git rev-parse HEAD', { cwd: project_root });
+    return `sha1:${stdout.trim()}`;
+  } catch {
+    return 'unknown';
+  }
+}

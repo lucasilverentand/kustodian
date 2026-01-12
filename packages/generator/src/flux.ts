@@ -130,6 +130,7 @@ export function generate_flux_kustomization(
 
   const spec: FluxKustomizationType['spec'] = {
     interval: DEFAULT_INTERVAL,
+    targetNamespace: namespace,
     path,
     prune: kustomization.prune ?? true,
     wait: kustomization.wait ?? true,

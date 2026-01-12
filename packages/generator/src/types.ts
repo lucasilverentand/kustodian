@@ -96,6 +96,7 @@ export interface FluxKustomizationType {
   };
   spec: {
     interval: string;
+    targetNamespace?: string;
     path: string;
     prune: boolean;
     wait: boolean;

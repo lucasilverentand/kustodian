@@ -136,17 +136,19 @@ export const push_command = define_command({
     console.log(`  → Source: ${git_source}`);
     console.log(`  → Revision: ${git_revision}`);
 
-    // Push artifact
+    // Push artifact - push from project root to include templates
+    // The Kustomizations reference paths like ./templates/example/app
     console.log('\n[5/5] Pushing artifact...');
+    const push_path = project_root;
     if (dry_run) {
       console.log('  [DRY RUN] Would execute:');
       console.log(`  flux push artifact ${oci_url} \\`);
-      console.log(`    --path="${output_dir}" \\`);
+      console.log(`    --path="${push_path}" \\`);
       console.log(`    --source="${git_source}" \\`);
       console.log(`    --revision="${git_revision}"`);
     } else {
       try {
-        const cmd = `flux push artifact ${oci_url} --path="${output_dir}" --source="${git_source}" --revision="${git_revision}"`;
+        const cmd = `flux push artifact ${oci_url} --path="${push_path}" --source="${git_source}" --revision="${git_revision}"`;
         const { stdout, stderr } = await execAsync(cmd);
 
         if (stdout) console.log(stdout);
