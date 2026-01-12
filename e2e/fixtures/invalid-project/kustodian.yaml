@@ -1,0 +1,6 @@
+apiVersion: kustodian.io/v1
+kind: Project
+metadata:
+  name: invalid-project
+spec:
+  flux_namespace: flux-system

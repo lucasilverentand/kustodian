@@ -8,11 +8,13 @@
   "scripts": {
     "build": "bun run --filter '*' build",
     "test": "bun run --filter '*' test",
+    "test:coverage": "bun test --coverage --coverage-reporter=lcov --coverage-dir=coverage",
+    "test:e2e": "bun test e2e/",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "fmt": "biome format --write .",
     "typecheck": "bun run --filter '*' typecheck",
-    "clean": "bun run --filter '*' clean && rm -rf node_modules"
+    "clean": "bun run --filter '*' clean && rm -rf node_modules coverage"
   },
   "keywords": [
     "kubernetes",

@@ -1,0 +1,15 @@
+apiVersion: kustodian.io/v1
+kind: Template
+metadata:
+  name: example
+spec:
+  kustomizations:
+    - name: app
+      path: ./app
+      namespace:
+        default: example
+      substitutions:
+        - name: replicas
+          default: "1"
+        - name: namespace
+          default: "example"

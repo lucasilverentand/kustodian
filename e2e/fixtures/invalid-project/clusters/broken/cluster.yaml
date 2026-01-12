@@ -1,0 +1,9 @@
+# Invalid cluster - missing required fields
+apiVersion: kustodian.io/v1
+kind: Cluster
+metadata:
+  name: broken
+spec:
+  # Missing domain - should cause validation error
+  templates:
+    - name: nonexistent

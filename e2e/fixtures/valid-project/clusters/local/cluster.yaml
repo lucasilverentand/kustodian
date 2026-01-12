@@ -1,0 +1,16 @@
+apiVersion: kustodian.io/v1
+kind: Cluster
+metadata:
+  name: local
+spec:
+  domain: local.example.com
+  oci:
+    registry: ghcr.io
+    repository: test/e2e-project
+    tag_strategy: git-sha
+    secret_ref: ghcr-auth
+  templates:
+    - name: example
+      enabled: true
+      values:
+        replicas: "3"
