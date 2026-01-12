@@ -155,10 +155,12 @@ export async function write_generation_result(
     resources.push(`oci-repository.${ext}`);
   }
 
-  resources.push(...result.kustomizations.map((k) => {
-    const ext = format === 'json' ? 'json' : 'yaml';
-    return `${k.flux_kustomization.metadata.name}.${ext}`;
-  }));
+  resources.push(
+    ...result.kustomizations.map((k) => {
+      const ext = format === 'json' ? 'json' : 'yaml';
+      return `${k.flux_kustomization.metadata.name}.${ext}`;
+    }),
+  );
 
   const kustomization_content = serialize_resource(
     {

@@ -9,7 +9,6 @@ import { define_command } from '../command.js';
 
 const execAsync = promisify(exec);
 
-
 /**
  * Apply command - orchestrates full cluster setup:
  * 1. Bootstrap nodes with k0s
@@ -147,7 +146,9 @@ export const apply_command = define_command({
         // Check if we have nodes to bootstrap
         if (loaded_cluster.nodes.length === 0) {
           console.error('  ✗ Error: No nodes defined for cluster');
-          console.error('  → Add nodes to cluster.yaml spec.nodes or create node files in nodes/ directory');
+          console.error(
+            '  → Add nodes to cluster.yaml spec.nodes or create node files in nodes/ directory',
+          );
           return {
             success: false as const,
             error: { code: 'NOT_FOUND', message: 'No nodes defined for cluster' },

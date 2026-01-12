@@ -11,9 +11,7 @@
       "import": "./dist/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "build": "bun run tsc --build",
     "test": "bun test",
@@ -21,11 +19,7 @@
     "typecheck": "bun run tsc --noEmit",
     "clean": "rm -rf dist *.tsbuildinfo"
   },
-  "keywords": [
-    "kustodian",
-    "generator",
-    "flux"
-  ],
+  "keywords": ["kustodian", "generator", "flux"],
   "author": "Luca Silverentand <luca@onezero.company>",
   "license": "MIT",
   "repository": {

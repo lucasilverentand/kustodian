@@ -25,7 +25,9 @@ async function main() {
     console.log('Commands:');
     console.log('  init <name>        Initialize a new Kustodian project');
     console.log('  validate           Validate cluster and template configurations');
-    console.log('  apply              Apply full cluster configuration (generates, pushes OCI, deploys)\n');
+    console.log(
+      '  apply              Apply full cluster configuration (generates, pushes OCI, deploys)\n',
+    );
     console.log('Options:');
     console.log('  --help, -h         Show help');
     console.log('  --version, -v      Show version\n');

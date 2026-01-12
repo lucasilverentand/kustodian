@@ -111,7 +111,9 @@ export async function load_template(
 /**
  * Loads nodes from a single YAML file (supports multi-document).
  */
-async function load_nodes_from_file(file_path: string): Promise<ResultType<NodeSchemaType[], KustodianErrorType>> {
+async function load_nodes_from_file(
+  file_path: string,
+): Promise<ResultType<NodeSchemaType[], KustodianErrorType>> {
   const { read_multi_yaml_file } = await import('./file.js');
   const docs_result = await read_multi_yaml_file<unknown>(file_path);
 
@@ -156,9 +158,7 @@ export async function load_cluster_nodes(
   const paths_to_scan = node_file_paths || [StandardDirs.NODES];
 
   for (const ref_path of paths_to_scan) {
-    const full_path = path.isAbsolute(ref_path)
-      ? ref_path
-      : path.join(cluster_dir, ref_path);
+    const full_path = path.isAbsolute(ref_path) ? ref_path : path.join(cluster_dir, ref_path);
 
     // Check if it's a directory
     const { is_directory } = await import('./file.js');

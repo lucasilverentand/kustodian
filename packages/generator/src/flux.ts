@@ -1,6 +1,15 @@
-import type { ClusterType, KustomizationType, OciConfigType, TemplateType } from '@kustodian/schema';
+import type {
+  ClusterType,
+  KustomizationType,
+  OciConfigType,
+  TemplateType,
+} from '@kustodian/schema';
 
-import type { FluxKustomizationType, FluxOCIRepositoryType, ResolvedKustomizationType } from './types.js';
+import type {
+  FluxKustomizationType,
+  FluxOCIRepositoryType,
+  ResolvedKustomizationType,
+} from './types.js';
 
 /**
  * Default interval for Flux reconciliation.

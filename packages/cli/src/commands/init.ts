@@ -281,7 +281,9 @@ jobs:
     console.log(`\n✓ Project '${project_name}' created successfully`);
     console.log('\nNext steps:');
     console.log(`  1. cd ${project_name}`);
-    console.log('  2. Initialize git repository: git init && git add . && git commit -m "Initial commit"');
+    console.log(
+      '  2. Initialize git repository: git init && git add . && git commit -m "Initial commit"',
+    );
     console.log('  3. Update clusters/local/cluster.yaml with your OCI registry details');
     console.log('  4. Create registry authentication secret in your cluster:');
     console.log('     kubectl create secret docker-registry ghcr-auth \\');

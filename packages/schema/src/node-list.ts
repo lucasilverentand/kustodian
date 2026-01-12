@@ -94,7 +94,9 @@ export type NodeResourceType = z.infer<typeof node_resource_schema>;
 /**
  * Validates a Node resource and returns the result.
  */
-export function validate_node_resource(data: unknown): z.SafeParseReturnType<unknown, NodeResourceType> {
+export function validate_node_resource(
+  data: unknown,
+): z.SafeParseReturnType<unknown, NodeResourceType> {
   return node_resource_schema.safeParse(data);
 }
 
