@@ -18,6 +18,7 @@
       },
       "dependencies": {
         "@kustodian/core": "workspace:*",
+        "@kustodian/generator": "workspace:*",
         "@kustodian/loader": "workspace:*",
         "@kustodian/nodes": "workspace:*",
         "@kustodian/plugin-k0s": "workspace:*",
