@@ -2,7 +2,6 @@
 
 import { apply_command } from './commands/apply.js';
 import { init_command } from './commands/init.js';
-import { push_command } from './commands/push.js';
 import { validate_command } from './commands/validate.js';
 import { create_container } from './container.js';
 import { create_cli } from './runner.js';
@@ -26,8 +25,7 @@ async function main() {
     console.log('Commands:');
     console.log('  init <name>        Initialize a new Kustodian project');
     console.log('  validate           Validate cluster and template configurations');
-    console.log('  push               Package and push manifests to OCI registry');
-    console.log('  apply              Apply full cluster configuration\n');
+    console.log('  apply              Apply full cluster configuration (generates, pushes OCI, deploys)\n');
     console.log('Options:');
     console.log('  --help, -h         Show help');
     console.log('  --version, -v      Show version\n');
@@ -48,7 +46,6 @@ async function main() {
   // Register commands
   cli.command(init_command);
   cli.command(validate_command);
-  cli.command(push_command);
   cli.command(apply_command);
 
   // Create container

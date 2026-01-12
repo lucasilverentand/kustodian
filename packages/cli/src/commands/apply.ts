@@ -1,5 +1,4 @@
 import { exec } from 'node:child_process';
-import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { is_success, success } from '@kustodian/core';
 import { find_project_root, load_project } from '@kustodian/loader';
@@ -279,21 +278,21 @@ export const apply_command = define_command({
       console.log('\n[4/4] Deploying templates...');
 
       if (loaded_cluster.cluster.spec.oci) {
-        // OCI Mode - generate manifests and provide instructions
+        // OCI Mode - generate in memory and apply directly
         console.log('  → Cluster uses OCI deployment');
-        console.log('  → Generating manifests...');
+        console.log('  → Generating Flux resources...');
 
-        const { create_generator } = await import('@kustodian/generator');
+        const { create_generator, serialize_resource } = await import('@kustodian/generator');
+        const oci_repository_name = 'kustodian-oci';
         const generator = create_generator({
           flux_namespace: 'flux-system',
-          git_repository_name: 'flux-system',
+          git_repository_name: oci_repository_name,
         });
 
-        const output_dir = path.join(project_root, 'output', cluster_name);
         const gen_result = await generator.generate(
           loaded_cluster.cluster,
           project.templates.map((t) => t.template),
-          { output_dir },
+          {},
         );
 
         if (!gen_result.success) {
@@ -301,39 +300,31 @@ export const apply_command = define_command({
           return gen_result;
         }
 
-        const write_result = await generator.write(gen_result.value);
-        if (!write_result.success) {
-          console.error(`  ✗ Write failed: ${write_result.error.message}`);
-          return write_result;
-        }
-
-        console.log(`  ✓ Generated ${write_result.value.length} files to ${output_dir}`);
+        const gen_data = gen_result.value;
+        console.log(`  ✓ Generated ${gen_data.kustomizations.length} Flux Kustomizations`);
 
         if (dry_run) {
           console.log('\n  [dry-run] Would push to OCI and apply Flux resources');
+          if (gen_data.oci_repository) {
+            console.log(`  → OCIRepository: ${gen_data.oci_repository.metadata.name}`);
+          }
+          for (const k of gen_data.kustomizations) {
+            console.log(`  → Kustomization: ${k.name} (${k.path})`);
+          }
         } else {
           // Push to OCI registry
           console.log('  → Pushing to OCI registry...');
+          const tag = await get_oci_tag(loaded_cluster.cluster, project_root);
+          const oci = loaded_cluster.cluster.spec.oci;
+          const oci_url = `oci://${oci.registry}/${oci.repository}:${tag}`;
+
           try {
-            const tag = await get_oci_tag(loaded_cluster.cluster, project_root);
-            const oci = loaded_cluster.cluster.spec.oci;
-            const oci_url = `oci://${oci.registry}/${oci.repository}:${tag}`;
             const git_source = await get_git_source(project_root);
             const git_revision = await get_git_revision(project_root);
 
             const push_cmd = `flux push artifact ${oci_url} --path="${project_root}" --source="${git_source}" --revision="${git_revision}"`;
             await execAsync(push_cmd, { timeout: 120000 });
             console.log(`    ✓ Pushed to ${oci_url}`);
-
-            // Update the OCI repository manifest with the actual tag
-            const oci_repo_path = path.join(output_dir, 'oci-repository.yaml');
-            const oci_content = await import('node:fs/promises').then((fs) =>
-              fs.readFile(oci_repo_path, 'utf-8'),
-            );
-            const updated_content = oci_content.replace(/tag: .+/, `tag: ${tag}`);
-            await import('node:fs/promises').then((fs) =>
-              fs.writeFile(oci_repo_path, updated_content),
-            );
           } catch (error) {
             const err = error as Error;
             console.error(`  ✗ Push failed: ${err.message}`);
@@ -343,19 +334,56 @@ export const apply_command = define_command({
             };
           }
 
-          // Apply Flux resources
+          // Apply Flux resources directly (no file writes)
           console.log('  → Applying Flux resources...');
           try {
-            // Get all generated yaml files except kustomization.yaml (which is for kustomize build)
-            const fs = await import('node:fs/promises');
-            const files = await fs.readdir(output_dir);
-            const flux_files = files
-              .filter((f) => f.endsWith('.yaml') && f !== 'kustomization.yaml')
-              .map((f) => `${output_dir}/${f}`)
-              .join(' -f ');
+            // Build combined YAML for all resources
+            const resources: object[] = [];
 
-            const { stdout } = await execAsync(`kubectl apply -f ${flux_files}`, { timeout: 30000 });
-            if (stdout) console.log(`    ${stdout.trim()}`);
+            // Add OCIRepository with correct tag
+            if (gen_data.oci_repository) {
+              const oci_repo = { ...gen_data.oci_repository };
+              oci_repo.spec = { ...oci_repo.spec, ref: { tag } };
+              resources.push(oci_repo);
+            }
+
+            // Add all Kustomizations
+            for (const k of gen_data.kustomizations) {
+              resources.push(k.flux_kustomization);
+            }
+
+            // Serialize and apply via stdin
+            const yaml_content = resources.map((r) => serialize_resource(r)).join('---\n');
+            const { spawn } = await import('node:child_process');
+
+            await new Promise<void>((resolve, reject) => {
+              const kubectl = spawn('kubectl', ['apply', '-f', '-'], {
+                stdio: ['pipe', 'pipe', 'pipe'],
+              });
+
+              let stdout = '';
+              let stderr = '';
+
+              kubectl.stdout.on('data', (data) => {
+                stdout += data.toString();
+              });
+              kubectl.stderr.on('data', (data) => {
+                stderr += data.toString();
+              });
+
+              kubectl.on('close', (code) => {
+                if (code === 0) {
+                  if (stdout) console.log(`    ${stdout.trim()}`);
+                  resolve();
+                } else {
+                  reject(new Error(stderr || `kubectl exited with code ${code}`));
+                }
+              });
+
+              kubectl.stdin.write(yaml_content);
+              kubectl.stdin.end();
+            });
+
             console.log('    ✓ Flux resources applied');
           } catch (error) {
             const err = error as Error;
@@ -368,17 +396,12 @@ export const apply_command = define_command({
 
           console.log('\n  ✓ Deployment complete - Flux will reconcile from OCI');
         }
-      } else if (loaded_cluster.cluster.spec.git) {
-        // Git Mode - legacy deployment
-        console.log('  → Cluster uses Git deployment (legacy mode)');
-        console.log('  ⚠ Git-based deployment is deprecated');
-        console.log('  → Consider migrating to OCI: Update cluster.yaml to use spec.oci');
-        console.log('  → See: https://kustodian.io/docs/oci-migration');
       } else {
-        console.error('  ✗ Error: Cluster must have either spec.oci or spec.git configured');
+        console.error('  ✗ Error: Cluster must have spec.oci configured');
+        console.error('  → Git-based deployment has been removed');
         return {
           success: false as const,
-          error: { code: 'INVALID_CONFIG', message: 'No deployment configuration found' },
+          error: { code: 'INVALID_CONFIG', message: 'spec.oci configuration required' },
         };
       }
     } else {
