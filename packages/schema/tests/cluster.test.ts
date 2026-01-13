@@ -263,5 +263,172 @@ describe('Cluster Schema', () => {
       // Assert
       expect(result.success).toBe(false);
     });
+
+    it('should validate a cluster with code field', () => {
+      // Arrange
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'production' },
+        spec: {
+          code: 'prod',
+          domain: 'example.com',
+          git: { owner: 'org', repository: 'repo' },
+        },
+      };
+
+      // Act
+      const result = validate_cluster(cluster);
+
+      // Assert
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.spec.code).toBe('prod');
+      }
+    });
+
+    it('should validate a cluster with github configuration', () => {
+      // Arrange
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'production' },
+        spec: {
+          domain: 'example.com',
+          git: { owner: 'org', repository: 'repo' },
+          github: {
+            organization: 'acme-corp',
+            repository: 'infrastructure',
+          },
+        },
+      };
+
+      // Act
+      const result = validate_cluster(cluster);
+
+      // Assert
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.spec.github?.organization).toBe('acme-corp');
+        expect(result.data.spec.github?.repository).toBe('infrastructure');
+        expect(result.data.spec.github?.branch).toBe('main');
+      }
+    });
+
+    it('should validate a cluster with github custom branch', () => {
+      // Arrange
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'production' },
+        spec: {
+          domain: 'example.com',
+          git: { owner: 'org', repository: 'repo' },
+          github: {
+            organization: 'acme-corp',
+            repository: 'infrastructure',
+            branch: 'production',
+          },
+        },
+      };
+
+      // Act
+      const result = validate_cluster(cluster);
+
+      // Assert
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.spec.github?.branch).toBe('production');
+      }
+    });
+
+    it('should validate a cluster with both code and github', () => {
+      // Arrange
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'production' },
+        spec: {
+          code: 'prod',
+          domain: 'example.com',
+          git: { owner: 'org', repository: 'repo' },
+          github: {
+            organization: 'acme-corp',
+            repository: 'infrastructure',
+            branch: 'production',
+          },
+        },
+      };
+
+      // Act
+      const result = validate_cluster(cluster);
+
+      // Assert
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.spec.code).toBe('prod');
+        expect(result.data.spec.github?.organization).toBe('acme-corp');
+      }
+    });
+
+    it('should reject empty code', () => {
+      // Arrange
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'test' },
+        spec: {
+          code: '',
+          domain: 'test.com',
+          git: { owner: 'org', repository: 'repo' },
+        },
+      };
+
+      // Act
+      const result = validate_cluster(cluster);
+
+      // Assert
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject empty github organization', () => {
+      // Arrange
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'test' },
+        spec: {
+          domain: 'test.com',
+          git: { owner: 'org', repository: 'repo' },
+          github: { organization: '', repository: 'infra' },
+        },
+      };
+
+      // Act
+      const result = validate_cluster(cluster);
+
+      // Assert
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject empty github repository', () => {
+      // Arrange
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'test' },
+        spec: {
+          domain: 'test.com',
+          git: { owner: 'org', repository: 'repo' },
+          github: { organization: 'acme', repository: '' },
+        },
+      };
+
+      // Act
+      const result = validate_cluster(cluster);
+
+      // Assert
+      expect(result.success).toBe(false);
+    });
   });
 });
