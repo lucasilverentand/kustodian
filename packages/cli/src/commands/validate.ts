@@ -1,4 +1,5 @@
-import { success } from '@kustodian/core';
+import { failure, success } from '@kustodian/core';
+import { validate_dependency_graph } from '@kustodian/generator';
 import { find_project_root, load_project } from '@kustodian/loader';
 
 import { define_command } from '../command.js';
@@ -79,6 +80,30 @@ export const validate_command = define_command({
           console.log(`      - ${t.name} ${status}`);
         }
       }
+    }
+
+    // Validate dependency graph
+    console.log('\nValidating dependency graph...');
+    const templates = project.templates.map((t) => t.template);
+    const graph_result = validate_dependency_graph(templates);
+
+    if (!graph_result.valid) {
+      console.error('\nDependency validation errors:');
+      for (const error of graph_result.errors) {
+        console.error(`  ✗ ${error.message}`);
+      }
+      return failure({
+        code: 'DEPENDENCY_VALIDATION_ERROR',
+        message: 'Dependency validation failed',
+      });
+    }
+
+    // Show deployment order if there are dependencies
+    if (graph_result.topological_order && graph_result.topological_order.length > 0) {
+      console.log(`\nDeployment order (${graph_result.topological_order.length} kustomizations):`);
+      graph_result.topological_order.forEach((id, index) => {
+        console.log(`  ${index + 1}. ${id}`);
+      });
     }
 
     console.log('\n✓ All configurations are valid');

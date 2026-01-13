@@ -69,6 +69,12 @@ export const ErrorCodes = {
   PLUGIN_NOT_FOUND: 'PLUGIN_NOT_FOUND',
   PLUGIN_LOAD_ERROR: 'PLUGIN_LOAD_ERROR',
   PLUGIN_EXECUTION_ERROR: 'PLUGIN_EXECUTION_ERROR',
+
+  // Dependency graph errors
+  DEPENDENCY_CYCLE: 'DEPENDENCY_CYCLE',
+  DEPENDENCY_MISSING: 'DEPENDENCY_MISSING',
+  DEPENDENCY_SELF_REFERENCE: 'DEPENDENCY_SELF_REFERENCE',
+  DEPENDENCY_VALIDATION_ERROR: 'DEPENDENCY_VALIDATION_ERROR',
 } as const;
 
 export type ErrorCodeType = (typeof ErrorCodes)[keyof typeof ErrorCodes];
@@ -161,6 +167,32 @@ export const Errors = {
 
   plugin_load_error(name: string, cause?: unknown): KustodianErrorType {
     return create_error(ErrorCodes.PLUGIN_LOAD_ERROR, `Failed to load plugin '${name}'`, cause);
+  },
+
+  dependency_cycle(cycle: string[]): KustodianErrorType {
+    const cycle_str = cycle.join(' → ');
+    return create_error(ErrorCodes.DEPENDENCY_CYCLE, `Dependency cycle detected: ${cycle_str}`);
+  },
+
+  dependency_missing(source: string, target: string): KustodianErrorType {
+    return create_error(
+      ErrorCodes.DEPENDENCY_MISSING,
+      `Kustomization '${source}' depends on '${target}' which does not exist`,
+    );
+  },
+
+  dependency_self_reference(node: string): KustodianErrorType {
+    return create_error(
+      ErrorCodes.DEPENDENCY_SELF_REFERENCE,
+      `Kustomization '${node}' cannot depend on itself`,
+    );
+  },
+
+  dependency_validation_error(errors: string[]): KustodianErrorType {
+    return create_error(
+      ErrorCodes.DEPENDENCY_VALIDATION_ERROR,
+      `Dependency validation failed:\n${errors.map((e) => `  - ${e}`).join('\n')}`,
+    );
   },
 } as const;
 

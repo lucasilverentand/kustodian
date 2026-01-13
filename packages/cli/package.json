@@ -30,6 +30,9 @@
     "url": "https://github.com/lucasilverentand/kustodian.git",
     "directory": "packages/cli"
   },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "dependencies": {
     "@kustodian/core": "workspace:*",
     "@kustodian/generator": "workspace:*",

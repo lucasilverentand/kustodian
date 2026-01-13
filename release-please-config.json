@@ -22,16 +22,16 @@
       "package-name": "@kustodian/nodes",
       "changelog-path": "CHANGELOG.md"
     },
-    "packages/bootstrap": {
-      "package-name": "@kustodian/bootstrap",
-      "changelog-path": "CHANGELOG.md"
-    },
     "packages/plugins": {
       "package-name": "@kustodian/plugins",
       "changelog-path": "CHANGELOG.md"
     },
     "packages/generator": {
       "package-name": "@kustodian/generator",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "plugins/k0s": {
+      "package-name": "@kustodian/plugin-k0s",
       "changelog-path": "CHANGELOG.md"
     }
   },
