@@ -3,21 +3,19 @@
   "version": "1.0.0",
   "description": "YAML file loading and validation for Kustodian",
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
     }
   },
-  "files": ["dist"],
+  "files": ["src"],
   "scripts": {
-    "build": "bun run tsc --build",
     "test": "bun test",
     "test:watch": "bun test --watch",
-    "typecheck": "bun run tsc --noEmit",
-    "clean": "rm -rf dist *.tsbuildinfo"
+    "typecheck": "bun run tsc --noEmit"
   },
   "keywords": ["kustodian", "loader", "yaml"],
   "author": "Luca Silverentand <luca@onezero.company>",

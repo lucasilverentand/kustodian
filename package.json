@@ -6,7 +6,6 @@
   "type": "module",
   "workspaces": ["packages/*", "plugins/*"],
   "scripts": {
-    "build": "bun run --filter '@kustodian/core' --filter '@kustodian/schema' build && bun run --filter '@kustodian/nodes' --filter '@kustodian/loader' build && bun run --filter '@kustodian/plugins' build && bun run --filter '@kustodian/generator' --filter '@kustodian/plugin-k0s' build && bun run --filter '@kustodian/cli' build",
     "test": "bun run --filter '*' test",
     "test:coverage": "bun test --coverage --coverage-reporter=lcov --coverage-dir=coverage",
     "test:e2e": "bun test e2e/",
@@ -14,7 +13,7 @@
     "lint:fix": "biome check --write .",
     "fmt": "biome format --write .",
     "typecheck": "bun run --filter '*' typecheck",
-    "clean": "bun run --filter '*' clean && rm -rf node_modules coverage"
+    "clean": "rm -rf node_modules coverage **/dist **/*.tsbuildinfo"
   },
   "keywords": [
     "kubernetes",
