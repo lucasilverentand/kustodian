@@ -1,0 +1,142 @@
+name: Update Image Versions
+
+on:
+  schedule:
+    # Run daily at 6 AM UTC
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      cluster:
+        description: 'Cluster to update (required)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Only check for updates, do not create PRs'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  packages: read
+
+jobs:
+  check-updates:
+    runs-on: ubuntu-latest
+    outputs:
+      updates: ${{ steps.check.outputs.updates }}
+      has_updates: ${{ steps.check.outputs.has_updates }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Check for updates
+        id: check
+        env:
+          CLUSTER_NAME: ${{ inputs.cluster }}
+        run: |
+          UPDATES=$(bun run packages/cli/src/bin.ts update --cluster "$CLUSTER_NAME" --dry-run --json 2>/dev/null || echo "[]")
+
+          # Filter to only updates that have changes
+          UPDATES_WITH_CHANGES=$(echo "$UPDATES" | jq -c '[.[] | select(.current != .latest)]')
+
+          echo "updates=$UPDATES_WITH_CHANGES" >> $GITHUB_OUTPUT
+
+          # Check if there are any updates
+          COUNT=$(echo "$UPDATES_WITH_CHANGES" | jq 'length')
+          if [ "$COUNT" -gt 0 ]; then
+            echo "has_updates=true" >> $GITHUB_OUTPUT
+            echo "Found $COUNT update(s) available"
+          else
+            echo "has_updates=false" >> $GITHUB_OUTPUT
+            echo "All versions are up to date"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  create-prs:
+    needs: check-updates
+    if: ${{ needs.check-updates.outputs.has_updates == 'true' && !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        update: ${{ fromJson(needs.check-updates.outputs.updates) }}
+      max-parallel: 1
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Create branch and apply update
+        id: update
+        env:
+          UPDATE_CLUSTER: ${{ matrix.update.cluster }}
+          UPDATE_SUBSTITUTION: ${{ matrix.update.substitution }}
+          UPDATE_LATEST: ${{ matrix.update.latest }}
+        run: |
+          # Create a safe branch name
+          BRANCH="update/${UPDATE_SUBSTITUTION}-${UPDATE_LATEST}"
+          BRANCH=$(echo "$BRANCH" | sed 's/[^a-zA-Z0-9._-]/-/g')
+
+          git checkout -b "$BRANCH"
+
+          # Apply the update
+          bun run packages/cli/src/bin.ts update \
+            --cluster "$UPDATE_CLUSTER" \
+            --substitution "$UPDATE_SUBSTITUTION"
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Commit and push
+          git add -A
+          git commit -m "chore(deps): update ${UPDATE_SUBSTITUTION} to ${UPDATE_LATEST}"
+          git push -u origin "$BRANCH"
+
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+
+      - name: Create Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPDATE_CLUSTER: ${{ matrix.update.cluster }}
+          UPDATE_TEMPLATE: ${{ matrix.update.template }}
+          UPDATE_SUBSTITUTION: ${{ matrix.update.substitution }}
+          UPDATE_IMAGE: ${{ matrix.update.image }}
+          UPDATE_CURRENT: ${{ matrix.update.current }}
+          UPDATE_LATEST: ${{ matrix.update.latest }}
+          UPDATE_CONSTRAINT: ${{ matrix.update.constraint }}
+        run: |
+          CONSTRAINT="${UPDATE_CONSTRAINT:-none}"
+
+          gh pr create \
+            --title "chore(deps): update ${UPDATE_SUBSTITUTION} to ${UPDATE_LATEST}" \
+            --body "## Image Version Update
+
+          | Field | Value |
+          |-------|-------|
+          | Cluster | \`${UPDATE_CLUSTER}\` |
+          | Template | \`${UPDATE_TEMPLATE}\` |
+          | Substitution | \`${UPDATE_SUBSTITUTION}\` |
+          | Image | \`${UPDATE_IMAGE}\` |
+          | Current | \`${UPDATE_CURRENT}\` |
+          | Latest | \`${UPDATE_LATEST}\` |
+          | Constraint | \`${CONSTRAINT}\` |
+
+          ---
+          *This PR was automatically created by the kustodian version update workflow.*" \
+            --label "dependencies" \
+            --label "automated"

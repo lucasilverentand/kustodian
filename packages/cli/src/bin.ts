@@ -2,6 +2,7 @@
 
 import { apply_command } from './commands/apply.js';
 import { init_command } from './commands/init.js';
+import { update_command } from './commands/update.js';
 import { validate_command } from './commands/validate.js';
 import { create_container } from './container.js';
 import { create_cli } from './runner.js';
@@ -26,8 +27,9 @@ async function main() {
     console.log('  init <name>        Initialize a new Kustodian project');
     console.log('  validate           Validate cluster and template configurations');
     console.log(
-      '  apply              Apply full cluster configuration (generates, pushes OCI, deploys)\n',
+      '  apply              Apply full cluster configuration (generates, pushes OCI, deploys)',
     );
+    console.log('  update             Check and update image version substitutions\n');
     console.log('Options:');
     console.log('  --help, -h         Show help');
     console.log('  --version, -v      Show version\n');
@@ -49,6 +51,7 @@ async function main() {
   cli.command(init_command);
   cli.command(validate_command);
   cli.command(apply_command);
+  cli.command(update_command);
 
   // Create container
   const container = create_container();
