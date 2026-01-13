@@ -46,6 +46,7 @@ export const node_schema = z.object({
   name: z.string().min(1),
   role: node_role_schema,
   address: z.string().min(1),
+  profile: z.string().min(1).optional(),
   ssh: ssh_config_schema.optional(),
   labels: z.record(z.union([z.string(), z.boolean(), z.number()])).optional(),
   taints: z.array(taint_schema).optional(),
@@ -70,6 +71,7 @@ export type NodeMetadataType = z.infer<typeof node_metadata_schema>;
 export const node_spec_schema = z.object({
   role: node_role_schema,
   address: z.string().min(1),
+  profile: z.string().min(1).optional(),
   ssh: ssh_config_schema.optional(),
   labels: z.record(z.union([z.string(), z.boolean(), z.number()])).optional(),
   taints: z.array(taint_schema).optional(),
@@ -104,15 +106,29 @@ export function validate_node_resource(
  * Converts a Node resource to a NodeType for internal use.
  */
 export function node_resource_to_node(resource: NodeResourceType): NodeSchemaType {
-  return {
+  const node: NodeSchemaType = {
     name: resource.metadata.name,
     role: resource.spec.role,
     address: resource.spec.address,
-    ssh: resource.spec.ssh,
-    labels: resource.spec.labels,
-    taints: resource.spec.taints,
-    annotations: resource.spec.annotations,
   };
+
+  if (resource.spec.profile !== undefined) {
+    node.profile = resource.spec.profile;
+  }
+  if (resource.spec.ssh !== undefined) {
+    node.ssh = resource.spec.ssh;
+  }
+  if (resource.spec.labels !== undefined) {
+    node.labels = resource.spec.labels;
+  }
+  if (resource.spec.taints !== undefined) {
+    node.taints = resource.spec.taints;
+  }
+  if (resource.spec.annotations !== undefined) {
+    node.annotations = resource.spec.annotations;
+  }
+
+  return node;
 }
 
 // NodeList is no longer a schema kind - it's just an internal construct

@@ -44,6 +44,7 @@ export const ErrorCodes = {
   CONFIG_INVALID: 'CONFIG_INVALID',
   TEMPLATE_NOT_FOUND: 'TEMPLATE_NOT_FOUND',
   CLUSTER_NOT_FOUND: 'CLUSTER_NOT_FOUND',
+  PROFILE_NOT_FOUND: 'PROFILE_NOT_FOUND',
 
   // Network errors
   NETWORK_ERROR: 'NETWORK_ERROR',
@@ -143,6 +144,10 @@ export const Errors = {
 
   cluster_not_found(name: string): KustodianErrorType {
     return create_error(ErrorCodes.CLUSTER_NOT_FOUND, `Cluster '${name}' not found`);
+  },
+
+  profile_not_found(name: string): KustodianErrorType {
+    return create_error(ErrorCodes.PROFILE_NOT_FOUND, `Node profile '${name}' not found`);
   },
 
   ssh_connection_error(host: string, cause?: unknown): KustodianErrorType {

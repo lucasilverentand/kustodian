@@ -29,6 +29,7 @@ export interface NodeType {
   name: string;
   role: NodeRoleType;
   address: string;
+  profile?: string;
   ssh?: SshConfigType;
   labels?: Record<string, string | boolean | number>;
   taints?: TaintType[];
