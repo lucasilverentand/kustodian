@@ -27,6 +27,7 @@ import type {
   ResolvedKustomizationType,
   ResolvedTemplateType,
 } from './types.js';
+import { validate_dependencies } from './validation/index.js';
 
 /**
  * Options for the Generator.
@@ -164,6 +165,15 @@ export function create_generator(
 
     async generate(cluster, templates, generate_options = {}) {
       const output_dir = generate_options.output_dir ?? './output';
+      const skip_validation = generate_options.skip_validation ?? false;
+
+      // Validate dependency graph before generation (unless skipped)
+      if (!skip_validation) {
+        const validation_result = validate_dependencies(templates);
+        if (!validation_result.success) {
+          return validation_result;
+        }
+      }
 
       // Detect source kind and repository name
       const source_kind = cluster.spec.oci ? 'OCIRepository' : 'GitRepository';
