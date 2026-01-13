@@ -27,6 +27,9 @@
     "url": "https://github.com/lucasilverentand/kustodian.git",
     "directory": "packages/schema"
   },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "dependencies": {
     "zod": "^3.25.30"
   },

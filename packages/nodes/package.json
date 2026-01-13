@@ -27,6 +27,9 @@
     "url": "https://github.com/lucasilverentand/kustodian.git",
     "directory": "packages/nodes"
   },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "dependencies": {
     "@kustodian/core": "workspace:*",
     "@kustodian/schema": "workspace:*"

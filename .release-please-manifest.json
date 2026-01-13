@@ -4,7 +4,7 @@
   "packages/loader": "1.0.0",
   "packages/cli": "1.0.0",
   "packages/nodes": "1.0.0",
-  "packages/bootstrap": "1.0.0",
   "packages/plugins": "1.0.0",
-  "packages/generator": "1.0.0"
+  "packages/generator": "1.0.0",
+  "plugins/k0s": "0.0.0"
 }
