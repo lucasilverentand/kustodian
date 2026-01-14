@@ -1,0 +1,22 @@
+apiVersion: kustodian.io/v1
+kind: Cluster
+metadata:
+  name: staging
+spec:
+  code: stg
+  domain: staging.example.com
+  oci:
+    registry: ghcr.io
+    repository: test/multi-cluster
+    tag_strategy: git-sha
+    secret_ref: ghcr-auth
+  templates:
+    - name: web-app
+      enabled: true
+      values:
+        replicas: "2"
+        environment: staging
+    - name: database
+      enabled: true
+      values:
+        storage_size: 10Gi

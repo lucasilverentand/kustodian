@@ -1,0 +1,16 @@
+apiVersion: kustodian.io/v1
+kind: Template
+metadata:
+  name: database
+spec:
+  kustomizations:
+    - name: app
+      path: ./app
+      prune: true
+      wait: true
+      namespace:
+        default: database
+        create: true
+      substitutions:
+        - name: storage_size
+          default: 5Gi

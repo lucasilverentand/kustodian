@@ -1,0 +1,22 @@
+apiVersion: kustodian.io/v1
+kind: Cluster
+metadata:
+  name: production
+spec:
+  code: prod
+  domain: prod.example.com
+  oci:
+    registry: ghcr.io
+    repository: test/multi-cluster
+    tag_strategy: version
+    secret_ref: ghcr-auth
+  templates:
+    - name: web-app
+      enabled: true
+      values:
+        replicas: "5"
+        environment: production
+    - name: database
+      enabled: true
+      values:
+        storage_size: 100Gi
