@@ -1,0 +1,123 @@
+name: E2E Flux
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flux-e2e:
+    name: Flux Integration Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jdx/mise-action@v3
+
+      - run: bun install --frozen-lockfile
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: kustodian-e2e
+          wait: 60s
+
+      - name: Setup Flux CLI
+        uses: fluxcd/flux2/action@main
+
+      - name: Install Flux
+        run: |
+          flux install --components-extra=image-reflector-controller,image-automation-controller
+          flux check
+
+      - name: Generate Flux manifests
+        run: |
+          # Run the e2e generator script to verify generator works
+          bun run scripts/e2e-flux-generate.ts
+
+      - name: Setup GitRepository source
+        env:
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          # Create a GitRepository source pointing to this repo
+          flux create source git kustodian-e2e \
+            --url="${REPO_URL}" \
+            --branch="${BRANCH}" \
+            --interval=1m
+
+      - name: Apply Flux Kustomization with postBuild
+        run: |
+          # Create a Flux Kustomization with postBuild substitution
+          # This tests the full kustodian workflow with variable substitution
+          kubectl apply -f - <<'EOF'
+          apiVersion: kustomize.toolkit.fluxcd.io/v1
+          kind: Kustomization
+          metadata:
+            name: example-app
+            namespace: flux-system
+          spec:
+            interval: 1m
+            sourceRef:
+              kind: GitRepository
+              name: kustodian-e2e
+            path: ./e2e/fixtures/valid-project/templates/example/app
+            prune: true
+            wait: true
+            timeout: 2m
+            postBuild:
+              substitute:
+                namespace: example
+                replicas: "3"
+          EOF
+
+      - name: Wait for reconciliation
+        run: |
+          # Wait for Flux to reconcile
+          kubectl -n flux-system wait kustomization/example-app --for=condition=ready --timeout=2m
+
+      - name: Verify deployment
+        run: |
+          # Check that the namespace was created
+          kubectl get namespace example
+
+          # Check that the deployment exists
+          kubectl -n example get deployment example-app
+
+          # Verify replicas (should be 3 from postBuild substitution)
+          REPLICAS=$(kubectl -n example get deployment example-app -o jsonpath='{.spec.replicas}')
+          echo "Deployment replicas: ${REPLICAS}"
+          if [ "${REPLICAS}" != "3" ]; then
+            echo "ERROR: Expected 3 replicas, got ${REPLICAS}"
+            exit 1
+          fi
+
+          # Check pods are running
+          kubectl -n example wait deployment/example-app --for=condition=available --timeout=90s
+
+          # Show deployment status
+          kubectl -n example get pods
+
+      - name: Debug on failure
+        if: failure()
+        run: |
+          echo "=== Flux status ==="
+          flux get all --all-namespaces || true
+
+          echo "=== Kustomizations ==="
+          kubectl -n flux-system get kustomizations -o yaml || true
+
+          echo "=== Flux controller logs ==="
+          kubectl -n flux-system logs deploy/kustomize-controller --tail=50 || true
+
+          echo "=== Events ==="
+          kubectl get events --all-namespaces --sort-by='.lastTimestamp' | tail -30 || true
+
+          echo "=== Generated manifests ==="
+          cat /tmp/kustodian-e2e-output/*.yaml || true
