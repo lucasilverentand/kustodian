@@ -44,6 +44,7 @@
     "@kustodian/plugin-k0s": "workspace:*",
     "@kustodian/plugins": "workspace:*",
     "@kustodian/registry": "workspace:*",
-    "@kustodian/schema": "workspace:*"
+    "@kustodian/schema": "workspace:*",
+    "ora": "^9.0.0"
   }
 }
