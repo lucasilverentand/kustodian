@@ -1,10 +1,14 @@
 {
-  "packages/core": "1.0.0",
-  "packages/schema": "1.0.0",
-  "packages/loader": "1.0.0",
-  "packages/cli": "1.0.0",
-  "packages/nodes": "1.0.0",
-  "packages/plugins": "1.0.0",
-  "packages/generator": "1.0.0",
-  "plugins/k0s": "0.0.0"
+  "packages/core": "0.0.0",
+  "packages/schema": "0.0.0",
+  "packages/loader": "0.0.0",
+  "packages/cli": "0.0.0",
+  "packages/nodes": "0.0.0",
+  "packages/plugins": "0.0.0",
+  "packages/generator": "0.0.0",
+  "packages/k8s": "0.0.0",
+  "packages/registry": "0.0.0",
+  "plugins/k0s": "0.0.0",
+  "plugins/1password": "0.0.0",
+  "plugins/doppler": "0.0.0"
 }
