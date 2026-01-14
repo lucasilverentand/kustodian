@@ -10,6 +10,7 @@ import type {
   FluxOCIRepositoryType,
   ResolvedKustomizationType,
 } from './types.js';
+import { is_parse_error, parse_dependency_ref } from './validation/reference.js';
 
 /**
  * Default interval for Flux reconciliation.
@@ -43,6 +44,10 @@ export function generate_flux_path(
 
 /**
  * Generates the dependency references for a Flux Kustomization.
+ *
+ * Supports both within-template and cross-template references:
+ * - Within-template: `database` → uses current template name
+ * - Cross-template: `secrets/doppler` → uses explicit template name
  */
 export function generate_depends_on(
   template_name: string,
@@ -52,9 +57,15 @@ export function generate_depends_on(
     return undefined;
   }
 
-  return depends_on.map((dep) => ({
-    name: generate_flux_name(template_name, dep),
-  }));
+  return depends_on.map((dep) => {
+    const parsed = parse_dependency_ref(dep);
+    if (is_parse_error(parsed)) {
+      // Invalid references are caught during validation, fall back to current behavior
+      return { name: generate_flux_name(template_name, dep) };
+    }
+    const effective_template = parsed.template ?? template_name;
+    return { name: generate_flux_name(effective_template, parsed.kustomization) };
+  });
 }
 
 /**

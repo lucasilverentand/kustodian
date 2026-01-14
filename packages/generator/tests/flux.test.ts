@@ -71,6 +71,30 @@ describe('Flux Generator', () => {
       // Assert
       expect(result).toEqual([{ name: 'app-operator' }, { name: 'app-config' }]);
     });
+
+    it('should format cross-template dependencies', () => {
+      // Act
+      const result = generate_depends_on('app', ['secrets/doppler']);
+
+      // Assert
+      expect(result).toEqual([{ name: 'secrets-doppler' }]);
+    });
+
+    it('should format mixed within-template and cross-template dependencies', () => {
+      // Act
+      const result = generate_depends_on('app', [
+        'config',
+        'secrets/doppler',
+        'networking/traefik',
+      ]);
+
+      // Assert
+      expect(result).toEqual([
+        { name: 'app-config' },
+        { name: 'secrets-doppler' },
+        { name: 'networking-traefik' },
+      ]);
+    });
   });
 
   describe('generate_health_checks', () => {
