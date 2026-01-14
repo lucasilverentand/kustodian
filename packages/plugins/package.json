@@ -11,13 +11,18 @@
       "import": "./src/index.ts"
     }
   },
-  "files": ["src"],
+  "files": [
+    "src"
+  ],
   "scripts": {
     "test": "bun test",
     "test:watch": "bun test --watch",
     "typecheck": "bun run tsc --noEmit"
   },
-  "keywords": ["kustodian", "plugins"],
+  "keywords": [
+    "kustodian",
+    "plugins"
+  ],
   "author": "Luca Silverentand <luca@onezero.company>",
   "license": "MIT",
   "repository": {
