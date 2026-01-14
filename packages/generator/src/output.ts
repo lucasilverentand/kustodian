@@ -109,19 +109,34 @@ export async function write_flux_kustomization(
 }
 
 /**
- * Writes all generated kustomizations to the output directory.
+ * Writes all generated kustomizations to a structured output directory.
+ *
+ * Output structure:
+ * ```
+ * {output_dir}/
+ * ├── flux-system/
+ * │   ├── kustomization.yaml    # Root kustomization referencing all templates
+ * │   └── oci-repository.yaml   # OCI source (if configured)
+ * └── templates/
+ *     ├── {template-name}/
+ *     │   └── {kustomization-name}.yaml
+ *     └── ...
+ * ```
  */
 export async function write_generation_result(
   result: GenerationResultType,
   options: WriteOptionsType = {},
 ): Promise<ResultType<string[], KustodianErrorType>> {
   const format = options.format ?? 'yaml';
+  const ext = format === 'json' ? 'json' : 'yaml';
   const written_files: string[] = [];
 
-  // Write OCIRepository first if present
+  const flux_system_dir = path.join(result.output_dir, 'flux-system');
+  const templates_dir = path.join(result.output_dir, 'templates');
+
+  // Write OCIRepository to flux-system directory if present
   if (result.oci_repository) {
-    const ext = format === 'json' ? 'json' : 'yaml';
-    const oci_path = path.join(result.output_dir, `oci-repository.${ext}`);
+    const oci_path = path.join(flux_system_dir, `oci-repository.${ext}`);
     const oci_content = serialize_resource(result.oci_repository, format);
     const oci_result = await write_file(oci_path, oci_content, options);
 
@@ -132,35 +147,39 @@ export async function write_generation_result(
     written_files.push(oci_path);
   }
 
+  // Write each kustomization to templates/{template-name}/{kustomization-name}.yaml
   for (const generated of result.kustomizations) {
-    const file_result = await write_flux_kustomization(
-      generated.flux_kustomization,
-      result.output_dir,
-      options,
-    );
+    const template_dir = path.join(templates_dir, generated.template);
+    const file_path = path.join(template_dir, `${generated.flux_kustomization.metadata.name}.${ext}`);
+
+    const content = serialize_resource(generated.flux_kustomization, format);
+    const file_result = await write_file(file_path, content, options);
 
     if (!file_result.success) {
       return file_result;
     }
 
-    written_files.push(file_result.value);
+    written_files.push(file_path);
   }
 
-  // Write a kustomization.yaml that includes all generated files
-  const kustomization_path = path.join(result.output_dir, 'kustomization.yaml');
+  // Write root kustomization.yaml in flux-system directory
+  const kustomization_path = path.join(flux_system_dir, 'kustomization.yaml');
   const resources: string[] = [];
 
+  // Add OCI repository reference if present
   if (result.oci_repository) {
-    const ext = format === 'json' ? 'json' : 'yaml';
     resources.push(`oci-repository.${ext}`);
   }
 
+  // Add references to all template kustomizations with relative paths
   resources.push(
     ...result.kustomizations.map((k) => {
-      const ext = format === 'json' ? 'json' : 'yaml';
-      return `${k.flux_kustomization.metadata.name}.${ext}`;
+      return `../templates/${k.template}/${k.flux_kustomization.metadata.name}.${ext}`;
     }),
   );
+
+  // Sort resources for deterministic output
+  resources.sort();
 
   const kustomization_content = serialize_resource(
     {
