@@ -41,6 +41,7 @@ jobs:
         id: check
         env:
           CLUSTER_NAME: ${{ inputs.cluster }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           UPDATES=$(bun run packages/cli/src/bin.ts update --cluster "$CLUSTER_NAME" --dry-run --json 2>/dev/null || echo "[]")
 
@@ -58,8 +59,6 @@ jobs:
             echo "has_updates=false" >> $GITHUB_OUTPUT
             echo "All versions are up to date"
           fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   create-prs:
     needs: check-updates

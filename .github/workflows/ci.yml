@@ -27,6 +27,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v3
       - run: bun install --frozen-lockfile
+      - name: Build project references
+        run: bunx tsc --build packages/*/tsconfig.json plugins/*/tsconfig.json
       - run: bun run typecheck
 
   test:
