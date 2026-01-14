@@ -10,10 +10,7 @@ import {
 import type { NodeType } from '../src/types.js';
 
 describe('Profile Resolution', () => {
-  const create_node = (
-    name: string,
-    overrides: Partial<NodeType> = {},
-  ): NodeType => ({
+  const create_node = (name: string, overrides: Partial<NodeType> = {}): NodeType => ({
     name,
     role: 'worker',
     address: `${name}.local`,
@@ -250,9 +247,7 @@ describe('Profile Resolution', () => {
 
     it('should report errors for missing profiles', () => {
       // Arrange
-      const nodes: NodeType[] = [
-        create_node('node-1', { profile: 'missing-profile' }),
-      ];
+      const nodes: NodeType[] = [create_node('node-1', { profile: 'missing-profile' })];
       const profiles = new Map<string, NodeProfileType>();
 
       // Act
@@ -271,10 +266,7 @@ describe('Profile Resolution', () => {
   describe('get_referenced_profiles', () => {
     it('should return empty set for nodes without profiles', () => {
       // Arrange
-      const nodes: NodeType[] = [
-        create_node('node-1'),
-        create_node('node-2'),
-      ];
+      const nodes: NodeType[] = [create_node('node-1'), create_node('node-2')];
 
       // Act
       const profiles = get_referenced_profiles(nodes);
@@ -304,9 +296,7 @@ describe('Profile Resolution', () => {
   describe('validate_profile_references', () => {
     it('should return empty array when all profiles exist', () => {
       // Arrange
-      const nodes: NodeType[] = [
-        create_node('node-1', { profile: 'storage-node' }),
-      ];
+      const nodes: NodeType[] = [create_node('node-1', { profile: 'storage-node' })];
       const profiles = new Map<string, NodeProfileType>([
         ['storage-node', create_profile('storage-node')],
       ]);
@@ -341,10 +331,7 @@ describe('Profile Resolution', () => {
 
     it('should return empty array for nodes without profiles', () => {
       // Arrange
-      const nodes: NodeType[] = [
-        create_node('node-1'),
-        create_node('node-2'),
-      ];
+      const nodes: NodeType[] = [create_node('node-1'), create_node('node-2')];
       const profiles = new Map<string, NodeProfileType>();
 
       // Act

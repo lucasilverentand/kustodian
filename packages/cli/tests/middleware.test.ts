@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 
-import { failure, success } from '@kustodian/core';
+import { failure, is_success, success } from '@kustodian/core';
 
 import {
   type MiddlewareType,
@@ -34,7 +34,7 @@ describe('Middleware', () => {
 
       // Assert
       expect(ctx.args).toEqual(['arg1', 'arg2']);
-      expect(ctx.options.verbose).toBe(true);
+      expect(ctx.options['verbose']).toBe(true);
     });
   });
 
@@ -71,11 +71,11 @@ describe('Middleware', () => {
       // Arrange
       const middleware: MiddlewareType[] = [
         async (ctx, next) => {
-          ctx.data.first = 'value1';
+          ctx.data['first'] = 'value1';
           return next();
         },
         async (ctx, next) => {
-          ctx.data.second = 'value2';
+          ctx.data['second'] = 'value2';
           return next();
         },
       ];
@@ -87,8 +87,8 @@ describe('Middleware', () => {
       await pipeline(ctx, async () => success(undefined));
 
       // Assert
-      expect(ctx.data.first).toBe('value1');
-      expect(ctx.data.second).toBe('value2');
+      expect(ctx.data['first']).toBe('value1');
+      expect(ctx.data['second']).toBe('value2');
     });
 
     it('should short-circuit if middleware does not call next', async () => {
@@ -166,7 +166,7 @@ describe('Middleware', () => {
 
       // Assert
       expect(result.success).toBe(false);
-      if (!result.success) {
+      if (!is_success(result)) {
         expect(result.error.code).toBe('TEST_ERROR');
       }
     });
@@ -372,7 +372,7 @@ describe('Middleware', () => {
       });
 
       expect(result.success).toBe(false);
-      if (!result.success) {
+      if (!is_success(result)) {
         expect(result.error.code).toBe('UNEXPECTED_ERROR');
         expect(result.error.message).toBe('Unexpected error');
       }

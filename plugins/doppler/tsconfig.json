@@ -9,10 +9,7 @@
       "@/*": ["./src/*"]
     }
   },
-  "references": [
-    { "path": "../../packages/core" },
-    { "path": "../../packages/plugins" }
-  ],
+  "references": [{ "path": "../../packages/core" }, { "path": "../../packages/plugins" }],
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tests"]
 }

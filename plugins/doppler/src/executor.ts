@@ -120,7 +120,17 @@ export async function doppler_secrets_download(
 
   const result = await exec_command(
     'doppler',
-    ['secrets', 'download', '--project', project, '--config', config, '--format', 'json', '--no-file'],
+    [
+      'secrets',
+      'download',
+      '--project',
+      project,
+      '--config',
+      config,
+      '--format',
+      'json',
+      '--no-file',
+    ],
     {
       timeout,
       env,

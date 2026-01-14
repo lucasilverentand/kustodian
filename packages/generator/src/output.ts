@@ -150,7 +150,10 @@ export async function write_generation_result(
   // Write each kustomization to templates/{template-name}/{kustomization-name}.yaml
   for (const generated of result.kustomizations) {
     const template_dir = path.join(templates_dir, generated.template);
-    const file_path = path.join(template_dir, `${generated.flux_kustomization.metadata.name}.${ext}`);
+    const file_path = path.join(
+      template_dir,
+      `${generated.flux_kustomization.metadata.name}.${ext}`,
+    );
 
     const content = serialize_resource(generated.flux_kustomization, format);
     const file_result = await write_file(file_path, content, options);

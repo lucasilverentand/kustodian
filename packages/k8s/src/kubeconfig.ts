@@ -101,12 +101,7 @@ export function create_kubeconfig_manager(): KubeconfigManagerType {
     },
 
     async list_contexts() {
-      const result = await exec_command('kubectl', [
-        'config',
-        'get-contexts',
-        '-o',
-        'name',
-      ]);
+      const result = await exec_command('kubectl', ['config', 'get-contexts', '-o', 'name']);
       if (!result.success) {
         return result;
       }
@@ -191,11 +186,9 @@ export function create_kubeconfig_manager(): KubeconfigManagerType {
 
       // Merge using KUBECONFIG environment variable
       const merged_config = `${default_path}${path.delimiter}${new_kubeconfig}`;
-      const result = await exec_command(
-        'kubectl',
-        ['config', 'view', '--flatten'],
-        { env: { KUBECONFIG: merged_config } },
-      );
+      const result = await exec_command('kubectl', ['config', 'view', '--flatten'], {
+        env: { KUBECONFIG: merged_config },
+      });
 
       if (!result.success) {
         return result;

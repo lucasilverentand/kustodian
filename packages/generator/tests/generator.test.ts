@@ -15,19 +15,30 @@ describe('Generator', () => {
       git: {
         owner: 'test-org',
         repository: 'test-repo',
+        branch: 'main',
       },
       templates,
     },
   });
 
+  const create_kustomization = (
+    overrides: { name: string; path: string } & Partial<TemplateType['spec']['kustomizations'][0]>,
+  ): TemplateType['spec']['kustomizations'][0] => ({
+    prune: true,
+    wait: true,
+    ...overrides,
+  });
+
   const create_template = (
     name: string,
-    kustomizations: TemplateType['spec']['kustomizations'],
+    kustomizations: Array<
+      { name: string; path: string } & Partial<TemplateType['spec']['kustomizations'][0]>
+    >,
   ): TemplateType => ({
     apiVersion: 'kustodian.io/v1',
     kind: 'Template',
     metadata: { name },
-    spec: { kustomizations },
+    spec: { kustomizations: kustomizations.map(create_kustomization) },
   });
 
   describe('create_generator', () => {
@@ -49,8 +60,12 @@ describe('Generator', () => {
     it('should resolve templates with cluster values', () => {
       // Arrange
       const generator = create_generator();
-      const cluster = create_cluster([{ name: 'nginx', values: { replicas: '5' } }]);
-      const templates = [create_template('nginx', [{ name: 'deployment', path: './deployment' }])];
+      const cluster = create_cluster([{ name: 'nginx', enabled: true, values: { replicas: '5' } }]);
+      const templates = [
+        create_template('nginx', [
+          { name: 'deployment', path: './deployment', prune: true, wait: true },
+        ]),
+      ];
 
       // Act
       const result = generator.resolve_templates(cluster, templates);
@@ -65,7 +80,11 @@ describe('Generator', () => {
       // Arrange
       const generator = create_generator();
       const cluster = create_cluster([{ name: 'nginx', enabled: false }]);
-      const templates = [create_template('nginx', [{ name: 'deployment', path: './deployment' }])];
+      const templates = [
+        create_template('nginx', [
+          { name: 'deployment', path: './deployment', prune: true, wait: true },
+        ]),
+      ];
 
       // Act
       const result = generator.resolve_templates(cluster, templates);
@@ -78,7 +97,11 @@ describe('Generator', () => {
       // Arrange
       const generator = create_generator();
       const cluster = create_cluster([]);
-      const templates = [create_template('nginx', [{ name: 'deployment', path: './deployment' }])];
+      const templates = [
+        create_template('nginx', [
+          { name: 'deployment', path: './deployment', prune: true, wait: true },
+        ]),
+      ];
 
       // Act
       const result = generator.resolve_templates(cluster, templates);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 
 import {
+  type ResultType,
   combine,
   combine_all,
   failure,
@@ -123,10 +124,10 @@ describe('Result', () => {
 
     it('should pass through failures unchanged', () => {
       // Arrange
-      const result = failure<number, string>('error');
+      const result: ResultType<number, string> = failure('error');
 
       // Act
-      const mapped = map_result(result, (x) => x * 2);
+      const mapped = map_result(result, (x: number) => x * 2);
 
       // Assert
       expect(is_failure(mapped)).toBe(true);
@@ -153,7 +154,7 @@ describe('Result', () => {
 
     it('should pass through successes unchanged', () => {
       // Arrange
-      const result = success<number, string>(42);
+      const result: ResultType<number, string> = success(42);
 
       // Act
       const mapped = map_error(result, (e) => `Wrapped: ${e}`);
@@ -183,10 +184,10 @@ describe('Result', () => {
 
     it('should short-circuit on failure', () => {
       // Arrange
-      const result = failure<number, string>('first error');
+      const result: ResultType<number, string> = failure('first error');
 
       // Act
-      const chained = flat_map(result, (x) => success(x * 2));
+      const chained = flat_map(result, (x: number) => success(x * 2));
 
       // Assert
       expect(is_failure(chained)).toBe(true);
@@ -246,7 +247,7 @@ describe('Result', () => {
 
     it('should return the default for failure', () => {
       // Arrange
-      const result = failure<string, string>('error');
+      const result: ResultType<string, string> = failure('error');
 
       // Act
       const value = unwrap_or(result, 'default');
@@ -270,7 +271,7 @@ describe('Result', () => {
 
     it('should call the function with the error for failure', () => {
       // Arrange
-      const result = failure<string, string>('error code');
+      const result: ResultType<string, string> = failure('error code');
 
       // Act
       const value = unwrap_or_else(result, (e) => `Fallback: ${e}`);
@@ -391,10 +392,10 @@ describe('Result', () => {
 
     it('should return first failure when any fails', () => {
       // Arrange
-      const results = [
+      const results: ResultType<number, string>[] = [
         success(1),
-        failure<number, string>('error1'),
-        failure<number, string>('error2'),
+        failure('error1'),
+        failure('error2'),
       ];
 
       // Act
@@ -439,10 +440,10 @@ describe('Result', () => {
 
     it('should collect all errors when some fail', () => {
       // Arrange
-      const results = [
+      const results: ResultType<number, string>[] = [
         success(1),
-        failure<number, string>('error1'),
-        failure<number, string>('error2'),
+        failure('error1'),
+        failure('error2'),
       ];
 
       // Act
@@ -457,11 +458,7 @@ describe('Result', () => {
 
     it('should handle all failures', () => {
       // Arrange
-      const results = [
-        failure<number, string>('e1'),
-        failure<number, string>('e2'),
-        failure<number, string>('e3'),
-      ];
+      const results: ResultType<number, string>[] = [failure('e1'), failure('e2'), failure('e3')];
 
       // Act
       const combined = combine_all(results);

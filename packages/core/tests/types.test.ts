@@ -197,8 +197,8 @@ describe('Type Utilities', () => {
       const orderId = 'order-456' as OrderIdType;
 
       // Assert
-      expect(userId).toBe('user-123');
-      expect(orderId).toBe('order-456');
+      expect(userId as string).toBe('user-123');
+      expect(orderId as string).toBe('order-456');
       // userId = orderId; // This would cause a compile error
     });
   });

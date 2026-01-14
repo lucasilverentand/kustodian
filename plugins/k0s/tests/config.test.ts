@@ -183,8 +183,8 @@ describe('k0s Config', () => {
       const result = serialize_k0sctl_config(config) as Record<string, unknown>;
 
       // Assert
-      expect(result.apiVersion).toBe('k0sctl.k0sproject.io/v1beta1');
-      expect(result.metadata).toEqual({ name: 'test-cluster' });
+      expect(result['apiVersion']).toBe('k0sctl.k0sproject.io/v1beta1');
+      expect(result['metadata']).toEqual({ name: 'test-cluster' });
     });
   });
 });

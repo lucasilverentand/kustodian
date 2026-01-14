@@ -29,8 +29,8 @@ describe('Cluster Schema', () => {
       if (result.success) {
         expect(result.data.metadata.name).toBe('production');
         expect(result.data.spec.domain).toBe('example.com');
-        expect(result.data.spec.git.owner).toBe('my-org');
-        expect(result.data.spec.git.branch).toBe('main');
+        expect(result.data.spec.git?.owner).toBe('my-org');
+        expect(result.data.spec.git?.branch).toBe('main');
       }
     });
 
@@ -76,7 +76,7 @@ describe('Cluster Schema', () => {
       // Assert
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.spec.git.branch).toBe('develop');
+        expect(result.data.spec.git?.branch).toBe('develop');
         expect(result.data.spec.templates).toHaveLength(2);
         expect(result.data.spec.plugins).toHaveLength(1);
       }

@@ -1,7 +1,7 @@
 import { type ResultType, failure, success } from '@kustodian/core';
 import type { KustodianErrorType } from '@kustodian/core';
 
-import { check_command, exec_command, type ExecOptionsType } from './exec.js';
+import { type ExecOptionsType, check_command, exec_command } from './exec.js';
 import type { FluxBootstrapOptionsType, FluxResourceType, FluxStatusType } from './types.js';
 
 /**

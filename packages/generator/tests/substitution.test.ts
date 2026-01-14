@@ -183,6 +183,8 @@ describe('Substitution Engine', () => {
     ): KustomizationType => ({
       name: 'test',
       path: './test',
+      prune: true,
+      wait: true,
       substitutions,
     });
 
@@ -233,7 +235,7 @@ describe('Substitution Engine', () => {
 
       // Assert
       expect(result).toEqual({ replicas: '2' });
-      expect(result.required_value).toBeUndefined();
+      expect(result['required_value']).toBeUndefined();
     });
   });
 
@@ -243,6 +245,8 @@ describe('Substitution Engine', () => {
       const kustomization: KustomizationType = {
         name: 'test',
         path: './test',
+        prune: true,
+        wait: true,
         substitutions: [{ name: 'foo', default: '1' }, { name: 'bar' }],
       };
 
@@ -258,6 +262,8 @@ describe('Substitution Engine', () => {
       const kustomization: KustomizationType = {
         name: 'test',
         path: './test',
+        prune: true,
+        wait: true,
       };
 
       // Act
@@ -274,6 +280,8 @@ describe('Substitution Engine', () => {
       const kustomization: KustomizationType = {
         name: 'test',
         path: './test',
+        prune: true,
+        wait: true,
         substitutions: [{ name: 'optional', default: 'value' }, { name: 'required' }],
       };
 
@@ -291,6 +299,8 @@ describe('Substitution Engine', () => {
       const kustomization: KustomizationType = {
         name: 'test',
         path: './test',
+        prune: true,
+        wait: true,
         substitutions: [{ name: 'required' }, { name: 'optional', default: 'default' }],
       };
       const cluster_values = { required: 'value' };
@@ -308,6 +318,8 @@ describe('Substitution Engine', () => {
       const kustomization: KustomizationType = {
         name: 'test',
         path: './test',
+        prune: true,
+        wait: true,
         substitutions: [{ name: 'required1' }, { name: 'required2' }],
       };
 
@@ -325,6 +337,8 @@ describe('Substitution Engine', () => {
       const kustomization: KustomizationType = {
         name: 'test',
         path: './test',
+        prune: true,
+        wait: true,
         substitutions: [{ name: 'defined' }],
       };
       const cluster_values = { defined: 'value', unused: 'extra' };

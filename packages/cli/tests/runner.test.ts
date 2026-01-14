@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 
-import { success } from '@kustodian/core';
+import { is_success, success } from '@kustodian/core';
 
 import { define_command } from '../src/command.js';
 import { create_container } from '../src/container.js';
@@ -69,7 +69,7 @@ describe('CLI Runner', () => {
 
       // Assert
       expect(result.success).toBe(false);
-      if (!result.success) {
+      if (!is_success(result)) {
         expect(result.error.code).toBe('COMMAND_NOT_FOUND');
       }
     });
@@ -99,8 +99,8 @@ describe('CLI Runner', () => {
       await cli.run(['greet', '--name', 'World', '--loud'], container);
 
       // Assert
-      expect(received_options.name).toBe('World');
-      expect(received_options.loud).toBe(true);
+      expect(received_options['name']).toBe('World');
+      expect(received_options['loud']).toBe(true);
     });
 
     it('should parse options with =', async () => {
@@ -125,7 +125,7 @@ describe('CLI Runner', () => {
       await cli.run(['greet', '--name=Alice'], container);
 
       // Assert
-      expect(received_options.name).toBe('Alice');
+      expect(received_options['name']).toBe('Alice');
     });
 
     it('should parse short options', async () => {
@@ -150,7 +150,7 @@ describe('CLI Runner', () => {
       await cli.run(['greet', '-v'], container);
 
       // Assert
-      expect(received_options.verbose).toBe(true);
+      expect(received_options['verbose']).toBe(true);
     });
 
     it('should use default option values', async () => {
@@ -175,7 +175,7 @@ describe('CLI Runner', () => {
       await cli.run(['greet'], container);
 
       // Assert
-      expect(received_options.count).toBe(5);
+      expect(received_options['count']).toBe(5);
     });
 
     it('should parse positional arguments', async () => {

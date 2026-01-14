@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { check_version_update, filter_semver_tags, find_latest_matching } from '../src/version.js';
 import type { TagInfoType } from '../src/types.js';
+import { check_version_update, filter_semver_tags, find_latest_matching } from '../src/version.js';
 
 describe('filter_semver_tags', () => {
   const tags: TagInfoType[] = [

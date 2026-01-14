@@ -93,7 +93,7 @@ export const apply_command = define_command({
     console.log('\n[1/3] Loading project configuration...');
 
     const root_result = await find_project_root(project_path);
-    if (!root_result.success) {
+    if (!is_success(root_result)) {
       console.error(`  ✗ Error: ${root_result.error.message}`);
       return root_result;
     }
@@ -102,7 +102,7 @@ export const apply_command = define_command({
     console.log(`  → Project root: ${project_root}`);
 
     const project_result = await load_project(project_root);
-    if (!project_result.success) {
+    if (!is_success(project_result)) {
       console.error(`  ✗ Error: ${project_result.error.message}`);
       return project_result;
     }
@@ -296,7 +296,7 @@ export const apply_command = define_command({
           {},
         );
 
-        if (!gen_result.success) {
+        if (!is_success(gen_result)) {
           console.error(`  ✗ Generation failed: ${gen_result.error.message}`);
           return gen_result;
         }

@@ -42,9 +42,7 @@ function merge_taints(
   }
 
   // Create a map of node taints keyed by key+effect for deduplication
-  const node_taint_keys = new Set(
-    node_taints.map((t) => `${t.key}:${t.effect}`),
-  );
+  const node_taint_keys = new Set(node_taints.map((t) => `${t.key}:${t.effect}`));
 
   // Filter out profile taints that are overridden by node taints
   const filtered_profile_taints = profile_taints.filter(
@@ -80,9 +78,7 @@ export function resolve_node_profile(
 
   // Merge labels: profile as base, node overrides
   const merged_labels =
-    profile.labels || node.labels
-      ? { ...profile.labels, ...node.labels }
-      : undefined;
+    profile.labels || node.labels ? { ...profile.labels, ...node.labels } : undefined;
 
   // Merge taints: deduplicate by key+effect, node wins
   const merged_taints = merge_taints(profile.taints, node.taints);
@@ -177,9 +173,7 @@ export function validate_profile_references(
 
   for (const profile_name of referenced) {
     if (!profiles.has(profile_name)) {
-      const nodes_using = nodes
-        .filter((n) => n.profile === profile_name)
-        .map((n) => n.name);
+      const nodes_using = nodes.filter((n) => n.profile === profile_name).map((n) => n.name);
       errors.push(
         `Profile '${profile_name}' not found, referenced by nodes: ${nodes_using.join(', ')}`,
       );

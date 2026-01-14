@@ -1,4 +1,4 @@
 export declare const collections: {
-    docs: any;
+  docs: any;
 };
 //# sourceMappingURL=content.config.d.ts.map

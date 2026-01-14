@@ -4,10 +4,7 @@ import type {
   SubstitutionType,
   TemplateType,
 } from '@kustodian/schema';
-import {
-  is_doppler_substitution,
-  is_onepassword_substitution,
-} from '@kustodian/schema';
+import { is_doppler_substitution, is_onepassword_substitution } from '@kustodian/schema';
 
 /**
  * Extracts 1Password substitutions from templates.
@@ -54,9 +51,10 @@ export function extract_doppler_substitutions(
 /**
  * Extracts all external substitutions (1Password and Doppler) from templates.
  */
-export function extract_external_substitutions(
-  templates: TemplateType[],
-): { onepassword: OnePasswordSubstitutionType[]; doppler: DopplerSubstitutionType[] } {
+export function extract_external_substitutions(templates: TemplateType[]): {
+  onepassword: OnePasswordSubstitutionType[];
+  doppler: DopplerSubstitutionType[];
+} {
   return {
     onepassword: extract_onepassword_substitutions(templates),
     doppler: extract_doppler_substitutions(templates),

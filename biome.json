@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "ignore": ["dist", "node_modules", "coverage", ".turbo"]
+    "ignore": ["dist", "node_modules", "coverage", ".turbo", "docs/.astro", "docs/src/*.d.ts"]
   },
   "organizeImports": {
     "enabled": true
@@ -39,6 +39,9 @@
       "complexity": {
         "noForEach": "off",
         "useLiteralKeys": "off"
+      },
+      "performance": {
+        "noDelete": "off"
       }
     }
   },

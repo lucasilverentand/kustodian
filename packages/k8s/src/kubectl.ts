@@ -1,7 +1,7 @@
 import { type ResultType, failure, success } from '@kustodian/core';
 import type { KustodianErrorType } from '@kustodian/core';
 
-import { check_command, exec_command, type ExecOptionsType } from './exec.js';
+import { type ExecOptionsType, check_command, exec_command } from './exec.js';
 import type { ApplyOptionsType, K8sResourceType, LogOptionsType } from './types.js';
 
 /**
@@ -36,7 +36,10 @@ export interface KubectlClientType {
   /**
    * Applies manifests to the cluster.
    */
-  apply(manifest: string, options?: ApplyOptionsType): Promise<ResultType<string, KustodianErrorType>>;
+  apply(
+    manifest: string,
+    options?: ApplyOptionsType,
+  ): Promise<ResultType<string, KustodianErrorType>>;
 
   /**
    * Gets resources from the cluster.

@@ -9,7 +9,11 @@ import type {
   PluginManifestType,
 } from '@kustodian/plugins';
 
-import { check_doppler_available, doppler_secret_get, doppler_secrets_download } from './executor.js';
+import {
+  check_doppler_available,
+  doppler_secret_get,
+  doppler_secrets_download,
+} from './executor.js';
 import type { DopplerPluginOptionsType } from './types.js';
 
 /**

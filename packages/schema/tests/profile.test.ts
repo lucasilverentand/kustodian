@@ -82,10 +82,10 @@ describe('NodeProfile Schema', () => {
         },
         spec: {
           labels: {
-            'enabled': true,
-            'disabled': false,
-            'count': 5,
-            'ratio': 1.5,
+            enabled: true,
+            disabled: false,
+            count: 5,
+            ratio: 1.5,
           },
         },
       };
@@ -193,9 +193,7 @@ describe('NodeProfile Schema', () => {
           name: 'invalid-taint',
         },
         spec: {
-          taints: [
-            { key: 'test', effect: 'InvalidEffect' },
-          ],
+          taints: [{ key: 'test', effect: 'InvalidEffect' }],
         },
       };
 
@@ -245,9 +243,7 @@ describe('NodeProfile Schema', () => {
           labels: {
             storage: 'nvme',
           },
-          taints: [
-            { key: 'storage', effect: 'NoSchedule' as const },
-          ],
+          taints: [{ key: 'storage', effect: 'NoSchedule' as const }],
           annotations: {
             note: 'test',
           },

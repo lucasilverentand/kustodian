@@ -3,7 +3,11 @@ import type { KustodianErrorType } from '@kustodian/core';
 import type { DopplerSubstitutionType } from '@kustodian/schema';
 
 import { doppler_secrets_download } from './executor.js';
-import { create_cache_key, type DopplerCacheKeyType, type DopplerPluginOptionsType } from './types.js';
+import {
+  type DopplerCacheKeyType,
+  type DopplerPluginOptionsType,
+  create_cache_key,
+} from './types.js';
 
 /**
  * Resolves Doppler substitutions to actual secret values.
