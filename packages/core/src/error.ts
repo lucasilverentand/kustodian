@@ -76,6 +76,12 @@ export const ErrorCodes = {
   DEPENDENCY_MISSING: 'DEPENDENCY_MISSING',
   DEPENDENCY_SELF_REFERENCE: 'DEPENDENCY_SELF_REFERENCE',
   DEPENDENCY_VALIDATION_ERROR: 'DEPENDENCY_VALIDATION_ERROR',
+
+  // Secret provider errors
+  SECRET_CLI_NOT_FOUND: 'SECRET_CLI_NOT_FOUND',
+  SECRET_NOT_FOUND: 'SECRET_NOT_FOUND',
+  SECRET_AUTH_ERROR: 'SECRET_AUTH_ERROR',
+  SECRET_TIMEOUT: 'SECRET_TIMEOUT',
 } as const;
 
 export type ErrorCodeType = (typeof ErrorCodes)[keyof typeof ErrorCodes];
@@ -197,6 +203,32 @@ export const Errors = {
     return create_error(
       ErrorCodes.DEPENDENCY_VALIDATION_ERROR,
       `Dependency validation failed:\n${errors.map((e) => `  - ${e}`).join('\n')}`,
+    );
+  },
+
+  secret_cli_not_found(provider: string, cli_name: string): KustodianErrorType {
+    return create_error(
+      ErrorCodes.SECRET_CLI_NOT_FOUND,
+      `${provider} CLI (${cli_name}) not found. Please install it first.`,
+    );
+  },
+
+  secret_not_found(provider: string, ref: string): KustodianErrorType {
+    return create_error(ErrorCodes.SECRET_NOT_FOUND, `Secret not found in ${provider}: ${ref}`);
+  },
+
+  secret_auth_error(provider: string, cause?: unknown): KustodianErrorType {
+    return create_error(
+      ErrorCodes.SECRET_AUTH_ERROR,
+      `${provider} authentication failed. Check your credentials.`,
+      cause,
+    );
+  },
+
+  secret_timeout(provider: string, timeout: number): KustodianErrorType {
+    return create_error(
+      ErrorCodes.SECRET_TIMEOUT,
+      `${provider} operation timed out after ${timeout}ms`,
     );
   },
 } as const;

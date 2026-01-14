@@ -120,6 +120,30 @@ importers:
         specifier: ^3.25.30
         version: 3.25.76
 
+  plugins/1password:
+    dependencies:
+      '@kustodian/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@kustodian/plugins':
+        specifier: workspace:*
+        version: link:../../packages/plugins
+      '@kustodian/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
+
+  plugins/doppler:
+    dependencies:
+      '@kustodian/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@kustodian/plugins':
+        specifier: workspace:*
+        version: link:../../packages/plugins
+      '@kustodian/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
+
   plugins/k0s:
     dependencies:
       '@kustodian/core':

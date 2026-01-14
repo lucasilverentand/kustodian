@@ -80,13 +80,48 @@ export const namespace_substitution_schema = z.object({
 export type NamespaceSubstitutionType = z.infer<typeof namespace_substitution_schema>;
 
 /**
+ * 1Password substitution for fetching secrets from 1Password vaults.
+ * Uses the op:// secret reference format.
+ */
+export const onepassword_substitution_schema = z.object({
+  type: z.literal('1password'),
+  name: z.string().min(1),
+  /** 1Password secret reference: op://vault/item[/section]/field */
+  ref: z.string().min(1),
+  /** Optional default value if secret cannot be fetched */
+  default: z.string().optional(),
+});
+
+export type OnePasswordSubstitutionType = z.infer<typeof onepassword_substitution_schema>;
+
+/**
+ * Doppler substitution for fetching secrets from Doppler projects.
+ */
+export const doppler_substitution_schema = z.object({
+  type: z.literal('doppler'),
+  name: z.string().min(1),
+  /** Doppler project name */
+  project: z.string().min(1),
+  /** Doppler config name (e.g., 'dev', 'stg', 'prd') */
+  config: z.string().min(1),
+  /** Secret key name in Doppler */
+  secret: z.string().min(1),
+  /** Optional default value if secret cannot be fetched */
+  default: z.string().optional(),
+});
+
+export type DopplerSubstitutionType = z.infer<typeof doppler_substitution_schema>;
+
+/**
  * Union of all substitution types.
  * Supports backward compatibility: substitutions without 'type' are treated as generic.
  */
 export const substitution_schema = z.union([
   version_substitution_schema,
   namespace_substitution_schema,
-  generic_substitution_schema,
+  onepassword_substitution_schema,
+  doppler_substitution_schema,
+  generic_substitution_schema, // Must be last due to optional 'type' field
 ]);
 
 export type SubstitutionType = z.infer<typeof substitution_schema>;
@@ -110,6 +145,22 @@ export function is_namespace_substitution(sub: SubstitutionType): sub is Namespa
  */
 export function is_generic_substitution(sub: SubstitutionType): sub is GenericSubstitutionType {
   return !('type' in sub) || sub.type === 'generic' || sub.type === undefined;
+}
+
+/**
+ * Type guard for 1Password substitutions.
+ */
+export function is_onepassword_substitution(
+  sub: SubstitutionType,
+): sub is OnePasswordSubstitutionType {
+  return 'type' in sub && sub.type === '1password';
+}
+
+/**
+ * Type guard for Doppler substitutions.
+ */
+export function is_doppler_substitution(sub: SubstitutionType): sub is DopplerSubstitutionType {
+  return 'type' in sub && sub.type === 'doppler';
 }
 
 /**
