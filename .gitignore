@@ -45,6 +45,9 @@ CHANGELOG.md
 tmp/
 temp/
 
+# Claude Code local settings
+.claude/
+
 # Test repositories
 test-repo/
 test-kustodian-oci/
