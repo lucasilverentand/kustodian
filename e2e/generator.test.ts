@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import * as path from 'node:path';
-import { create_generator } from '../packages/generator/dist/index.js';
-import { load_project } from '../packages/loader/dist/index.js';
+import { create_generator } from '../packages/generator/src/index.js';
+import { load_project } from '../packages/loader/src/index.js';
 
 const FIXTURES_DIR = path.join(import.meta.dir, 'fixtures');
 const VALID_PROJECT = path.join(FIXTURES_DIR, 'valid-project');
