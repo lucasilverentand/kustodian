@@ -176,20 +176,23 @@ describe('k0s Provider', () => {
   });
 
   describe('install', () => {
-    it.skipIf(process.env['CI'] !== 'true')('should fail when k0sctl is not available', async () => {
-      // Arrange - This test only makes sense when k0sctl is NOT installed
-      const provider = create_k0s_provider();
-      const node_list = create_node_list(
-        [create_node('controller-1', 'controller', { user: 'admin' })],
-        { user: 'admin' },
-      );
+    it.skipIf(process.env['CI'] !== 'true')(
+      'should fail when k0sctl is not available',
+      async () => {
+        // Arrange - This test only makes sense when k0sctl is NOT installed
+        const provider = create_k0s_provider();
+        const node_list = create_node_list(
+          [create_node('controller-1', 'controller', { user: 'admin' })],
+          { user: 'admin' },
+        );
 
-      // Act
-      const result = await provider.install(node_list, {});
+        // Act
+        const result = await provider.install(node_list, {});
 
-      // Assert - k0sctl not installed in CI environment
-      expect(result.success).toBe(false);
-    });
+        // Assert - k0sctl not installed in CI environment
+        expect(result.success).toBe(false);
+      },
+    );
 
     it('should skip installation in dry run mode', async () => {
       // Arrange
@@ -208,37 +211,43 @@ describe('k0s Provider', () => {
   });
 
   describe('get_kubeconfig', () => {
-    it.skipIf(process.env['CI'] !== 'true')('should fail when k0sctl is not available', async () => {
-      // Arrange - This test only makes sense when k0sctl is NOT installed
-      const provider = create_k0s_provider();
-      const node_list = create_node_list(
-        [create_node('controller-1', 'controller', { user: 'admin' })],
-        { user: 'admin' },
-      );
+    it.skipIf(process.env['CI'] !== 'true')(
+      'should fail when k0sctl is not available',
+      async () => {
+        // Arrange - This test only makes sense when k0sctl is NOT installed
+        const provider = create_k0s_provider();
+        const node_list = create_node_list(
+          [create_node('controller-1', 'controller', { user: 'admin' })],
+          { user: 'admin' },
+        );
 
-      // Act
-      const result = await provider.get_kubeconfig(node_list);
+        // Act
+        const result = await provider.get_kubeconfig(node_list);
 
-      // Assert - k0sctl not installed in CI environment
-      expect(result.success).toBe(false);
-    });
+        // Assert - k0sctl not installed in CI environment
+        expect(result.success).toBe(false);
+      },
+    );
   });
 
   describe('reset', () => {
-    it.skipIf(process.env['CI'] !== 'true')('should fail when k0sctl is not available', async () => {
-      // Arrange - This test only makes sense when k0sctl is NOT installed
-      const provider = create_k0s_provider();
-      const node_list = create_node_list(
-        [create_node('controller-1', 'controller', { user: 'admin' })],
-        { user: 'admin' },
-      );
+    it.skipIf(process.env['CI'] !== 'true')(
+      'should fail when k0sctl is not available',
+      async () => {
+        // Arrange - This test only makes sense when k0sctl is NOT installed
+        const provider = create_k0s_provider();
+        const node_list = create_node_list(
+          [create_node('controller-1', 'controller', { user: 'admin' })],
+          { user: 'admin' },
+        );
 
-      // Act
-      const result = await provider.reset(node_list, {});
+        // Act
+        const result = await provider.reset(node_list, {});
 
-      // Assert - k0sctl not installed in CI environment
-      expect(result.success).toBe(false);
-    });
+        // Assert - k0sctl not installed in CI environment
+        expect(result.success).toBe(false);
+      },
+    );
 
     it.skipIf(process.env['CI'] !== 'true')('should skip reset in dry run mode', async () => {
       // Arrange - This test only makes sense when k0sctl is NOT installed
