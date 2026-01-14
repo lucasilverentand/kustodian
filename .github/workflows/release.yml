@@ -3,6 +3,12 @@ name: Release
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Force publish (skip release-please check)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -26,7 +32,7 @@ jobs:
   publish-npm:
     name: Publish to npm
     needs: release-please
-    if: needs.release-please.outputs.releases_created == 'true'
+    if: needs.release-please.outputs.releases_created == 'true' || inputs.publish == true
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -37,7 +43,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
 
       - name: Build packages
         run: bun run build
@@ -59,7 +65,7 @@ jobs:
   publish-github:
     name: Publish to GitHub Packages
     needs: release-please
-    if: needs.release-please.outputs.releases_created == 'true'
+    if: needs.release-please.outputs.releases_created == 'true' || inputs.publish == true
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -70,7 +76,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
 
       - name: Build packages
         run: bun run build
