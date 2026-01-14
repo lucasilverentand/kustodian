@@ -1,0 +1,98 @@
+---
+title: Introduction
+description: What is Kustodian and why should you use it?
+---
+
+Kustodian is a **GitOps templating framework** for Kubernetes that generates [Flux CD](https://fluxcd.io/) manifests in real-time. Unlike traditional approaches that require generating and committing manifests, Kustodian produces Flux Kustomizations on-the-fly during reconciliation—keeping your repository clean and your workflow simple.
+
+## The Problem
+
+Managing Kubernetes clusters at scale presents several challenges:
+
+- **Generated manifest bloat**: Traditional tools require generating and committing manifests, cluttering your repository
+- **Configuration duplication**: Similar applications deployed across clusters require copy-pasting manifests
+- **Inconsistent node setups**: Nodes with similar purposes end up with different labels and taints
+- **Complex dependencies**: Applications depend on each other, but managing deployment order is manual
+- **GitOps complexity**: Setting up Flux CD Kustomizations with proper health checks and namespaces is tedious
+
+## The Solution
+
+Kustodian generates manifests in-time, meaning you only commit your source configuration—not the generated output. This provides:
+
+### Reusable Templates
+
+Define an application deployment once as a template, then deploy it to any cluster with customizable values:
+
+```yaml
+# templates/monitoring/template.yaml
+apiVersion: kustodian.io/v1
+kind: Template
+metadata:
+  name: monitoring
+spec:
+  kustomizations:
+    - name: prometheus
+      path: ./prometheus
+      depends_on:
+        - kustomization: cert-manager/cert-manager
+      namespace:
+        default: monitoring
+```
+
+### Node Profiles
+
+Create reusable configurations for node labels, taints, and annotations:
+
+```yaml
+# node-profiles/storage-node.yaml
+apiVersion: kustodian.io/v1
+kind: NodeProfile
+metadata:
+  name: storage-node
+spec:
+  labels:
+    storage: nvme
+    storage-tier: high-performance
+  taints:
+    - key: storage
+      effect: NoSchedule
+```
+
+### Automatic Dependency Resolution
+
+Kustodian builds a dependency graph from your templates and:
+- Detects circular dependencies before deployment
+- Computes the correct deployment order
+- Validates all references exist
+
+### Flux CD Integration
+
+Generates production-ready Flux Kustomizations with:
+- Proper `dependsOn` relationships
+- Health checks for readiness
+- Namespace creation
+- Source references
+
+### Node Management with k0s
+
+Kustodian manages Kubernetes nodes primarily through [k0s](https://k0sproject.io/), a lightweight, certified Kubernetes distribution. Bootstrap and configure your cluster nodes directly from your configuration:
+
+```bash
+kustodian bootstrap --cluster production
+kustodian apply --cluster production
+```
+
+## How It Works
+
+1. **Define templates** for your applications in `templates/`
+2. **Configure clusters** in `clusters/<name>/cluster.yaml`
+3. **Define nodes** with optional profiles in `clusters/<name>/nodes/`
+4. **Commit and push**—Kustodian generates Flux manifests automatically during reconciliation
+
+No generate step. No committing generated files. Just your source configuration.
+
+## Next Steps
+
+- [Installation](/getting-started/installation/) - Install the Kustodian CLI
+- [Quick Start](/getting-started/quick-start/) - Create your first project in 5 minutes
+- [Core Concepts](/concepts/overview/) - Understand how Kustodian works

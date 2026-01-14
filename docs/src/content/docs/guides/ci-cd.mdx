@@ -1,0 +1,270 @@
+---
+title: CI/CD Integration
+description: Automating Kustodian validation in continuous integration pipelines
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+Integrate Kustodian into your CI/CD pipeline to validate configuration before deployment. Since Kustodian generates Flux manifests in real-time during reconciliation, CI focuses on validation rather than manifest generation.
+
+## Pipeline Overview
+
+A typical Kustodian CI/CD pipeline:
+
+1. **Validate** - Check configuration for errors
+2. **Commit** - Push validated changes
+3. **Deploy** - Flux generates and applies manifests automatically
+
+## GitHub Actions
+
+<Tabs>
+<TabItem label="Validate on PR">
+```yaml
+# .github/workflows/validate.yml
+name: Validate
+
+on:
+  pull_request:
+    paths:
+      - 'templates/**'
+      - 'clusters/**'
+      - 'node-profiles/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Kustodian
+        run: bun install -g kustodian
+
+      - name: Validate
+        run: kustodian validate
+```
+</TabItem>
+<TabItem label="Validate on Push">
+```yaml
+# .github/workflows/validate.yml
+name: Validate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'templates/**'
+      - 'clusters/**'
+      - 'node-profiles/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Kustodian
+        run: bun install -g kustodian
+
+      - name: Validate
+        run: kustodian validate --verbose
+```
+</TabItem>
+</Tabs>
+
+## GitLab CI
+
+```yaml
+# .gitlab-ci.yml
+stages:
+  - validate
+
+variables:
+  BUN_VERSION: "1.0"
+
+validate:
+  stage: validate
+  image: oven/bun:${BUN_VERSION}
+  script:
+    - bun install -g kustodian
+    - kustodian validate
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - templates/**/*
+        - clusters/**/*
+        - node-profiles/**/*
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - templates/**/*
+        - clusters/**/*
+        - node-profiles/**/*
+```
+
+## Jenkins Pipeline
+
+```groovy
+// Jenkinsfile
+pipeline {
+    agent {
+        docker {
+            image 'oven/bun:1.0'
+        }
+    }
+
+    stages {
+        stage('Install') {
+            steps {
+                sh 'bun install -g kustodian'
+            }
+        }
+
+        stage('Validate') {
+            steps {
+                sh 'kustodian validate'
+            }
+        }
+    }
+}
+```
+
+## Pre-commit Hooks
+
+Validate locally before committing:
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: local
+    hooks:
+      - id: kustodian-validate
+        name: Validate Kustodian config
+        entry: kustodian validate
+        language: system
+        files: '\.(yaml|yml)$'
+        pass_filenames: false
+```
+
+Install hooks:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+## Makefile Integration
+
+```makefile
+# Makefile
+.PHONY: validate
+
+validate:
+	kustodian validate
+
+ci: validate
+```
+
+## Best Practices
+
+### Validate on Every Change
+
+Always validate configuration before merging:
+
+```bash
+kustodian validate
+```
+
+### Use Verbose Mode for Debugging
+
+When validation fails, use verbose mode for details:
+
+```bash
+kustodian validate --verbose
+```
+
+### Pin Tool Versions
+
+Pin Kustodian version in CI:
+
+```yaml
+- name: Install Kustodian
+  run: bun install -g kustodian@1.0.0
+```
+
+### Cache Dependencies
+
+Cache Bun packages for faster builds:
+
+```yaml
+- uses: actions/cache@v4
+  with:
+    path: ~/.bun/install/cache
+    key: ${{ runner.os }}-bun-${{ hashFiles('**/package.json') }}
+```
+
+<Aside type="tip">
+  Since Kustodian generates manifests in real-time during Flux reconciliation, there's no need to commit generated files. Just validate and push your source configuration.
+</Aside>
+
+## Flux Integration
+
+After CI validates and commits, Flux handles the rest:
+
+1. CI validates configuration
+2. Changes are committed and pushed to Git
+3. Flux detects changes in the repository
+4. Kustodian generates manifests during reconciliation
+5. Resources are deployed to clusters
+
+### Flux Source Configuration
+
+Ensure your Flux GitRepository source is configured:
+
+```yaml
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: flux-system
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: https://github.com/org/infrastructure
+  ref:
+    branch: main
+```
+
+## Troubleshooting
+
+### CI Fails with Validation Errors
+
+Check for:
+
+- Missing profiles
+- Invalid template references
+- Circular dependencies
+
+```bash
+kustodian validate --verbose
+```
+
+### Flux Not Syncing
+
+Verify Flux sees the changes:
+
+```bash
+flux get sources git
+flux reconcile source git flux-system
+```
+
+## Next Steps
+
+- [Multi-Cluster Setup](/guides/multi-cluster/) - Managing multiple environments
+- [Flux Integration](/concepts/flux-integration/) - How Flux works with Kustodian
+- [CLI Reference](/reference/cli/validate/) - Validation options

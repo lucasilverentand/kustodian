@@ -1,0 +1,216 @@
+---
+title: Node Profiles
+description: Create reusable node configurations for consistency and reduced duplication
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Node profiles are reusable configurations that define labels, taints, and annotations for nodes. They help reduce duplication and ensure consistency across nodes with similar purposes.
+
+## The Problem
+
+Without profiles, you might have repeated configuration across nodes:
+
+```yaml
+# clusters/production/nodes/storage-01.yaml
+apiVersion: kustodian.io/v1
+kind: Node
+metadata:
+  name: storage-01
+spec:
+  role: worker
+  address: 192.168.1.10
+  labels:
+    storage: nvme
+    storage-tier: high-performance
+  taints:
+    - key: storage
+      value: nvme
+      effect: NoSchedule
+
+# clusters/production/nodes/storage-02.yaml - Same labels and taints!
+# clusters/production/nodes/storage-03.yaml - Same labels and taints!
+```
+
+## The Solution
+
+Define a profile once, reference it from nodes:
+
+```yaml
+# node-profiles/storage-node.yaml
+apiVersion: kustodian.io/v1
+kind: NodeProfile
+metadata:
+  name: storage-node
+spec:
+  name: Storage Node
+  description: Node with NVMe storage for high-performance workloads
+  labels:
+    storage: nvme
+    storage-tier: high-performance
+  taints:
+    - key: storage
+      value: nvme
+      effect: NoSchedule
+  annotations:
+    description: High-performance storage node
+```
+
+```yaml
+# clusters/production/nodes/storage-01.yaml
+apiVersion: kustodian.io/v1
+kind: Node
+metadata:
+  name: storage-01
+spec:
+  role: worker
+  address: 192.168.1.10
+  profile: storage-node  # Just reference the profile!
+```
+
+## Profile Structure
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: NodeProfile
+metadata:
+  name: <profile-id>  # Used in node's `profile` field
+spec:
+  name: <display-name>        # Optional human-readable name
+  description: <description>  # Optional description
+  labels:                     # Labels to apply
+    <key>: <value>
+  taints:                     # Taints to apply
+    - key: <key>
+      value: <value>          # Optional
+      effect: NoSchedule|PreferNoSchedule|NoExecute
+  annotations:                # Annotations to apply
+    <key>: <value>
+```
+
+## Merging Behavior
+
+When a node references a profile, values are merged with these rules:
+
+### Labels and Annotations
+
+Profile values are the base; node values override:
+
+```yaml
+# Profile
+labels:
+  storage: nvme
+  tier: standard
+
+# Node
+labels:
+  tier: premium    # Overrides profile
+  rack: A1         # Added
+
+# Result
+labels:
+  storage: nvme    # From profile
+  tier: premium    # Node override
+  rack: A1         # From node
+```
+
+### Taints
+
+Taints are deduplicated by `key` + `effect`. Node taints override profile taints with the same key and effect:
+
+```yaml
+# Profile
+taints:
+  - key: storage
+    value: standard
+    effect: NoSchedule
+
+# Node
+taints:
+  - key: storage
+    value: premium    # Same key+effect, overrides
+    effect: NoSchedule
+  - key: gpu
+    effect: NoSchedule  # New taint, added
+
+# Result
+taints:
+  - key: storage
+    value: premium     # Node value wins
+    effect: NoSchedule
+  - key: gpu
+    effect: NoSchedule # Added from node
+```
+
+<Aside type="note">
+  SSH configuration is **not** inherited from profiles. SSH settings are always node-specific.
+</Aside>
+
+## Common Profile Patterns
+
+### Storage Nodes
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: NodeProfile
+metadata:
+  name: storage-node
+spec:
+  labels:
+    node-type: storage
+    storage: nvme
+  taints:
+    - key: storage-only
+      effect: NoSchedule
+```
+
+### GPU Nodes
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: NodeProfile
+metadata:
+  name: gpu-node
+spec:
+  labels:
+    nvidia.com/gpu: "true"
+    gpu-type: rtx3090
+  taints:
+    - key: nvidia.com/gpu
+      effect: NoSchedule
+```
+
+### Control Plane Nodes
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: NodeProfile
+metadata:
+  name: control-plane
+spec:
+  labels:
+    node-role.kubernetes.io/control-plane: ""
+  taints:
+    - key: node-role.kubernetes.io/control-plane
+      effect: NoSchedule
+```
+
+## Validation
+
+Kustodian validates that:
+
+- All referenced profiles exist
+- Profile names are valid identifiers
+- Taint effects are valid Kubernetes values
+
+If a node references a non-existent profile, you'll get a clear error:
+
+```
+Profile 'missing-profile' not found, referenced by nodes: node-01, node-02
+```
+
+## Next Steps
+
+- [Defining Nodes](/guides/defining-nodes/) - How to define nodes
+- [Using Profiles](/guides/using-profiles/) - Practical guide to profiles
+- [NodeProfile Reference](/reference/config/profile/) - Complete schema

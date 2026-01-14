@@ -1,0 +1,242 @@
+---
+title: Creating Templates
+description: Step-by-step guide to creating reusable application templates
+---
+
+import { Steps, Aside, FileTree } from '@astrojs/starlight/components';
+
+This guide walks you through creating a template from scratch, covering directory structure, configuration, and best practices.
+
+## Template Overview
+
+A template packages a Kubernetes application for deployment across multiple clusters. It consists of:
+
+- A `template.yaml` defining the template configuration
+- One or more Kustomize directories containing manifests
+
+## Creating Your First Template
+
+<Steps>
+
+1. **Create the template directory**
+
+   ```bash
+   mkdir -p templates/my-app/manifests
+   ```
+
+2. **Create the template configuration**
+
+   ```yaml
+   # templates/my-app/template.yaml
+   apiVersion: kustodian.io/v1
+   kind: Template
+   metadata:
+     name: my-app
+   spec:
+     kustomizations:
+       - name: my-app
+         path: ./manifests
+         namespace:
+           default: my-app
+           create: true
+   ```
+
+3. **Add your Kubernetes manifests**
+
+   ```yaml
+   # templates/my-app/manifests/deployment.yaml
+   apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+     name: my-app
+   spec:
+     replicas: ${REPLICA_COUNT}
+     selector:
+       matchLabels:
+         app: my-app
+     template:
+       metadata:
+         labels:
+           app: my-app
+       spec:
+         containers:
+           - name: my-app
+             image: my-app:${IMAGE_TAG}
+             ports:
+               - containerPort: 8080
+   ```
+
+4. **Create the kustomization.yaml**
+
+   ```yaml
+   # templates/my-app/manifests/kustomization.yaml
+   apiVersion: kustomize.config.k8s.io/v1beta1
+   kind: Kustomization
+   resources:
+     - deployment.yaml
+     - service.yaml
+   ```
+
+5. **Add substitution variables**
+
+   ```yaml
+   # templates/my-app/template.yaml
+   spec:
+     kustomizations:
+       - name: my-app
+         path: ./manifests
+         namespace:
+           default: my-app
+           create: true
+         substitutions:
+           - name: REPLICA_COUNT
+             default: "1"
+           - name: IMAGE_TAG
+             default: "latest"
+   ```
+
+</Steps>
+
+## Final Template Structure
+
+<FileTree>
+
+- templates/
+  - my-app/
+    - template.yaml
+    - manifests/
+      - kustomization.yaml
+      - deployment.yaml
+      - service.yaml
+
+</FileTree>
+
+## Adding Dependencies
+
+If your template depends on other templates:
+
+```yaml
+spec:
+  kustomizations:
+    - name: my-app
+      path: ./manifests
+      depends_on:
+        - kustomization: cert-manager/cert-manager
+```
+
+## Adding Health Checks
+
+Ensure resources are ready before dependents proceed:
+
+```yaml
+spec:
+  kustomizations:
+    - name: my-app
+      path: ./manifests
+      health_checks:
+        - kind: Deployment
+          name: my-app
+```
+
+## Multi-Component Templates
+
+For complex applications with multiple components:
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Template
+metadata:
+  name: my-stack
+spec:
+  kustomizations:
+    - name: database
+      path: ./database
+      namespace:
+        default: my-stack
+        create: true
+      health_checks:
+        - kind: StatefulSet
+          name: postgres
+
+    - name: cache
+      path: ./cache
+      namespace:
+        default: my-stack
+      depends_on:
+        - kustomization: my-stack/database
+
+    - name: api
+      path: ./api
+      namespace:
+        default: my-stack
+      depends_on:
+        - kustomization: my-stack/database
+        - kustomization: my-stack/cache
+```
+
+## Using the Template
+
+Add the template to a cluster:
+
+```yaml
+# clusters/production/cluster.yaml
+spec:
+  templates:
+    - my-app
+    # Or with values:
+    - name: my-app
+      values:
+        REPLICA_COUNT: "3"
+        IMAGE_TAG: "v1.2.3"
+```
+
+## Validating Your Template
+
+Check for errors:
+
+```bash
+kustodian validate
+```
+
+## Best Practices
+
+### Keep Templates Focused
+
+Each template should represent a single application or tightly coupled set of components.
+
+### Use Sensible Defaults
+
+Provide defaults suitable for development environments:
+
+```yaml
+substitutions:
+  - name: REPLICA_COUNT
+    default: "1"
+  - name: LOG_LEVEL
+    default: "debug"
+```
+
+### Document Your Variables
+
+Add comments explaining each substitution:
+
+```yaml
+substitutions:
+  - name: REPLICA_COUNT
+    default: "1"
+    # Number of pod replicas. Use 3+ for production.
+```
+
+### Test Locally
+
+Use `kustomize build` to test your manifests:
+
+```bash
+kustomize build templates/my-app/manifests
+```
+
+## Next Steps
+
+- [Template Dependencies](/guides/template-dependencies/) - Managing dependencies
+- [Substitutions](/concepts/substitutions/) - Variable configuration
+- [Template Reference](/reference/config/template/) - Complete schema

@@ -1,0 +1,131 @@
+---
+title: kustodian bootstrap
+description: Bootstrap Kubernetes nodes via SSH
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The `bootstrap` command initializes Kubernetes nodes using provider-specific plugins via SSH. Currently, k0s is the primary supported provider.
+
+## Usage
+
+```bash
+kustodian bootstrap [options]
+```
+
+## Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--cluster <name>` | Target cluster | Required |
+| `--node <name>` | Bootstrap specific node | All nodes |
+| `--dry-run` | Show commands without executing | `false` |
+
+## Examples
+
+### Bootstrap All Nodes
+
+```bash
+kustodian bootstrap --cluster production
+```
+
+Bootstraps all nodes in the production cluster using k0s.
+
+### Bootstrap Specific Node
+
+```bash
+kustodian bootstrap --cluster production --node controller-01
+```
+
+Bootstraps only the `controller-01` node.
+
+### Dry Run
+
+```bash
+kustodian bootstrap --cluster production --dry-run
+```
+
+Shows what commands would be executed without running them.
+
+## SSH Requirements
+
+Bootstrap requires SSH access to nodes. Configure SSH in your cluster or node definitions:
+
+```yaml
+# Cluster defaults
+spec:
+  node_defaults:
+    ssh:
+      user: ubuntu
+      key_path: ~/.ssh/cluster_key
+
+# Or per-node
+spec:
+  ssh:
+    user: deploy
+    port: 2222
+    key_path: ~/.ssh/node_key
+```
+
+## Bootstrap Process
+
+### Controller Nodes
+
+1. Connect via SSH
+2. Install k0s
+3. Initialize control plane
+4. Configure networking
+
+### Worker Nodes
+
+1. Connect via SSH
+2. Install k0s
+3. Join the cluster
+
+## Node Order
+
+Nodes are bootstrapped in order:
+
+1. Controller nodes first (for control plane)
+2. Worker nodes after control plane is ready
+3. Controller+worker nodes with control plane first
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success |
+| `1` | Cluster not found |
+| `2` | SSH connection failed |
+| `3` | Bootstrap command failed |
+
+## Best Practices
+
+### Test SSH First
+
+Ensure SSH access works before bootstrapping:
+
+```bash
+ssh -i ~/.ssh/cluster_key ubuntu@192.168.1.10
+```
+
+### Bootstrap Controllers First
+
+When bootstrapping manually, do controllers before workers:
+
+```bash
+kustodian bootstrap --cluster prod --node controller-01
+kustodian bootstrap --cluster prod --node controller-02
+kustodian bootstrap --cluster prod --node worker-01
+```
+
+### Use Dry Run for Verification
+
+```bash
+kustodian bootstrap --cluster production --dry-run
+```
+
+## Related Commands
+
+- [`kustodian apply`](/reference/cli/apply/) - Apply node labels after bootstrap
+- [`kustodian validate`](/reference/cli/validate/) - Validate before bootstrap

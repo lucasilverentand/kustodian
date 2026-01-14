@@ -1,0 +1,224 @@
+---
+title: Template Configuration
+description: Complete reference for template.yaml files
+---
+
+Template configuration files define reusable application deployments with kustomizations, dependencies, and substitution variables.
+
+## Schema
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Template
+metadata:
+  name: <template-name>
+spec:
+  kustomizations:
+    - name: <kustomization-name>
+      path: <kustomize-path>
+      namespace:
+        default: <namespace>
+        create: <boolean>
+      depends_on:
+        - kustomization: <template/kustomization>
+      health_checks:
+        - kind: <resource-kind>
+          name: <resource-name>
+          namespace: <namespace>
+      substitutions:
+        - name: <VARIABLE_NAME>
+          default: <value>
+          secret: <secret-name>
+```
+
+## Fields
+
+### apiVersion
+
+| | |
+|-|-|
+| **Required** | Yes |
+| **Type** | String |
+| **Value** | `kustodian.io/v1` |
+
+### kind
+
+| | |
+|-|-|
+| **Required** | Yes |
+| **Type** | String |
+| **Value** | `Template` |
+
+### metadata.name
+
+| | |
+|-|-|
+| **Required** | Yes |
+| **Type** | String |
+
+Unique identifier for the template.
+
+### spec.kustomizations
+
+| | |
+|-|-|
+| **Required** | Yes |
+| **Type** | Array |
+
+List of kustomizations in this template.
+
+#### kustomization.name
+
+| | |
+|-|-|
+| **Required** | Yes |
+| **Type** | String |
+
+Unique identifier within the template.
+
+#### kustomization.path
+
+| | |
+|-|-|
+| **Required** | Yes |
+| **Type** | String |
+
+Path to Kustomize directory (relative to template).
+
+#### kustomization.namespace
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | Object |
+
+Namespace configuration.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `default` | String | No | - | Target namespace |
+| `create` | Boolean | No | `true` | Create namespace if missing |
+
+#### kustomization.depends_on
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | Array |
+
+Dependencies on other kustomizations.
+
+```yaml
+depends_on:
+  - kustomization: cert-manager/cert-manager
+  - kustomization: my-template/crds
+```
+
+Format: `<template-name>/<kustomization-name>`
+
+#### kustomization.health_checks
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | Array |
+
+Resources to check for readiness.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `kind` | String | Yes | Resource kind (e.g., `Deployment`, `StatefulSet`) |
+| `name` | String | Yes | Resource name |
+| `namespace` | String | No | Resource namespace (defaults to kustomization namespace) |
+
+Supported kinds:
+- `Deployment`
+- `StatefulSet`
+- `DaemonSet`
+- `Service`
+- `CustomResourceDefinition`
+
+#### kustomization.substitutions
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | Array |
+
+Variable definitions for post-build substitution.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | String | Yes | Variable name (uppercase recommended) |
+| `default` | String | No | Default value |
+| `secret` | String | No | Reference to Kubernetes secret |
+
+## Complete Example
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Template
+metadata:
+  name: monitoring
+spec:
+  kustomizations:
+    - name: prometheus-crds
+      path: ./prometheus/crds
+      namespace:
+        default: monitoring
+        create: true
+      health_checks:
+        - kind: CustomResourceDefinition
+          name: prometheuses.monitoring.coreos.com
+
+    - name: prometheus-operator
+      path: ./prometheus/operator
+      namespace:
+        default: monitoring
+      depends_on:
+        - kustomization: monitoring/prometheus-crds
+      health_checks:
+        - kind: Deployment
+          name: prometheus-operator
+      substitutions:
+        - name: OPERATOR_IMAGE
+          default: "quay.io/prometheus-operator/prometheus-operator:v0.70.0"
+
+    - name: prometheus
+      path: ./prometheus/instance
+      namespace:
+        default: monitoring
+      depends_on:
+        - kustomization: monitoring/prometheus-operator
+      substitutions:
+        - name: RETENTION_DAYS
+          default: "15"
+        - name: STORAGE_SIZE
+          default: "50Gi"
+
+    - name: grafana
+      path: ./grafana
+      namespace:
+        default: monitoring
+      depends_on:
+        - kustomization: monitoring/prometheus
+      substitutions:
+        - name: ADMIN_PASSWORD
+          secret: grafana-admin
+```
+
+## Directory Structure
+
+```
+templates/
+└── <template-name>/
+    ├── template.yaml
+    └── <kustomize-dirs>/
+        └── kustomization.yaml
+```
+
+## Related Resources
+
+- [Templates Concept](/concepts/templates/) - Template overview
+- [Creating Templates](/guides/creating-templates/) - Step-by-step guide
+- [Template Dependencies](/guides/template-dependencies/) - Dependency management

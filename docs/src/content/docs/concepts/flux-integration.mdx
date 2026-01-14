@@ -1,0 +1,257 @@
+---
+title: Flux Integration
+description: How Kustodian generates and manages Flux CD resources
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Kustodian generates [Flux CD](https://fluxcd.io/) Kustomization resources that deploy your templates to Kubernetes clusters. Understanding this integration helps you leverage Flux's full capabilities.
+
+## What Gets Generated
+
+For each template kustomization, Kustodian generates a Flux Kustomization:
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: nginx
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  path: ./templates/nginx/manifests
+  prune: true
+  wait: true
+  targetNamespace: nginx
+  postBuild:
+    substitute:
+      REPLICA_COUNT: "3"
+```
+
+## Source Reference
+
+Configure the Flux source in your cluster:
+
+```yaml
+# cluster.yaml
+spec:
+  flux:
+    source_ref:
+      kind: GitRepository
+      name: flux-system
+      namespace: flux-system
+```
+
+### Supported Source Types
+
+| Kind | Description |
+|------|-------------|
+| `GitRepository` | Git repository (most common) |
+| `OCIRepository` | OCI container registry |
+| `Bucket` | S3-compatible storage |
+
+## Reconciliation Settings
+
+Control how Flux reconciles resources:
+
+```yaml
+spec:
+  flux:
+    interval: 10m      # How often to check for changes
+    prune: true        # Remove resources when deleted from source
+    wait: true         # Wait for resources to be ready
+    timeout: 5m        # Timeout for reconciliation
+    retry_interval: 1m # Retry interval on failure
+```
+
+<Aside type="tip">
+  Use shorter intervals for development clusters and longer intervals for production to reduce API server load.
+</Aside>
+
+## Dependencies
+
+Kustodian translates template dependencies into Flux `dependsOn`:
+
+```yaml
+# Template definition
+spec:
+  kustomizations:
+    - name: app
+      depends_on:
+        - kustomization: cert-manager/cert-manager
+```
+
+Generates:
+
+```yaml
+# Generated Flux Kustomization
+spec:
+  dependsOn:
+    - name: cert-manager
+      namespace: flux-system
+```
+
+### Dependency Resolution
+
+Dependencies use the format `<template>/<kustomization>`:
+
+- `cert-manager/cert-manager` - The `cert-manager` kustomization in the `cert-manager` template
+- `monitoring/prometheus-crds` - The `prometheus-crds` kustomization in the `monitoring` template
+
+## Health Checks
+
+Template health checks become Flux health checks:
+
+```yaml
+# Template definition
+spec:
+  kustomizations:
+    - name: nginx
+      health_checks:
+        - kind: Deployment
+          name: nginx
+          namespace: nginx
+```
+
+Generates:
+
+```yaml
+# Generated Flux Kustomization
+spec:
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: nginx
+      namespace: nginx
+```
+
+## Namespace Handling
+
+Kustodian can create target namespaces automatically:
+
+```yaml
+# Template definition
+spec:
+  kustomizations:
+    - name: app
+      namespace:
+        default: my-app
+        create: true
+```
+
+This sets `targetNamespace` and generates a namespace resource if `create: true`.
+
+## Variable Substitution
+
+Substitutions are converted to Flux's `postBuild`:
+
+```yaml
+# From template + cluster values
+postBuild:
+  substitute:
+    REPLICA_COUNT: "3"
+    ENVIRONMENT: production
+  substituteFrom:
+    - kind: Secret
+      name: app-secrets
+```
+
+## Output Structure
+
+Generated manifests are written to each cluster's `flux/` directory:
+
+```
+clusters/
+└── production/
+    ├── cluster.yaml
+    ├── nodes/
+    └── flux/                    # Generated output
+        ├── cert-manager.yaml
+        ├── ingress-nginx.yaml
+        └── monitoring.yaml
+```
+
+Each file contains Flux Kustomizations for that template.
+
+## Working with Flux
+
+### Applying to Cluster
+
+The generated manifests work with standard Flux workflows:
+
+```bash
+# Apply with kubectl
+kubectl apply -f clusters/production/flux/
+
+# Or let Flux sync from Git
+git add clusters/production/flux/
+git commit -m "Update production manifests"
+git push
+```
+
+### Checking Status
+
+Use Flux CLI to check reconciliation:
+
+```bash
+flux get kustomizations
+flux logs --kind=Kustomization --name=nginx
+```
+
+### Forcing Reconciliation
+
+```bash
+flux reconcile kustomization nginx
+```
+
+## Common Patterns
+
+### CRDs Before Operators
+
+Ensure CRDs are ready before deploying operators:
+
+```yaml
+spec:
+  kustomizations:
+    - name: crds
+      path: ./crds
+      health_checks:
+        - kind: CustomResourceDefinition
+          name: certificates.cert-manager.io
+
+    - name: operator
+      path: ./operator
+      depends_on:
+        - kustomization: cert-manager/crds
+```
+
+### Staged Rollouts
+
+Deploy in stages with dependencies:
+
+```yaml
+spec:
+  kustomizations:
+    - name: namespace
+      path: ./namespace
+
+    - name: config
+      path: ./config
+      depends_on:
+        - kustomization: app/namespace
+
+    - name: deployment
+      path: ./deployment
+      depends_on:
+        - kustomization: app/config
+```
+
+## Next Steps
+
+- [Flux CD Documentation](https://fluxcd.io/flux/) - Official Flux docs
+- [Template Dependencies](/guides/template-dependencies/) - Managing dependencies
+- [Cluster Reference](/reference/config/cluster/) - Flux configuration options

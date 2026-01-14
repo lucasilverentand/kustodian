@@ -1,0 +1,267 @@
+---
+title: Cluster Configuration
+description: Complete reference for cluster.yaml files
+---
+
+Cluster configuration files define target Kubernetes environments with their templates, values, and node settings.
+
+## Schema
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Cluster
+metadata:
+  name: <cluster-name>
+spec:
+  flux:
+    source_ref:
+      kind: <source-kind>
+      name: <source-name>
+      namespace: <source-namespace>
+    interval: <duration>
+    prune: <boolean>
+    wait: <boolean>
+    timeout: <duration>
+    retry_interval: <duration>
+  templates:
+    - <template-name>
+    - name: <template-name>
+      values:
+        <KEY>: <value>
+  values:
+    <KEY>: <value>
+  node_defaults:
+    label_prefix: <prefix>
+    ssh:
+      user: <username>
+      port: <port>
+      key_path: <path>
+      known_hosts_path: <path>
+  nodes:
+    - <path>
+```
+
+## Fields
+
+### apiVersion
+
+| | |
+|-|-|
+| **Required** | Yes |
+| **Type** | String |
+| **Value** | `kustodian.io/v1` |
+
+### kind
+
+| | |
+|-|-|
+| **Required** | Yes |
+| **Type** | String |
+| **Value** | `Cluster` |
+
+### metadata.name
+
+| | |
+|-|-|
+| **Required** | Yes |
+| **Type** | String |
+
+Unique identifier for the cluster.
+
+### spec.flux
+
+Flux reconciliation settings.
+
+#### spec.flux.source_ref
+
+| | |
+|-|-|
+| **Required** | Yes |
+| **Type** | Object |
+
+Flux source reference.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `kind` | String | Yes | Source type: `GitRepository`, `OCIRepository`, or `Bucket` |
+| `name` | String | Yes | Source name |
+| `namespace` | String | Yes | Source namespace |
+
+#### spec.flux.interval
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | String (duration) |
+| **Default** | `10m` |
+
+Reconciliation interval (e.g., `5m`, `1h`).
+
+#### spec.flux.prune
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | Boolean |
+| **Default** | `false` |
+
+Remove resources when deleted from source.
+
+#### spec.flux.wait
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | Boolean |
+| **Default** | `true` |
+
+Wait for resources to be ready.
+
+#### spec.flux.timeout
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | String (duration) |
+| **Default** | `5m` |
+
+Timeout for reconciliation.
+
+#### spec.flux.retry_interval
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | String (duration) |
+| **Default** | `1m` |
+
+Retry interval on failure.
+
+### spec.templates
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | Array |
+
+Templates to deploy to this cluster.
+
+Can be specified as:
+- String: Template name
+- Object: Template with value overrides
+
+```yaml
+templates:
+  - nginx                    # Simple reference
+  - name: app               # With overrides
+    values:
+      REPLICA_COUNT: "5"
+```
+
+### spec.values
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | Object |
+
+Substitution values for all templates.
+
+```yaml
+values:
+  ENVIRONMENT: production
+  DOMAIN: app.example.com
+```
+
+### spec.node_defaults
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | Object |
+
+Default settings for all nodes.
+
+#### spec.node_defaults.label_prefix
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | String |
+
+Prefix for labels without a domain.
+
+#### spec.node_defaults.ssh
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | Object |
+
+Default SSH settings.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `user` | String | No | - | SSH username |
+| `port` | Integer | No | `22` | SSH port |
+| `key_path` | String | No | `~/.ssh/id_rsa` | Path to private key |
+| `known_hosts_path` | String | No | `~/.ssh/known_hosts` | Path to known_hosts |
+
+### spec.nodes
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | Array |
+| **Default** | `["nodes/"]` |
+
+Paths to node definition files or directories.
+
+## Complete Example
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Cluster
+metadata:
+  name: production
+spec:
+  flux:
+    source_ref:
+      kind: GitRepository
+      name: flux-system
+      namespace: flux-system
+    interval: 10m
+    prune: true
+    wait: true
+    timeout: 10m
+  templates:
+    - cert-manager
+    - ingress-nginx
+    - name: app
+      values:
+        REPLICA_COUNT: "5"
+  values:
+    ENVIRONMENT: production
+    DOMAIN: app.example.com
+    LOG_LEVEL: warn
+  node_defaults:
+    label_prefix: example.com
+    ssh:
+      user: deploy
+      key_path: ~/.ssh/production_key
+  nodes:
+    - nodes/
+```
+
+## Location
+
+```
+clusters/
+└── <cluster-name>/
+    └── cluster.yaml
+```
+
+## Related Resources
+
+- [Clusters Concept](/concepts/clusters/) - Cluster overview
+- [Multi-Cluster Setup](/guides/multi-cluster/) - Managing multiple clusters

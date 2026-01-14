@@ -1,0 +1,193 @@
+---
+title: kustodian apply
+description: Apply node labels, taints, and annotations to Kubernetes nodes
+---
+
+The `apply` command synchronizes node configuration from your Kustodian definitions to the actual Kubernetes cluster.
+
+## Usage
+
+```bash
+kustodian apply [options]
+```
+
+## Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--cluster <name>` | Target cluster | Required |
+| `--kubeconfig <path>` | Path to kubeconfig | `~/.kube/config` |
+| `--context <name>` | Kubernetes context to use | Current context |
+| `--dry-run` | Show changes without applying | `false` |
+
+## Examples
+
+### Apply to Cluster
+
+```bash
+kustodian apply --cluster production
+```
+
+Applies labels, taints, and annotations from node definitions to the production cluster.
+
+### Dry Run
+
+```bash
+kustodian apply --cluster production --dry-run
+```
+
+Shows what changes would be made without applying them.
+
+### Custom Kubeconfig
+
+```bash
+kustodian apply --cluster production --kubeconfig ~/.kube/prod-config
+```
+
+Uses the specified kubeconfig file.
+
+### Specific Context
+
+```bash
+kustodian apply --cluster production --context prod-cluster
+```
+
+Uses the specified Kubernetes context.
+
+## What Gets Applied
+
+### Labels
+
+Labels defined in nodes (including from profiles) are applied to Kubernetes nodes:
+
+```yaml
+# Node definition
+spec:
+  labels:
+    storage: nvme
+    zone: us-east-1a
+```
+
+### Taints
+
+Taints are applied with proper effects:
+
+```yaml
+# Node definition
+spec:
+  taints:
+    - key: dedicated
+      value: database
+      effect: NoSchedule
+```
+
+### Annotations
+
+Annotations are applied similarly:
+
+```yaml
+# Node definition
+spec:
+  annotations:
+    description: Primary database node
+```
+
+### Label Prefixing
+
+Labels are prefixed according to cluster configuration:
+
+```yaml
+# Cluster config
+node_defaults:
+  label_prefix: mycompany.io
+
+# Node definition
+labels:
+  storage: nvme  # Becomes mycompany.io/storage=nvme
+```
+
+## Dry Run Output
+
+```
+Cluster: production
+Node: worker-01
+  Labels to add:
+    + mycompany.io/storage=nvme
+    + topology.kubernetes.io/zone=us-east-1a
+  Labels to update:
+    ~ mycompany.io/tier: standard → premium
+  Taints to add:
+    + dedicated=database:NoSchedule
+
+Node: worker-02
+  No changes needed
+```
+
+## Node Matching
+
+Nodes are matched by name. The `metadata.name` in the node definition must match the Kubernetes node name:
+
+```yaml
+metadata:
+  name: worker-01  # Must match `kubectl get nodes` name
+```
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success |
+| `1` | Cluster not found |
+| `2` | Kubernetes connection error |
+| `3` | Node not found in cluster |
+| `4` | Apply error |
+
+## Warnings
+
+### Non-Existent Nodes
+
+```
+Warning: Node 'worker-03' defined but not found in Kubernetes cluster
+```
+
+### Protected Labels
+
+Some labels are protected and won't be modified:
+
+- `kubernetes.io/hostname`
+- `kubernetes.io/os`
+- `kubernetes.io/arch`
+- `node.kubernetes.io/instance-type`
+
+## Best Practices
+
+### Always Dry Run First
+
+```bash
+kustodian apply --cluster production --dry-run
+# Review changes
+kustodian apply --cluster production
+```
+
+### Use After Bootstrap
+
+After bootstrapping nodes, apply labels:
+
+```bash
+kustodian bootstrap --cluster production --provider k0s
+kustodian apply --cluster production
+```
+
+### CI/CD Integration
+
+```yaml
+- name: Apply node configuration
+  run: |
+    kustodian apply --cluster production --dry-run
+    kustodian apply --cluster production
+```
+
+## Related Commands
+
+- [`kustodian bootstrap`](/reference/cli/bootstrap/) - Bootstrap cluster nodes
+- [`kustodian validate`](/reference/cli/validate/) - Validate configuration

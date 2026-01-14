@@ -1,0 +1,241 @@
+---
+title: Node Configuration
+description: Complete reference for node definition files
+---
+
+Node configuration files define Kubernetes cluster members with their roles, network addresses, labels, taints, and SSH configuration.
+
+## Schema
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Node
+metadata:
+  name: <node-name>
+  cluster: <cluster-name>
+spec:
+  role: <node-role>
+  address: <ip-or-hostname>
+  profile: <profile-name>
+  ssh:
+    user: <username>
+    port: <port>
+    key_path: <path>
+    known_hosts_path: <path>
+  labels:
+    <key>: <value>
+  taints:
+    - key: <taint-key>
+      value: <taint-value>
+      effect: <taint-effect>
+  annotations:
+    <key>: <value>
+```
+
+## Fields
+
+### apiVersion
+
+| | |
+|-|-|
+| **Required** | Yes |
+| **Type** | String |
+| **Value** | `kustodian.io/v1` |
+
+### kind
+
+| | |
+|-|-|
+| **Required** | Yes |
+| **Type** | String |
+| **Value** | `Node` |
+
+### metadata.name
+
+| | |
+|-|-|
+| **Required** | Yes |
+| **Type** | String |
+
+Node name. Must match the Kubernetes node name for sync operations.
+
+### metadata.cluster
+
+| | |
+|-|-|
+| **Required** | Yes |
+| **Type** | String |
+
+Name of the cluster this node belongs to.
+
+### spec.role
+
+| | |
+|-|-|
+| **Required** | Yes |
+| **Type** | String |
+| **Values** | `controller`, `worker`, `controller+worker` |
+
+Node role in the cluster.
+
+| Role | Description |
+|------|-------------|
+| `controller` | Control plane only |
+| `worker` | Worker node only |
+| `controller+worker` | Both roles (for small clusters) |
+
+### spec.address
+
+| | |
+|-|-|
+| **Required** | Yes |
+| **Type** | String |
+
+IP address or hostname for SSH access.
+
+### spec.profile
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | String |
+
+Reference to a node profile. Inherits labels, taints, and annotations from the profile.
+
+### spec.ssh
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | Object |
+
+SSH configuration for this node. Overrides cluster defaults.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `user` | String | No | - | SSH username |
+| `port` | Integer | No | `22` | SSH port |
+| `key_path` | String | No | `~/.ssh/id_rsa` | Path to private key |
+| `known_hosts_path` | String | No | `~/.ssh/known_hosts` | Path to known_hosts |
+
+### spec.labels
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | Object |
+
+Kubernetes labels to apply to the node.
+
+```yaml
+labels:
+  topology.kubernetes.io/zone: us-east-1a
+  storage: nvme
+```
+
+Labels without a domain (`/`) are prefixed with the cluster's `label_prefix` if configured.
+
+### spec.taints
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | Array |
+
+Kubernetes taints to apply to the node.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `key` | String | Yes | Taint key |
+| `value` | String | No | Taint value |
+| `effect` | String | Yes | `NoSchedule`, `PreferNoSchedule`, or `NoExecute` |
+
+### spec.annotations
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | Object |
+
+Kubernetes annotations to apply to the node.
+
+## Complete Example
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Node
+metadata:
+  name: worker-gpu-01
+  cluster: production
+spec:
+  role: worker
+  address: 192.168.1.50
+  profile: gpu-node
+  ssh:
+    user: deploy
+    port: 2222
+    key_path: ~/.ssh/gpu_key
+  labels:
+    gpu-model: rtx4090
+    rack: B2
+    topology.kubernetes.io/zone: us-east-1a
+  taints:
+    - key: nvidia.com/gpu
+      effect: NoSchedule
+    - key: dedicated
+      value: ml-training
+      effect: PreferNoSchedule
+  annotations:
+    description: Primary GPU node for ML training
+```
+
+## File Organization
+
+### Individual Files
+
+```
+clusters/<cluster>/nodes/
+├── controller-01.yaml
+├── worker-01.yaml
+└── worker-02.yaml
+```
+
+### Multi-Document Files
+
+```yaml
+# clusters/production/nodes/workers.yaml
+---
+apiVersion: kustodian.io/v1
+kind: Node
+metadata:
+  name: worker-01
+  cluster: production
+spec:
+  role: worker
+  address: 192.168.1.20
+---
+apiVersion: kustodian.io/v1
+kind: Node
+metadata:
+  name: worker-02
+  cluster: production
+spec:
+  role: worker
+  address: 192.168.1.21
+```
+
+## Profile Merging
+
+When a profile is referenced:
+
+- Labels: Node overrides profile
+- Taints: Node overrides profile (by key+effect)
+- Annotations: Node overrides profile
+
+See [Profile Configuration](/reference/config/profile/) for merge details.
+
+## Related Resources
+
+- [Nodes Concept](/concepts/nodes/) - Node overview
+- [Defining Nodes](/guides/defining-nodes/) - Step-by-step guide
+- [Using Profiles](/guides/using-profiles/) - Reduce duplication

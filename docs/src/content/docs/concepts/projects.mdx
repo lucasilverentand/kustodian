@@ -1,0 +1,101 @@
+---
+title: Projects
+description: The root configuration for Kustodian infrastructure
+---
+
+A project is the root of a Kustodian configuration, identified by a `kustodian.yaml` file. It contains templates, clusters, profiles, and all the configuration needed to manage your Kubernetes infrastructure.
+
+## Project File
+
+The `kustodian.yaml` file marks the project root:
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Project
+metadata:
+  name: my-infrastructure
+```
+
+This file is minimal—most configuration lives in templates and clusters.
+
+## Project Discovery
+
+Kustodian finds the project root by searching upward from the current directory for `kustodian.yaml`. This allows you to run commands from any subdirectory:
+
+```bash
+cd clusters/production/nodes
+kustodian validate  # Still finds project root
+```
+
+## Project Structure
+
+A complete project contains:
+
+```
+my-infrastructure/
+├── kustodian.yaml        # Project marker
+├── node-profiles/             # Reusable node profiles
+│   ├── storage-node.yaml
+│   └── gpu-node.yaml
+├── templates/            # Application templates
+│   ├── nginx/
+│   ├── cert-manager/
+│   └── monitoring/
+└── clusters/             # Cluster configurations
+    ├── development/
+    ├── staging/
+    └── production/
+```
+
+## What Gets Loaded
+
+When Kustodian runs, it loads:
+
+1. **Profiles** from `node-profiles/*.yaml`
+2. **Templates** from `templates/*/template.yaml`
+3. **Clusters** from `clusters/*/cluster.yaml`
+4. **Nodes** from each cluster's `nodes/` directory
+
+## Validation
+
+Validate your project without generating:
+
+```bash
+kustodian validate
+```
+
+This checks:
+- Schema validity of all resources
+- Profile references exist
+- Template dependencies are resolvable
+- No circular dependencies
+
+## Best Practices
+
+### Version Control
+
+Keep your project in Git for GitOps:
+
+```bash
+git init
+git add .
+git commit -m "Initial Kustodian project"
+```
+
+### Separate Concerns
+
+- **Profiles**: Shared across all clusters
+- **Templates**: Application definitions
+- **Clusters**: Environment-specific configuration
+
+### Naming Conventions
+
+Use consistent naming:
+- Profile names: `<purpose>-node` (e.g., `storage-node`)
+- Template names: Application name (e.g., `nginx`, `cert-manager`)
+- Cluster names: Environment name (e.g., `production`, `staging`)
+
+## Next Steps
+
+- [Project Structure](/getting-started/project-structure/) - Detailed layout
+- [Quick Start](/getting-started/quick-start/) - Create your first project

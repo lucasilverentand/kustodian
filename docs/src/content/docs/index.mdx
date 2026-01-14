@@ -1,0 +1,69 @@
+---
+title: Kustodian
+description: A GitOps templating framework for Kubernetes with Flux CD
+template: splash
+hero:
+  tagline: Declarative Kubernetes cluster management with reusable templates and GitOps workflows
+  image:
+    file: ../../assets/houston.webp
+  actions:
+    - text: Get Started
+      link: /getting-started/introduction/
+      icon: right-arrow
+    - text: View on GitHub
+      link: https://github.com/lucasilverentand/kustodian
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Why Kustodian?
+
+<CardGrid stagger>
+	<Card title="Reusable Templates" icon="document">
+		Define application deployments once, reuse across clusters with customizable substitutions.
+	</Card>
+	<Card title="Node Profiles" icon="setting">
+		Create reusable node configurations for labels, taints, and annotations—apply them consistently.
+	</Card>
+	<Card title="Flux CD Native" icon="rocket">
+		Generates Flux CD Kustomizations with proper dependencies, health checks, and namespaces.
+	</Card>
+	<Card title="Dependency Management" icon="list-format">
+		Automatic cycle detection and topological sorting ensures correct deployment order.
+	</Card>
+</CardGrid>
+
+## Quick Example
+
+```yaml
+# templates/nginx/template.yaml
+apiVersion: kustodian.io/v1
+kind: Template
+metadata:
+  name: nginx
+spec:
+  kustomizations:
+    - name: nginx
+      path: ./manifests
+      namespace:
+        default: nginx
+```
+
+```yaml
+# clusters/production/cluster.yaml
+apiVersion: kustodian.io/v1
+kind: Cluster
+metadata:
+  name: production
+spec:
+  flux:
+    source_ref:
+      kind: GitRepository
+      name: flux-system
+  templates:
+    - nginx
+```
+
+Commit and push—Flux generates production-ready manifests automatically.

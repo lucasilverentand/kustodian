@@ -1,0 +1,183 @@
+---
+title: Nodes
+description: Defining Kubernetes nodes with roles, labels, and taints
+---
+
+Nodes represent Kubernetes cluster members with their roles, network addresses, and configuration. Kustodian uses node definitions for cluster bootstrapping and label synchronization.
+
+## Node Definition
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Node
+metadata:
+  name: worker-01
+  cluster: production
+spec:
+  role: worker
+  address: 192.168.1.10
+  profile: storage-node        # Optional profile reference
+  ssh:                         # Optional SSH config
+    user: ubuntu
+    port: 22
+  labels:                      # Kubernetes labels
+    rack: A1
+    zone: us-east-1a
+  taints:                      # Kubernetes taints
+    - key: dedicated
+      value: database
+      effect: NoSchedule
+  annotations:                 # Kubernetes annotations
+    description: Primary database node
+```
+
+## Node Roles
+
+Kustodian supports three node roles:
+
+| Role | Description |
+|------|-------------|
+| `controller` | Control plane only |
+| `worker` | Worker node only |
+| `controller+worker` | Both roles (small clusters) |
+
+```yaml
+spec:
+  role: controller+worker  # Single-node cluster
+```
+
+## Labels
+
+Labels are key-value pairs applied to nodes for scheduling and organization:
+
+```yaml
+spec:
+  labels:
+    # Standard Kubernetes labels
+    topology.kubernetes.io/zone: us-east-1a
+    node.kubernetes.io/instance-type: m5.large
+
+    # Custom labels
+    team: platform
+    environment: production
+```
+
+### Label Prefixing
+
+Kustodian can automatically prefix labels. Labels without a `/` get the configured prefix:
+
+```yaml
+# Cluster config
+node_defaults:
+  label_prefix: mycompany.io
+
+# Node labels
+labels:
+  storage: nvme              # Becomes: mycompany.io/storage=nvme
+  kubernetes.io/os: linux    # Unchanged (already has prefix)
+```
+
+## Taints
+
+Taints prevent pods from scheduling unless they tolerate the taint:
+
+```yaml
+spec:
+  taints:
+    - key: dedicated
+      value: database
+      effect: NoSchedule
+
+    - key: gpu
+      effect: NoExecute
+```
+
+### Taint Effects
+
+| Effect | Behavior |
+|--------|----------|
+| `NoSchedule` | New pods won't schedule |
+| `PreferNoSchedule` | Soft preference against scheduling |
+| `NoExecute` | Evicts existing pods too |
+
+## SSH Configuration
+
+For bootstrap operations, nodes need SSH access:
+
+```yaml
+spec:
+  ssh:
+    user: ubuntu
+    port: 22
+    key_path: ~/.ssh/cluster_key
+    known_hosts_path: ~/.ssh/known_hosts
+```
+
+SSH config can be set at the cluster level as defaults:
+
+```yaml
+# cluster.yaml
+spec:
+  node_defaults:
+    ssh:
+      user: ubuntu
+      key_path: ~/.ssh/cluster_key
+```
+
+Node-level SSH config overrides cluster defaults.
+
+## Using Profiles
+
+Instead of repeating labels and taints, use profiles:
+
+```yaml
+spec:
+  profile: storage-node  # Inherits labels, taints, annotations
+  labels:
+    rack: A1             # Additional label
+```
+
+See [Profiles](/concepts/node-profiles/) for details on how merging works.
+
+## File Organization
+
+Nodes can be organized in several ways:
+
+### Individual Files
+
+```
+clusters/production/nodes/
+├── controller-01.yaml
+├── worker-01.yaml
+└── worker-02.yaml
+```
+
+### Multi-document Files
+
+```yaml
+# clusters/production/nodes/workers.yaml
+---
+apiVersion: kustodian.io/v1
+kind: Node
+metadata:
+  name: worker-01
+  cluster: production
+spec:
+  role: worker
+  address: 192.168.1.10
+---
+apiVersion: kustodian.io/v1
+kind: Node
+metadata:
+  name: worker-02
+  cluster: production
+spec:
+  role: worker
+  address: 192.168.1.11
+```
+
+## Next Steps
+
+- [Defining Nodes](/guides/defining-nodes/) - Step-by-step guide
+- [Using Profiles](/guides/using-profiles/) - Reduce duplication
+- [Node Reference](/reference/config/node/) - Complete schema

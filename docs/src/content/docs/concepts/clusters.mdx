@@ -1,0 +1,192 @@
+---
+title: Clusters
+description: Configuring target Kubernetes clusters for deployment
+---
+
+Clusters represent target Kubernetes environments where templates are deployed. Each cluster has its own configuration, nodes, and generated Flux manifests.
+
+## Cluster Configuration
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Cluster
+metadata:
+  name: production
+spec:
+  flux:
+    source_ref:
+      kind: GitRepository
+      name: flux-system
+      namespace: flux-system
+    interval: 10m
+  templates:
+    - nginx
+    - monitoring
+    - cert-manager
+  values:
+    ENVIRONMENT: production
+    REPLICA_COUNT: "3"
+  node_defaults:
+    label_prefix: mycompany.io
+    ssh:
+      user: ubuntu
+```
+
+## Flux Configuration
+
+Configure how Flux Kustomizations are generated:
+
+```yaml
+spec:
+  flux:
+    source_ref:
+      kind: GitRepository      # Source type
+      name: flux-system        # Source name
+      namespace: flux-system   # Source namespace
+    interval: 10m              # Reconciliation interval
+    prune: true                # Remove deleted resources
+    wait: true                 # Wait for resources to be ready
+```
+
+### Source Types
+
+| Kind | Description |
+|------|-------------|
+| `GitRepository` | Git-based source (most common) |
+| `OCIRepository` | OCI artifact source |
+| `Bucket` | S3-compatible bucket |
+
+## Template Selection
+
+List which templates to deploy to this cluster:
+
+```yaml
+spec:
+  templates:
+    - nginx
+    - monitoring
+    - name: cert-manager
+      values:
+        ISSUER_EMAIL: admin@example.com
+```
+
+Templates can be specified as:
+- Simple string (template name)
+- Object with `name` and optional `values` override
+
+## Cluster Values
+
+Set substitution values for all templates in this cluster:
+
+```yaml
+spec:
+  values:
+    ENVIRONMENT: production
+    DOMAIN: example.com
+    REPLICA_COUNT: "3"
+```
+
+Template-specific values override cluster-level values.
+
+## Node Defaults
+
+Configure defaults for all nodes in this cluster:
+
+```yaml
+spec:
+  node_defaults:
+    label_prefix: mycompany.io    # Prefix for labels
+    ssh:
+      user: ubuntu
+      key_path: ~/.ssh/cluster_key
+      port: 22
+```
+
+Individual nodes can override these defaults.
+
+## Node File Paths
+
+Specify where to find node definitions:
+
+```yaml
+spec:
+  nodes:
+    - nodes/              # Default directory
+    - extra-nodes.yaml    # Additional file
+```
+
+Default is `nodes/` directory within the cluster folder.
+
+## Directory Structure
+
+```
+clusters/
+└── production/
+    ├── cluster.yaml      # Cluster configuration
+    ├── nodes/            # Node definitions
+    │   ├── controller-01.yaml
+    │   └── worker-01.yaml
+    └── flux/             # Generated output
+        ├── nginx.yaml
+        └── monitoring.yaml
+```
+
+## Multi-Cluster Setup
+
+Manage multiple environments with shared templates:
+
+```
+clusters/
+├── development/
+│   ├── cluster.yaml
+│   └── nodes/
+├── staging/
+│   ├── cluster.yaml
+│   └── nodes/
+└── production/
+    ├── cluster.yaml
+    └── nodes/
+```
+
+Each cluster can:
+- Use different templates
+- Override substitution values
+- Have different node configurations
+- Generate to its own `flux/` directory
+
+## Example: Production Cluster
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Cluster
+metadata:
+  name: production
+spec:
+  flux:
+    source_ref:
+      kind: GitRepository
+      name: flux-system
+      namespace: flux-system
+    interval: 5m
+    prune: true
+  templates:
+    - cert-manager
+    - ingress-nginx
+    - monitoring
+    - name: app
+      values:
+        REPLICA_COUNT: "5"
+  values:
+    ENVIRONMENT: production
+    DOMAIN: app.example.com
+  node_defaults:
+    label_prefix: example.com
+    ssh:
+      user: deploy
+      key_path: ~/.ssh/prod_key
+```
+
+## Next Steps
+
+- [Multi-Cluster Setup](/guides/multi-cluster/) - Managing multiple clusters
+- [Cluster Reference](/reference/config/cluster/) - Complete schema

@@ -1,0 +1,297 @@
+---
+title: Template Dependencies
+description: Managing deployment order with dependencies and health checks
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Templates often depend on other templates or components being ready before they can function. Kustodian provides dependency management to ensure correct deployment order.
+
+## Dependency Basics
+
+Dependencies ensure one kustomization deploys after another:
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Template
+metadata:
+  name: my-app
+spec:
+  kustomizations:
+    - name: my-app
+      path: ./manifests
+      depends_on:
+        - kustomization: cert-manager/cert-manager
+```
+
+This means `my-app` won't be deployed until `cert-manager` is ready.
+
+## Dependency Format
+
+Dependencies use the format `<template>/<kustomization>`:
+
+```yaml
+depends_on:
+  - kustomization: cert-manager/cert-manager     # External template
+  - kustomization: monitoring/prometheus-crds    # Another template
+  - kustomization: my-app/database               # Same template
+```
+
+## Within Template Dependencies
+
+For multi-component templates, order components with internal dependencies:
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Template
+metadata:
+  name: my-stack
+spec:
+  kustomizations:
+    - name: crds
+      path: ./crds
+
+    - name: operator
+      path: ./operator
+      depends_on:
+        - kustomization: my-stack/crds    # Wait for CRDs
+
+    - name: instance
+      path: ./instance
+      depends_on:
+        - kustomization: my-stack/operator
+```
+
+## Cross-Template Dependencies
+
+Reference kustomizations in other templates:
+
+```yaml
+# templates/app/template.yaml
+spec:
+  kustomizations:
+    - name: app
+      path: ./manifests
+      depends_on:
+        - kustomization: cert-manager/cert-manager
+        - kustomization: ingress-nginx/ingress-nginx
+```
+
+<Aside type="note">
+  The dependent template must be included in the same cluster for the dependency to resolve.
+</Aside>
+
+## Health Checks
+
+Dependencies wait for resources to exist. Health checks wait for resources to be ready:
+
+```yaml
+spec:
+  kustomizations:
+    - name: operator
+      path: ./operator
+      health_checks:
+        - kind: Deployment
+          name: cert-manager
+          namespace: cert-manager
+        - kind: CustomResourceDefinition
+          name: certificates.cert-manager.io
+```
+
+### Supported Health Check Types
+
+| Kind | Use Case |
+|------|----------|
+| `Deployment` | Wait for pods to be ready |
+| `StatefulSet` | Wait for stateful pods |
+| `DaemonSet` | Wait for daemonset rollout |
+| `CustomResourceDefinition` | Wait for CRD to be established |
+| `Service` | Wait for service endpoints |
+
+## Common Dependency Patterns
+
+### CRDs Before Instances
+
+Always deploy CRDs before resources that use them:
+
+```yaml
+spec:
+  kustomizations:
+    - name: prometheus-crds
+      path: ./crds
+      health_checks:
+        - kind: CustomResourceDefinition
+          name: prometheuses.monitoring.coreos.com
+
+    - name: prometheus-operator
+      path: ./operator
+      depends_on:
+        - kustomization: monitoring/prometheus-crds
+
+    - name: prometheus
+      path: ./instance
+      depends_on:
+        - kustomization: monitoring/prometheus-operator
+```
+
+### Certificate Before Ingress
+
+Ensure certificates are ready before ingress:
+
+```yaml
+# cert-manager template
+spec:
+  kustomizations:
+    - name: cert-manager
+      path: ./manifests
+      health_checks:
+        - kind: Deployment
+          name: cert-manager
+          namespace: cert-manager
+
+# ingress template
+spec:
+  kustomizations:
+    - name: ingress-nginx
+      path: ./manifests
+      depends_on:
+        - kustomization: cert-manager/cert-manager
+```
+
+### Database Before Application
+
+Ensure database is ready before app:
+
+```yaml
+spec:
+  kustomizations:
+    - name: database
+      path: ./database
+      health_checks:
+        - kind: StatefulSet
+          name: postgres
+
+    - name: api
+      path: ./api
+      depends_on:
+        - kustomization: my-app/database
+```
+
+## Dependency Validation
+
+Kustodian validates dependencies and detects issues:
+
+### Missing Dependencies
+
+```
+Error: Dependency 'missing-template/kustomization' not found
+```
+
+### Circular Dependencies
+
+```
+Error: Dependency cycle detected: a → b → c → a
+```
+
+### Missing in Cluster
+
+```
+Warning: Template 'cert-manager' referenced as dependency but not included in cluster 'production'
+```
+
+## Generated Flux Output
+
+Dependencies become Flux `dependsOn`:
+
+```yaml
+# Generated Kustomization
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: my-app
+spec:
+  dependsOn:
+    - name: cert-manager
+      namespace: flux-system
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: my-app
+      namespace: my-app
+```
+
+## Best Practices
+
+### Explicit Dependencies
+
+Always declare dependencies explicitly:
+
+```yaml
+# Good - explicit
+depends_on:
+  - kustomization: cert-manager/cert-manager
+  - kustomization: external-dns/external-dns
+
+# Avoid - implicit ordering assumptions
+```
+
+### Health Checks for Critical Resources
+
+Add health checks for resources that must be fully ready:
+
+```yaml
+health_checks:
+  - kind: Deployment
+    name: critical-service
+```
+
+### Minimal Dependency Chains
+
+Keep dependency chains short to reduce deployment time:
+
+```yaml
+# Good - parallel where possible
+a → c
+b → c
+
+# Avoid - unnecessary serial
+a → b → c
+```
+
+### Document Dependencies
+
+Add comments explaining why dependencies exist:
+
+```yaml
+depends_on:
+  # Needs TLS certificates for HTTPS
+  - kustomization: cert-manager/cert-manager
+  # Needs ingress controller for external access
+  - kustomization: ingress-nginx/ingress-nginx
+```
+
+## Debugging Dependencies
+
+### Check Dependency Graph
+
+```bash
+kustodian validate --show-dependencies
+```
+
+### Check Flux Status
+
+```bash
+flux get kustomizations
+```
+
+### View Dependency Errors
+
+```bash
+flux logs --kind=Kustomization --name=my-app
+```
+
+## Next Steps
+
+- [Templates Concept](/concepts/templates/) - Template documentation
+- [Flux Integration](/concepts/flux-integration/) - How dependencies work with Flux
+- [Template Reference](/reference/config/template/) - Complete schema

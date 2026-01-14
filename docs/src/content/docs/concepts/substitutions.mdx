@@ -1,0 +1,216 @@
+---
+title: Substitutions
+description: Variable replacement for environment-specific configuration
+---
+
+Substitutions allow you to parameterize your Kubernetes manifests with variables that can be customized per-cluster or per-template. This enables the same template to work across different environments.
+
+## How Substitutions Work
+
+Kustodian uses Flux's [post-build variable substitution](https://fluxcd.io/flux/components/kustomize/kustomizations/#post-build-variable-substitution) feature. Variables are defined in templates and values are provided at the cluster level.
+
+## Defining Variables
+
+In your template, define which variables are available:
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Template
+metadata:
+  name: app
+spec:
+  kustomizations:
+    - name: app
+      path: ./manifests
+      substitutions:
+        - name: REPLICA_COUNT
+          default: "1"
+        - name: IMAGE_TAG
+          default: "latest"
+        - name: DATABASE_URL
+          # No default - must be provided
+```
+
+### Variable Fields
+
+| Field | Description |
+|-------|-------------|
+| `name` | Variable name (uppercase recommended) |
+| `default` | Default value if not provided |
+| `secret` | Reference to a Kubernetes secret |
+
+## Using Variables in Manifests
+
+Reference variables in your manifests with `${VARIABLE_NAME}`:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+spec:
+  replicas: ${REPLICA_COUNT}
+  template:
+    spec:
+      containers:
+        - name: app
+          image: myapp:${IMAGE_TAG}
+          env:
+            - name: DATABASE_URL
+              value: ${DATABASE_URL}
+```
+
+## Providing Values
+
+### Cluster-Level Values
+
+Set values for all templates in a cluster:
+
+```yaml
+# clusters/production/cluster.yaml
+apiVersion: kustodian.io/v1
+kind: Cluster
+metadata:
+  name: production
+spec:
+  values:
+    ENVIRONMENT: production
+    DOMAIN: app.example.com
+    REPLICA_COUNT: "3"
+```
+
+### Template-Specific Values
+
+Override values for a specific template in a cluster:
+
+```yaml
+spec:
+  templates:
+    - name: app
+      values:
+        REPLICA_COUNT: "5"  # Override cluster default
+        DATABASE_URL: postgres://db.example.com/app
+```
+
+## Value Resolution Order
+
+Values are resolved with this precedence (highest first):
+
+1. Template-specific values in cluster config
+2. Cluster-level values
+3. Template default values
+
+```yaml
+# Template defines
+substitutions:
+  - name: REPLICA_COUNT
+    default: "1"           # Priority 3
+
+# Cluster defines
+values:
+  REPLICA_COUNT: "3"       # Priority 2
+
+# Template override in cluster
+templates:
+  - name: app
+    values:
+      REPLICA_COUNT: "5"   # Priority 1 - This wins
+```
+
+## Secret References
+
+For sensitive values, reference Kubernetes secrets:
+
+```yaml
+substitutions:
+  - name: DATABASE_PASSWORD
+    secret: database-credentials
+```
+
+This generates a Flux Kustomization with:
+
+```yaml
+postBuild:
+  substituteFrom:
+    - kind: Secret
+      name: database-credentials
+```
+
+## Best Practices
+
+### Naming Conventions
+
+Use clear, descriptive names:
+
+```yaml
+# Good
+REPLICA_COUNT: "3"
+DATABASE_HOST: db.example.com
+LOG_LEVEL: info
+
+# Avoid
+R: "3"
+DB: db.example.com
+L: info
+```
+
+### Document Your Variables
+
+Keep a reference of available variables:
+
+```yaml
+substitutions:
+  - name: REPLICA_COUNT
+    default: "1"
+    # Number of pod replicas
+  - name: RESOURCES_CPU
+    default: "100m"
+    # CPU request/limit
+```
+
+### Use Defaults Wisely
+
+Provide sensible defaults for development:
+
+```yaml
+substitutions:
+  - name: REPLICA_COUNT
+    default: "1"      # Single replica for dev
+  - name: LOG_LEVEL
+    default: "debug"  # Verbose logging for dev
+```
+
+Override for production:
+
+```yaml
+values:
+  REPLICA_COUNT: "3"
+  LOG_LEVEL: "warn"
+```
+
+## Generated Output
+
+Kustodian generates Flux Kustomizations with substitutions configured:
+
+```yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: app
+spec:
+  # ...
+  postBuild:
+    substitute:
+      REPLICA_COUNT: "3"
+      IMAGE_TAG: "v1.2.3"
+      ENVIRONMENT: production
+    substituteFrom:
+      - kind: Secret
+        name: database-credentials
+```
+
+## Next Steps
+
+- [Creating Templates](/guides/creating-templates/) - Define templates with substitutions
+- [Multi-Cluster Setup](/guides/multi-cluster/) - Environment-specific values
+- [Template Reference](/reference/config/template/) - Complete schema

@@ -1,0 +1,279 @@
+---
+title: Defining Nodes
+description: Step-by-step guide to defining cluster nodes
+---
+
+import { Steps, Aside, FileTree } from '@astrojs/starlight/components';
+
+This guide covers how to define nodes for your Kubernetes clusters, including roles, labels, taints, and SSH configuration.
+
+## Node Basics
+
+Nodes represent the machines in your Kubernetes cluster. Kustodian uses node definitions for:
+
+- Cluster bootstrapping
+- Label and taint synchronization
+- SSH-based operations
+
+## Creating Node Definitions
+
+<Steps>
+
+1. **Create the nodes directory**
+
+   ```bash
+   mkdir -p clusters/production/nodes
+   ```
+
+2. **Define a controller node**
+
+   ```yaml
+   # clusters/production/nodes/controller-01.yaml
+   apiVersion: kustodian.io/v1
+   kind: Node
+   metadata:
+     name: controller-01
+     cluster: production
+   spec:
+     role: controller
+     address: 192.168.1.10
+     ssh:
+       user: ubuntu
+   ```
+
+3. **Define worker nodes**
+
+   ```yaml
+   # clusters/production/nodes/worker-01.yaml
+   apiVersion: kustodian.io/v1
+   kind: Node
+   metadata:
+     name: worker-01
+     cluster: production
+   spec:
+     role: worker
+     address: 192.168.1.20
+     labels:
+       zone: us-east-1a
+   ```
+
+</Steps>
+
+## Node Roles
+
+Kustodian supports three roles:
+
+| Role | Description |
+|------|-------------|
+| `controller` | Control plane only |
+| `worker` | Worker node only |
+| `controller+worker` | Both roles |
+
+For small clusters or development:
+
+```yaml
+spec:
+  role: controller+worker
+```
+
+## Adding Labels
+
+Labels help with pod scheduling and organization:
+
+```yaml
+spec:
+  labels:
+    # Topology labels
+    topology.kubernetes.io/zone: us-east-1a
+    topology.kubernetes.io/region: us-east-1
+
+    # Custom labels
+    team: platform
+    storage: nvme
+```
+
+### Label Prefixing
+
+Configure automatic label prefixing in your cluster:
+
+```yaml
+# cluster.yaml
+spec:
+  node_defaults:
+    label_prefix: mycompany.io
+```
+
+Labels without a domain are prefixed:
+
+```yaml
+# Node definition
+labels:
+  storage: nvme              # → mycompany.io/storage=nvme
+  kubernetes.io/os: linux    # Unchanged
+```
+
+## Adding Taints
+
+Taints restrict which pods can run on a node:
+
+```yaml
+spec:
+  taints:
+    - key: dedicated
+      value: database
+      effect: NoSchedule
+```
+
+### Taint Effects
+
+| Effect | Behavior |
+|--------|----------|
+| `NoSchedule` | Prevents new pods from scheduling |
+| `PreferNoSchedule` | Soft preference against scheduling |
+| `NoExecute` | Evicts existing pods and prevents new ones |
+
+## SSH Configuration
+
+SSH settings enable bootstrap and management operations:
+
+```yaml
+spec:
+  ssh:
+    user: ubuntu
+    port: 22
+    key_path: ~/.ssh/cluster_key
+    known_hosts_path: ~/.ssh/known_hosts
+```
+
+### Cluster-Level Defaults
+
+Set SSH defaults for all nodes:
+
+```yaml
+# cluster.yaml
+spec:
+  node_defaults:
+    ssh:
+      user: ubuntu
+      key_path: ~/.ssh/cluster_key
+```
+
+Individual nodes can override these defaults.
+
+## Using Profiles
+
+For nodes with common configuration, use profiles:
+
+```yaml
+# node-profiles/storage-node.yaml
+apiVersion: kustodian.io/v1
+kind: NodeProfile
+metadata:
+  name: storage-node
+spec:
+  labels:
+    storage: nvme
+  taints:
+    - key: storage-only
+      effect: NoSchedule
+```
+
+```yaml
+# Node definition
+spec:
+  profile: storage-node
+  labels:
+    rack: A1  # Additional label
+```
+
+See [Using Profiles](/guides/using-profiles/) for details.
+
+## File Organization
+
+### Individual Files
+
+<FileTree>
+
+- clusters/production/nodes/
+  - controller-01.yaml
+  - controller-02.yaml
+  - worker-01.yaml
+  - worker-02.yaml
+
+</FileTree>
+
+### Multi-Document Files
+
+Combine related nodes in one file:
+
+```yaml
+# clusters/production/nodes/controllers.yaml
+---
+apiVersion: kustodian.io/v1
+kind: Node
+metadata:
+  name: controller-01
+  cluster: production
+spec:
+  role: controller
+  address: 192.168.1.10
+---
+apiVersion: kustodian.io/v1
+kind: Node
+metadata:
+  name: controller-02
+  cluster: production
+spec:
+  role: controller
+  address: 192.168.1.11
+```
+
+## Complete Example
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Node
+metadata:
+  name: worker-gpu-01
+  cluster: production
+spec:
+  role: worker
+  address: 192.168.1.50
+  profile: gpu-node
+  ssh:
+    user: deploy
+    port: 2222
+  labels:
+    rack: B2
+    gpu-model: rtx4090
+  taints:
+    - key: nvidia.com/gpu
+      effect: NoSchedule
+  annotations:
+    description: Primary GPU node for ML workloads
+```
+
+## Validation
+
+Validate your node definitions:
+
+```bash
+kustodian validate
+```
+
+This checks:
+
+- Required fields are present
+- Profile references exist
+- SSH configuration is valid
+- Label and taint syntax
+
+<Aside type="caution">
+  Ensure the `cluster` field in metadata matches your cluster name exactly.
+</Aside>
+
+## Next Steps
+
+- [Using Profiles](/guides/using-profiles/) - Reduce duplication
+- [Nodes Concept](/concepts/nodes/) - Detailed node documentation
+- [Node Reference](/reference/config/node/) - Complete schema
