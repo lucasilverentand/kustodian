@@ -82,6 +82,18 @@ export const ErrorCodes = {
   SECRET_NOT_FOUND: 'SECRET_NOT_FOUND',
   SECRET_AUTH_ERROR: 'SECRET_AUTH_ERROR',
   SECRET_TIMEOUT: 'SECRET_TIMEOUT',
+
+  // Source fetching errors
+  SOURCE_FETCH_ERROR: 'SOURCE_FETCH_ERROR',
+  SOURCE_AUTH_ERROR: 'SOURCE_AUTH_ERROR',
+  SOURCE_TIMEOUT: 'SOURCE_TIMEOUT',
+  SOURCE_CHECKSUM_MISMATCH: 'SOURCE_CHECKSUM_MISMATCH',
+  SOURCE_VERSION_NOT_FOUND: 'SOURCE_VERSION_NOT_FOUND',
+
+  // Cache errors
+  CACHE_READ_ERROR: 'CACHE_READ_ERROR',
+  CACHE_WRITE_ERROR: 'CACHE_WRITE_ERROR',
+  CACHE_CORRUPT: 'CACHE_CORRUPT',
 } as const;
 
 export type ErrorCodeType = (typeof ErrorCodes)[keyof typeof ErrorCodes];
@@ -230,6 +242,55 @@ export const Errors = {
       ErrorCodes.SECRET_TIMEOUT,
       `${provider} operation timed out after ${timeout}ms`,
     );
+  },
+
+  source_fetch_error(source: string, cause?: unknown): KustodianErrorType {
+    return create_error(
+      ErrorCodes.SOURCE_FETCH_ERROR,
+      `Failed to fetch template source '${source}'`,
+      cause,
+    );
+  },
+
+  source_auth_error(source: string, cause?: unknown): KustodianErrorType {
+    return create_error(
+      ErrorCodes.SOURCE_AUTH_ERROR,
+      `Authentication failed for source '${source}'`,
+      cause,
+    );
+  },
+
+  source_timeout(source: string, timeout: number): KustodianErrorType {
+    return create_error(
+      ErrorCodes.SOURCE_TIMEOUT,
+      `Source '${source}' operation timed out after ${timeout}ms`,
+    );
+  },
+
+  source_checksum_mismatch(source: string, expected: string, actual: string): KustodianErrorType {
+    return create_error(
+      ErrorCodes.SOURCE_CHECKSUM_MISMATCH,
+      `Checksum mismatch for '${source}': expected ${expected}, got ${actual}`,
+    );
+  },
+
+  source_version_not_found(source: string, version: string): KustodianErrorType {
+    return create_error(
+      ErrorCodes.SOURCE_VERSION_NOT_FOUND,
+      `Version '${version}' not found for source '${source}'`,
+    );
+  },
+
+  cache_read_error(path: string, cause?: unknown): KustodianErrorType {
+    return create_error(ErrorCodes.CACHE_READ_ERROR, `Failed to read cache at: ${path}`, cause);
+  },
+
+  cache_write_error(path: string, cause?: unknown): KustodianErrorType {
+    return create_error(ErrorCodes.CACHE_WRITE_ERROR, `Failed to write cache at: ${path}`, cause);
+  },
+
+  cache_corrupt(path: string): KustodianErrorType {
+    return create_error(ErrorCodes.CACHE_CORRUPT, `Cache is corrupt at: ${path}`);
   },
 } as const;
 
