@@ -1,6 +1,6 @@
 {
   "name": "@kustodian/sources",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Template source fetching and caching for remote Git, HTTP, and OCI sources",
   "type": "module",
   "main": "./src/index.ts",
