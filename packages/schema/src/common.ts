@@ -21,6 +21,7 @@ export const health_check_schema = z.object({
   kind: z.string().min(1),
   name: z.string().min(1),
   namespace: z.string().min(1).optional(),
+  api_version: z.string().min(1).optional(),
 });
 
 export type HealthCheckType = z.infer<typeof health_check_schema>;
@@ -45,6 +46,7 @@ export const generic_substitution_schema = z.object({
   name: z.string().min(1),
   default: z.string().optional(),
   secret: z.string().optional(),
+  preserve_case: z.boolean().optional(),
 });
 
 export type GenericSubstitutionType = z.infer<typeof generic_substitution_schema>;

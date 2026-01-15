@@ -179,7 +179,7 @@ describe('Substitution Engine', () => {
 
   describe('collect_substitution_values', () => {
     const create_kustomization = (
-      substitutions: Array<{ name: string; default?: string }>,
+      substitutions: Array<{ name: string; default?: string; preserve_case?: boolean }>,
     ): KustomizationType => ({
       name: 'test',
       path: './test',
@@ -236,6 +236,23 @@ describe('Substitution Engine', () => {
       // Assert
       expect(result).toEqual({ replicas: '2' });
       expect(result['required_value']).toBeUndefined();
+    });
+
+    it('should preserve case-sensitive values with preserve_case option', () => {
+      // Arrange
+      const kustomization = create_kustomization([
+        { name: 'timezone', default: 'Europe/Amsterdam', preserve_case: true },
+        { name: 'env_var', default: 'PRODUCTION', preserve_case: true },
+      ]);
+
+      // Act
+      const result = collect_substitution_values(kustomization);
+
+      // Assert
+      expect(result).toEqual({
+        timezone: 'Europe/Amsterdam',
+        env_var: 'PRODUCTION',
+      });
     });
   });
 

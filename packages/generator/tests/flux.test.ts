@@ -146,6 +146,36 @@ describe('Flux Generator', () => {
         namespace: 'database',
       });
     });
+
+    it('should use custom api_version when specified', () => {
+      // Arrange
+      const kustomization = {
+        name: 'test',
+        path: './test',
+        health_checks: [
+          { kind: 'Cluster', name: 'my-cluster', api_version: 'postgresql.cnpg.io/v1' },
+          { kind: 'Deployment', name: 'app' },
+        ],
+      } as KustomizationType;
+
+      // Act
+      const result = generate_health_checks(kustomization, 'default');
+
+      // Assert
+      expect(result).toHaveLength(2);
+      expect(result?.[0]).toEqual({
+        apiVersion: 'postgresql.cnpg.io/v1',
+        kind: 'Cluster',
+        name: 'my-cluster',
+        namespace: 'default',
+      });
+      expect(result?.[1]).toEqual({
+        apiVersion: 'apps/v1',
+        kind: 'Deployment',
+        name: 'app',
+        namespace: 'default',
+      });
+    });
   });
 
   describe('resolve_kustomization', () => {

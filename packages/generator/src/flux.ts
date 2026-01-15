@@ -80,7 +80,7 @@ export function generate_health_checks(
   }
 
   return kustomization.health_checks.map((check) => ({
-    apiVersion: 'apps/v1',
+    apiVersion: check.api_version ?? 'apps/v1',
     kind: check.kind,
     name: check.name,
     namespace: check.namespace ?? namespace,

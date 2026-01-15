@@ -77,7 +77,19 @@ jobs:
         env:
           NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          for pkg in packages/* plugins/*; do
+          # Define package order based on dependencies (least dependent first)
+          PACKAGES=(
+            "packages/core"
+            "packages/schema"
+            "packages/loader"
+            "packages/nodes"
+            "packages/plugins"
+            "packages/generator"
+            "packages/cli"
+            "plugins/k0s"
+          )
+
+          for pkg in "${PACKAGES[@]}"; do
             if [ -f "$pkg/package.json" ]; then
               cd "$pkg"
               bun publish --registry https://npm.pkg.github.com || true
