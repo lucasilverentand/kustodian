@@ -248,7 +248,7 @@ jobs:
       - name: Install kustodian
         run: |
           # TODO: Replace with actual installation method
-          # npm install -g @kustodian/cli
+          # bun install -g @kustodian/cli
           echo "Install kustodian CLI here"
 
       - name: Validate configuration
