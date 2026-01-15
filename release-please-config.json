@@ -38,6 +38,10 @@
       "package-name": "@kustodian/registry",
       "changelog-path": "CHANGELOG.md"
     },
+    "packages/sources": {
+      "package-name": "@kustodian/sources",
+      "changelog-path": "CHANGELOG.md"
+    },
     "plugins/k0s": {
       "package-name": "@kustodian/plugin-k0s",
       "changelog-path": "CHANGELOG.md"
