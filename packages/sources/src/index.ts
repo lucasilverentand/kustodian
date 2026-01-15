@@ -20,6 +20,8 @@ export {
   DEFAULT_TTL,
   META_FILENAME,
   TEMPLATES_DIRNAME,
+  cache_meta_schema,
+  type CacheMetaType,
 } from './cache/index.js';
 
 // Fetchers
