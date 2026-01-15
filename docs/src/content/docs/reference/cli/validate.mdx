@@ -1,0 +1,145 @@
+---
+title: kustodian validate
+description: Validate project configuration without generating
+---
+
+The `validate` command checks your Kustodian project for errors without generating any output.
+
+## Usage
+
+```bash
+kustodian validate [options]
+```
+
+## Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--cluster <name>` | Validate a specific cluster only | All clusters |
+| `--show-dependencies` | Display dependency graph | `false` |
+| `--verbose` | Show detailed validation output | `false` |
+
+## Examples
+
+### Validate All
+
+```bash
+kustodian validate
+```
+
+Validates all clusters, templates, profiles, and nodes.
+
+### Validate Specific Cluster
+
+```bash
+kustodian validate --cluster production
+```
+
+Only validates the `production` cluster and its dependencies.
+
+### Show Dependencies
+
+```bash
+kustodian validate --show-dependencies
+```
+
+Displays the dependency graph between kustomizations.
+
+## What Gets Validated
+
+### Schema Validation
+
+- Project file structure
+- Cluster configuration
+- Template definitions
+- Node definitions
+- Profile definitions
+
+### Reference Validation
+
+- Profile references exist
+- Template references in clusters exist
+- Dependency references are valid
+
+### Dependency Validation
+
+- No circular dependencies
+- All dependencies are resolvable
+- Dependencies exist in same cluster
+
+### Consistency Checks
+
+- Node cluster metadata matches cluster name
+- Taint effects are valid Kubernetes values
+- Required fields are present
+
+## Error Output
+
+### Missing Profile
+
+```
+Error: Profile 'missing-profile' not found
+  Referenced by: clusters/production/nodes/worker-01.yaml
+```
+
+### Circular Dependency
+
+```
+Error: Dependency cycle detected
+  Cycle: template-a/kustomization → template-b/kustomization → template-a/kustomization
+```
+
+### Invalid Schema
+
+```
+Error: Invalid node configuration
+  File: clusters/production/nodes/worker-01.yaml
+  Field: spec.role
+  Message: Invalid role value. Expected: controller, worker, or controller+worker
+```
+
+### Missing Dependency
+
+```
+Error: Template 'missing-template' not included in cluster 'production'
+  Referenced as dependency by: app/kustomization
+```
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Validation passed |
+| `1` | Validation errors found |
+
+## Best Practices
+
+### CI Integration
+
+Run validation in CI before merging:
+
+```yaml
+- name: Validate
+  run: kustodian validate
+```
+
+### Pre-commit Hook
+
+```bash
+# .git/hooks/pre-commit
+kustodian validate || exit 1
+```
+
+### Before Commit
+
+Always validate before committing:
+
+```bash
+kustodian validate
+git add . && git commit -m "Update configuration"
+```
+
+## Related Commands
+
+- [`kustodian init`](/reference/cli/init/) - Create a new project
+- [`kustodian bootstrap`](/reference/cli/bootstrap/) - Bootstrap cluster nodes

@@ -1,0 +1,142 @@
+---
+title: Quick Start
+description: Create your first Kustodian project in 5 minutes
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+This guide walks you through creating a simple Kustodian project that deploys an nginx application to a cluster.
+
+<Steps>
+
+1. **Create project structure**
+
+   ```bash
+   mkdir my-infrastructure && cd my-infrastructure
+
+   # Create the project file
+   cat > kustodian.yaml << 'EOF'
+   apiVersion: kustodian.io/v1
+   kind: Project
+   metadata:
+     name: my-infrastructure
+   EOF
+   ```
+
+2. **Create a template**
+
+   ```bash
+   mkdir -p templates/nginx/manifests
+
+   # Create the template definition
+   cat > templates/nginx/template.yaml << 'EOF'
+   apiVersion: kustodian.io/v1
+   kind: Template
+   metadata:
+     name: nginx
+   spec:
+     kustomizations:
+       - name: nginx
+         path: ./manifests
+         namespace:
+           default: nginx
+   EOF
+
+   # Create a simple kustomization
+   cat > templates/nginx/manifests/kustomization.yaml << 'EOF'
+   apiVersion: kustomize.config.k8s.io/v1beta1
+   kind: Kustomization
+   resources:
+     - deployment.yaml
+     - service.yaml
+   EOF
+
+   # Create nginx deployment
+   cat > templates/nginx/manifests/deployment.yaml << 'EOF'
+   apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+     name: nginx
+   spec:
+     replicas: 1
+     selector:
+       matchLabels:
+         app: nginx
+     template:
+       metadata:
+         labels:
+           app: nginx
+       spec:
+         containers:
+           - name: nginx
+             image: nginx:latest
+             ports:
+               - containerPort: 80
+   EOF
+
+   # Create nginx service
+   cat > templates/nginx/manifests/service.yaml << 'EOF'
+   apiVersion: v1
+   kind: Service
+   metadata:
+     name: nginx
+   spec:
+     selector:
+       app: nginx
+     ports:
+       - port: 80
+         targetPort: 80
+   EOF
+   ```
+
+3. **Create a cluster**
+
+   ```bash
+   mkdir -p clusters/production/nodes
+
+   # Create cluster configuration
+   cat > clusters/production/cluster.yaml << 'EOF'
+   apiVersion: kustodian.io/v1
+   kind: Cluster
+   metadata:
+     name: production
+   spec:
+     flux:
+       source_ref:
+         kind: GitRepository
+         name: flux-system
+         namespace: flux-system
+     templates:
+       - nginx
+   EOF
+   ```
+
+4. **Validate your configuration**
+
+   ```bash
+   kustodian validate
+   ```
+
+   This checks your configuration for errors before deployment.
+
+5. **Commit and push**
+
+   ```bash
+   git init
+   git add .
+   git commit -m "Initial Kustodian project"
+   git push origin main
+   ```
+
+   That's it! Kustodian generates Flux manifests automatically during reconciliation—no generate step needed.
+
+</Steps>
+
+## What's Next?
+
+You've created a basic Kustodian project! Here's what to explore next:
+
+- [Add nodes](/guides/defining-nodes/) to your cluster with labels and taints
+- [Use profiles](/guides/using-profiles/) to share node configurations
+- [Create more templates](/guides/creating-templates/) with dependencies
+- [Learn about substitutions](/concepts/substitutions/) for customization

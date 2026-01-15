@@ -1,0 +1,20 @@
+apiVersion: kustodian.io/v1
+kind: Template
+metadata:
+  name: web-app
+spec:
+  kustomizations:
+    - name: app
+      path: ./app
+      prune: true
+      wait: true
+      namespace:
+        default: web-app
+        create: true
+      depends_on:
+        - database/app
+      substitutions:
+        - name: replicas
+          default: "1"
+        - name: environment
+          default: development

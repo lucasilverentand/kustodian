@@ -76,7 +76,7 @@ function is_exec_error(
  * Checks if k0sctl is available in the system PATH.
  */
 export async function check_k0sctl_available(): Promise<ResultType<string, KustodianErrorType>> {
-  const result = await exec_command('k0sctl', ['version']);
+  const result = await exec_command('k0sctl', ['version'], { timeout: 5000 });
 
   if (!result.success) {
     return result;
@@ -124,7 +124,10 @@ export async function k0sctl_kubeconfig(
   config_path: string,
   options: ExecOptionsType = {},
 ): Promise<ResultType<string, KustodianErrorType>> {
-  const result = await exec_command('k0sctl', ['kubeconfig', '--config', config_path], options);
+  const result = await exec_command('k0sctl', ['kubeconfig', '--config', config_path], {
+    timeout: 30000,
+    ...options,
+  });
 
   if (!result.success) {
     return result;
@@ -150,7 +153,10 @@ export async function k0sctl_reset(
     args.push('--force');
   }
 
-  const result = await exec_command('k0sctl', args, options);
+  const result = await exec_command('k0sctl', args, {
+    timeout: 60000,
+    ...options,
+  });
 
   if (!result.success) {
     return result;

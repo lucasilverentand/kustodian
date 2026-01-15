@@ -1,0 +1,149 @@
+---
+title: Project Structure
+description: Understanding Kustodian's directory layout
+---
+
+import { FileTree } from '@astrojs/starlight/components';
+
+A Kustodian project follows a structured directory layout that organizes templates, clusters, nodes, and profiles.
+
+## Standard Layout
+
+<FileTree>
+- kustodian.yaml # Project configuration
+- node-profiles/ # Reusable node profiles
+  - storage-node.yaml
+  - gpu-node.yaml
+- templates/ # Application templates
+  - nginx/
+    - template.yaml
+    - manifests/
+      - kustomization.yaml
+      - deployment.yaml
+  - monitoring/
+    - template.yaml
+    - manifests/
+- clusters/ # Cluster configurations
+  - production/
+    - cluster.yaml
+    - nodes/
+      - controller-01.yaml
+      - worker-01.yaml
+  - staging/
+    - cluster.yaml
+    - nodes/
+</FileTree>
+
+## Core Files
+
+### `kustodian.yaml`
+
+The project root file that identifies a Kustodian project:
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Project
+metadata:
+  name: my-infrastructure
+```
+
+### `node-profiles/<name>.yaml`
+
+Reusable node configurations:
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: NodeProfile
+metadata:
+  name: storage-node
+spec:
+  labels:
+    storage: nvme
+  taints:
+    - key: storage
+      effect: NoSchedule
+```
+
+### `templates/<name>/template.yaml`
+
+Application template definitions:
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Template
+metadata:
+  name: nginx
+spec:
+  kustomizations:
+    - name: nginx
+      path: ./manifests
+      namespace:
+        default: nginx
+```
+
+### `clusters/<name>/cluster.yaml`
+
+Cluster configuration specifying which templates to deploy:
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Cluster
+metadata:
+  name: production
+spec:
+  flux:
+    source_ref:
+      kind: GitRepository
+      name: flux-system
+  templates:
+    - nginx
+    - monitoring
+```
+
+### `clusters/<name>/nodes/<node>.yaml`
+
+Individual node definitions:
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Node
+metadata:
+  name: worker-01
+  cluster: production
+spec:
+  role: worker
+  address: 192.168.1.10
+  profile: storage-node
+  labels:
+    rack: A1
+```
+
+## Generated Output
+
+During Flux reconciliation, Kustodian generates Flux Kustomizations in `clusters/<name>/flux/`:
+
+<FileTree>
+- clusters/
+  - production/
+    - flux/
+      - nginx.yaml # Flux Kustomization for nginx
+      - monitoring.yaml # Flux Kustomization for monitoring
+</FileTree>
+
+These files are generated in real-time by Flux—you don't need to commit them to your repository.
+
+## Customizing Paths
+
+The standard paths can be customized in cluster configuration:
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Cluster
+metadata:
+  name: production
+spec:
+  nodes:
+    - nodes/  # Default
+    - custom-nodes.yaml  # Additional file
+  # ...
+```

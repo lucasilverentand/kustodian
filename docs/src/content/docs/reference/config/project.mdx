@@ -1,0 +1,111 @@
+---
+title: Project Configuration
+description: Complete reference for kustodian.yaml project files
+---
+
+The project file (`kustodian.yaml`) marks the root of a Kustodian project and contains project-level metadata.
+
+## Schema
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Project
+metadata:
+  name: <project-name>
+```
+
+## Fields
+
+### apiVersion
+
+| | |
+|-|-|
+| **Required** | Yes |
+| **Type** | String |
+| **Value** | `kustodian.io/v1` |
+
+API version for the resource.
+
+### kind
+
+| | |
+|-|-|
+| **Required** | Yes |
+| **Type** | String |
+| **Value** | `Project` |
+
+Resource type identifier.
+
+### metadata
+
+| | |
+|-|-|
+| **Required** | Yes |
+| **Type** | Object |
+
+Project metadata.
+
+#### metadata.name
+
+| | |
+|-|-|
+| **Required** | Yes |
+| **Type** | String |
+| **Pattern** | `^[a-z0-9][a-z0-9-]*[a-z0-9]$` |
+
+Unique identifier for the project. Used in logging and error messages.
+
+## Example
+
+### Minimal
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Project
+metadata:
+  name: my-infrastructure
+```
+
+### Full Example
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Project
+metadata:
+  name: production-infrastructure
+```
+
+## Location
+
+The `kustodian.yaml` file must be at the project root:
+
+```
+my-project/
+├── kustodian.yaml    # <-- Here
+├── node-profiles/
+├── templates/
+└── clusters/
+```
+
+## Project Discovery
+
+Kustodian searches upward from the current directory to find `kustodian.yaml`. This allows running commands from any subdirectory:
+
+```bash
+cd clusters/production/nodes
+kustodian validate  # Finds project root automatically
+```
+
+## Validation
+
+The project file is validated for:
+
+- Valid `apiVersion` value
+- `kind` equals `Project`
+- Non-empty `metadata.name`
+- Name follows Kubernetes naming conventions
+
+## Related Resources
+
+- [Projects Concept](/concepts/projects/) - Project overview
+- [Project Structure](/getting-started/project-structure/) - Directory layout

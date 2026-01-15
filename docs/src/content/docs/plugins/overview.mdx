@@ -1,0 +1,107 @@
+---
+title: Plugin Overview
+description: Extending Kustodian with provider plugins
+---
+
+import { Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+Kustodian uses a plugin architecture to support different Kubernetes distributions. Plugins provide provider-specific functionality for bootstrapping and managing clusters.
+
+## What Plugins Do
+
+Plugins extend Kustodian with:
+
+- **Bootstrap commands**: Install and configure Kubernetes on nodes
+- **Provider-specific configuration**: Handle distribution-specific settings
+- **Node management**: Provider-specific node operations
+
+## Available Plugins
+
+<CardGrid>
+  <LinkCard title="k0s" href="/plugins/k0s/" description="Zero-friction Kubernetes distribution" />
+</CardGrid>
+
+## Plugin Architecture
+
+```
+kustodian/
+├── core/           # Core functionality
+├── schema/         # Configuration schemas
+├── loader/         # Configuration loading
+├── generator/      # Flux generation
+└── plugins/        # Provider plugins
+    └── k0s/        # k0s provider
+```
+
+Plugins are separate packages that integrate with the Kustodian core.
+
+## Using Plugins
+
+### Bootstrap with a Plugin
+
+```bash
+kustodian bootstrap --cluster production --provider k0s
+```
+
+### Available Providers
+
+| Provider | Package | Description |
+|----------|---------|-------------|
+| `k0s` | `@kustodian/plugin-k0s` | k0s distribution |
+
+## Plugin Selection
+
+Choose a plugin based on your needs:
+
+| Use Case | Recommended Plugin |
+|----------|-------------------|
+| Simple, single-binary Kubernetes | k0s |
+| Air-gapped deployments | k0s |
+| Lightweight clusters | k0s |
+
+<Aside type="note">
+  Currently, k0s is the only supported provider. More providers may be added in the future.
+</Aside>
+
+## Plugin Development
+
+Create custom plugins to support additional Kubernetes distributions:
+
+- [Creating Plugins](/plugins/creating-plugins/) - Build your own provider
+
+Plugins must implement:
+
+1. Bootstrap logic for controller nodes
+2. Bootstrap logic for worker nodes
+3. Join token management
+4. Provider-specific configuration
+
+## Plugin Interface
+
+Plugins implement a standard interface:
+
+```typescript
+interface ProviderPlugin {
+  name: string;
+
+  bootstrap_controller(
+    node: NodeType,
+    options: BootstrapOptions
+  ): Promise<Result<void, Error>>;
+
+  bootstrap_worker(
+    node: NodeType,
+    token: string,
+    options: BootstrapOptions
+  ): Promise<Result<void, Error>>;
+
+  get_join_token(
+    controller: NodeType
+  ): Promise<Result<string, Error>>;
+}
+```
+
+## Next Steps
+
+- [k0s Plugin](/plugins/k0s/) - Using the k0s provider
+- [Creating Plugins](/plugins/creating-plugins/) - Build custom providers

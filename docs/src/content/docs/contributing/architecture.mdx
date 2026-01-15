@@ -1,0 +1,321 @@
+---
+title: Architecture
+description: Understanding Kustodian's internal architecture
+---
+
+import { FileTree } from '@astrojs/starlight/components';
+
+This document describes the internal architecture of Kustodian, including package responsibilities and data flow.
+
+## Package Overview
+
+<FileTree>
+
+- packages/
+  - core/ - Error handling, Result types, shared utilities
+  - schema/ - Zod validation schemas and type definitions
+  - loader/ - YAML file loading and parsing
+  - nodes/ - Node processing, profile resolution
+  - generator/ - Flux manifest generation
+  - cli/ - Command line interface
+- plugins/
+  - k0s/ - k0s provider plugin
+
+</FileTree>
+
+## Package Responsibilities
+
+### @kustodian/core
+
+Foundation package with shared utilities:
+
+- **Error types**: Standardized error codes and messages
+- **Result type**: Functional error handling pattern
+- **Utilities**: Common helper functions
+
+```typescript
+// Result type for error handling
+type ResultType<T, E> = { ok: true; value: T } | { ok: false; error: E };
+
+// Error factory
+function create_error(code: ErrorCode, message: string): KustodianErrorType;
+```
+
+### @kustodian/schema
+
+Zod schemas for all configuration types:
+
+- Project schema
+- Cluster schema
+- Template schema
+- Node schema
+- Profile schema
+
+```typescript
+// Schema definition
+export const node_schema = z.object({
+  name: z.string(),
+  role: node_role_schema,
+  address: z.string(),
+  // ...
+});
+
+// Type inference
+export type NodeType = z.infer<typeof node_schema>;
+```
+
+### @kustodian/loader
+
+Configuration file loading:
+
+- YAML parsing
+- Multi-document support
+- Directory traversal
+- Schema validation
+
+```typescript
+// Load entire project
+async function load_project(root: string): Promise<ResultType<ProjectType, Error>>;
+
+// Load specific resources
+async function load_clusters(root: string): Promise<ResultType<ClusterType[], Error>>;
+async function load_templates(root: string): Promise<ResultType<TemplateType[], Error>>;
+async function load_profiles(root: string): Promise<ResultType<Map<string, ProfileType>, Error>>;
+```
+
+### @kustodian/nodes
+
+Node processing and profile resolution:
+
+- Profile merging
+- Label prefixing
+- Taint deduplication
+
+```typescript
+// Resolve node with profile
+function resolve_node_profile(
+  node: NodeType,
+  profile: ProfileType | undefined
+): ResolvedNodeType;
+```
+
+### @kustodian/generator
+
+Flux manifest generation:
+
+- Dependency resolution
+- Kustomization generation
+- Output file writing
+
+```typescript
+// Generate for all clusters
+async function generate(project: ProjectType): Promise<ResultType<void, Error>>;
+
+// Generate for specific cluster
+async function generate_cluster(
+  cluster: ClusterType,
+  templates: Map<string, TemplateType>
+): Promise<ResultType<string[], Error>>;
+```
+
+### @kustodian/cli
+
+Command line interface:
+
+- Command parsing
+- User interaction
+- Output formatting
+
+## Data Flow
+
+### Configuration Loading
+
+```
+User runs command
+        ↓
+Find project root (kustodian.yaml)
+        ↓
+Load profiles from node-profiles/
+        ↓
+Load templates from templates/
+        ↓
+Load clusters from clusters/
+        ↓
+Load nodes for each cluster
+        ↓
+Resolve node profiles
+        ↓
+Return complete project
+```
+
+### Generation Flow
+
+```
+Project loaded
+        ↓
+For each cluster:
+        ↓
+    Filter templates for cluster
+        ↓
+    Build dependency graph
+        ↓
+    Topological sort
+        ↓
+    Generate Flux Kustomizations
+        ↓
+    Resolve substitution values
+        ↓
+    Write to cluster/flux/
+```
+
+### Validation Flow
+
+```
+Project loaded
+        ↓
+Validate schemas
+        ↓
+Validate profile references
+        ↓
+Validate template references
+        ↓
+Validate dependencies
+        ↓
+Detect cycles
+        ↓
+Report errors
+```
+
+## Dependency Graph
+
+```
+@kustodian/core
+        ↑
+@kustodian/schema
+        ↑
+@kustodian/loader
+        ↑
+@kustodian/nodes
+        ↑
+@kustodian/generator
+        ↑
+@kustodian/cli
+```
+
+Each package only depends on packages below it in the graph.
+
+## Error Handling
+
+All operations return `ResultType<T, E>`:
+
+```typescript
+// Success case
+return ok(value);
+
+// Error case
+return err(create_error(ErrorCode.PROFILE_NOT_FOUND, `Profile '${name}' not found`));
+
+// Consuming results
+const result = await load_project(root);
+if (!result.ok) {
+  console.error(result.error.message);
+  process.exit(1);
+}
+const project = result.value;
+```
+
+## Configuration Types
+
+### Project
+
+```typescript
+interface ProjectType {
+  name: string;
+  clusters: Map<string, ClusterType>;
+  templates: Map<string, TemplateType>;
+  profiles: Map<string, ProfileType>;
+}
+```
+
+### Cluster
+
+```typescript
+interface ClusterType {
+  name: string;
+  flux: FluxConfigType;
+  templates: TemplateRefType[];
+  values: Record<string, string>;
+  node_defaults: NodeDefaultsType;
+  nodes: NodeType[];
+}
+```
+
+### Template
+
+```typescript
+interface TemplateType {
+  name: string;
+  kustomizations: KustomizationType[];
+}
+
+interface KustomizationType {
+  name: string;
+  path: string;
+  namespace?: NamespaceConfigType;
+  depends_on?: DependencyType[];
+  health_checks?: HealthCheckType[];
+  substitutions?: SubstitutionType[];
+}
+```
+
+### Node
+
+```typescript
+interface NodeType {
+  name: string;
+  cluster: string;
+  role: 'controller' | 'worker' | 'controller+worker';
+  address: string;
+  profile?: string;
+  ssh?: SshConfigType;
+  labels?: Record<string, string>;
+  taints?: TaintType[];
+  annotations?: Record<string, string>;
+}
+```
+
+## Plugin Architecture
+
+Plugins implement the `ProviderPlugin` interface:
+
+```typescript
+interface ProviderPlugin {
+  name: string;
+  bootstrap_controller(node: NodeType, options: Options): Promise<ResultType<void, Error>>;
+  bootstrap_worker(node: NodeType, token: string, options: Options): Promise<ResultType<void, Error>>;
+  get_join_token(controller: NodeType): Promise<ResultType<string, Error>>;
+}
+```
+
+Plugins are discovered by package name convention:
+
+- `@kustodian/plugin-<name>`
+
+## Extension Points
+
+### Custom Providers
+
+Create new provider plugins for different Kubernetes distributions.
+
+### Schema Extensions
+
+Add new resource types by extending the schema package.
+
+### CLI Commands
+
+Add new commands to the CLI package.
+
+## Next Steps
+
+- [Development Setup](/contributing/development/) - Set up your environment
+- [Contributing Guidelines](/contributing/guidelines/) - PR process

@@ -1,0 +1,119 @@
+name: E2E k0s
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  k0s-e2e:
+    name: k0s Integration Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jdx/mise-action@v3
+
+      - run: bun install --frozen-lockfile
+
+      - name: Install k0sctl
+        run: |
+          # Download k0sctl from GitHub releases
+          K0SCTL_VERSION=$(curl -s https://api.github.com/repos/k0sproject/k0sctl/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "Installing k0sctl ${K0SCTL_VERSION}"
+          curl -sSLf "https://github.com/k0sproject/k0sctl/releases/download/${K0SCTL_VERSION}/k0sctl-linux-amd64" -o /tmp/k0sctl
+          sudo install -m 755 /tmp/k0sctl /usr/local/bin/k0sctl
+          k0sctl version
+
+      - name: Start k0s controller container
+        run: |
+          # Start a k0s controller in Docker
+          docker run -d \
+            --name k0s-controller \
+            --hostname k0s-controller \
+            --privileged \
+            -v /var/lib/k0s \
+            -v /var/log/pods \
+            --tmpfs /run \
+            -p 6443:6443 \
+            docker.io/k0sproject/k0s:latest
+
+          # Wait for k0s to start
+          echo "Waiting for k0s to initialize..."
+          sleep 30
+
+          # Check k0s status
+          docker exec k0s-controller k0s status || true
+
+      - name: Wait for k0s to be ready
+        run: |
+          # Wait for the API server to be ready
+          for i in {1..30}; do
+            if docker exec k0s-controller k0s kubectl get nodes 2>/dev/null; then
+              echo "k0s is ready!"
+              break
+            fi
+            echo "Waiting for k0s API server... ($i/30)"
+            sleep 10
+          done
+
+      - name: Get kubeconfig
+        run: |
+          # Extract kubeconfig from the container
+          docker exec k0s-controller k0s kubeconfig admin > /tmp/k0s-kubeconfig
+
+          # Update server address to localhost
+          sed -i 's/server: https:\/\/[^:]*:/server: https:\/\/127.0.0.1:/g' /tmp/k0s-kubeconfig
+
+          # Set KUBECONFIG for subsequent steps
+          echo "KUBECONFIG=/tmp/k0s-kubeconfig" >> "$GITHUB_ENV"
+
+      - name: Verify cluster access
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+
+      - name: Run k0s provider tests
+        run: |
+          # Run the k0s plugin tests that require k0sctl
+          # Note: These tests are normally skipped in CI, but we have k0sctl now
+          CI=false bun test plugins/k0s/tests/
+
+      - name: Verify k0s components
+        run: |
+          # Check core k0s components are running
+          kubectl get pods -n kube-system
+
+          # Verify cluster info is accessible
+          kubectl cluster-info
+
+          # Note: Workload scheduling is not reliable in Docker due to cgroupv2 issues
+          # The key tests (k0sctl, API access, provider tests) have already validated
+          # the k0s integration works correctly
+
+      - name: Debug on failure
+        if: failure()
+        run: |
+          echo "=== Docker containers ==="
+          docker ps -a
+
+          echo "=== k0s controller logs ==="
+          docker logs k0s-controller --tail=100 || true
+
+          echo "=== k0s status ==="
+          docker exec k0s-controller k0s status || true
+
+          echo "=== Kubernetes events ==="
+          kubectl get events --all-namespaces --sort-by='.lastTimestamp' 2>/dev/null | tail -30 || true
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker stop k0s-controller || true
+          docker rm k0s-controller || true

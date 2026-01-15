@@ -1,0 +1,282 @@
+---
+title: NodeProfile Configuration
+description: Complete reference for node profile files
+---
+
+Node profiles define reusable configurations that can be referenced by multiple nodes, reducing duplication and ensuring consistency.
+
+## Schema
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: NodeProfile
+metadata:
+  name: <profile-id>
+spec:
+  name: <display-name>
+  description: <description>
+  labels:
+    <key>: <value>
+  taints:
+    - key: <taint-key>
+      value: <taint-value>
+      effect: <taint-effect>
+  annotations:
+    <key>: <value>
+```
+
+## Fields
+
+### apiVersion
+
+| | |
+|-|-|
+| **Required** | Yes |
+| **Type** | String |
+| **Value** | `kustodian.io/v1` |
+
+### kind
+
+| | |
+|-|-|
+| **Required** | Yes |
+| **Type** | String |
+| **Value** | `NodeProfile` |
+
+### metadata.name
+
+| | |
+|-|-|
+| **Required** | Yes |
+| **Type** | String |
+
+Profile identifier. Used in node definitions to reference this profile.
+
+### spec.name
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | String |
+
+Human-readable display name.
+
+### spec.description
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | String |
+
+Description of the profile's purpose.
+
+### spec.labels
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | Object |
+
+Kubernetes labels inherited by nodes.
+
+### spec.taints
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | Array |
+
+Kubernetes taints inherited by nodes.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `key` | String | Yes | Taint key |
+| `value` | String | No | Taint value |
+| `effect` | String | Yes | `NoSchedule`, `PreferNoSchedule`, or `NoExecute` |
+
+### spec.annotations
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | Object |
+
+Kubernetes annotations inherited by nodes.
+
+## Merging Behavior
+
+When a node references a profile, values are merged:
+
+### Labels and Annotations
+
+Node values override profile values with the same key:
+
+```yaml
+# Profile
+labels:
+  storage: nvme
+  tier: standard
+
+# Node
+labels:
+  tier: premium    # Overrides
+  rack: A1         # Added
+
+# Result
+labels:
+  storage: nvme    # From profile
+  tier: premium    # Node override
+  rack: A1         # From node
+```
+
+### Taints
+
+Taints are deduplicated by `key` + `effect`:
+
+```yaml
+# Profile
+taints:
+  - key: storage
+    value: standard
+    effect: NoSchedule
+
+# Node
+taints:
+  - key: storage
+    value: premium      # Same key+effect, overrides
+    effect: NoSchedule
+  - key: dedicated
+    effect: NoExecute   # Different key, added
+
+# Result
+taints:
+  - key: storage
+    value: premium      # Node value
+    effect: NoSchedule
+  - key: dedicated
+    effect: NoExecute   # Added
+```
+
+## Complete Examples
+
+### Storage Node Profile
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: NodeProfile
+metadata:
+  name: storage-node
+spec:
+  name: Storage Node
+  description: Node with high-performance NVMe storage
+  labels:
+    node-type: storage
+    storage: nvme
+    storage-tier: high-performance
+  taints:
+    - key: storage-only
+      effect: NoSchedule
+  annotations:
+    purpose: Database and storage workloads
+```
+
+### GPU Node Profile
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: NodeProfile
+metadata:
+  name: gpu-node
+spec:
+  name: GPU Node
+  description: Node with NVIDIA GPU for ML workloads
+  labels:
+    accelerator: gpu
+    nvidia.com/gpu: "true"
+    workload-type: ml-training
+  taints:
+    - key: nvidia.com/gpu
+      effect: NoSchedule
+  annotations:
+    requires: nvidia-device-plugin
+```
+
+### Control Plane Profile
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: NodeProfile
+metadata:
+  name: control-plane
+spec:
+  name: Control Plane Node
+  description: Kubernetes control plane node
+  labels:
+    node-role.kubernetes.io/control-plane: ""
+  taints:
+    - key: node-role.kubernetes.io/control-plane
+      effect: NoSchedule
+```
+
+### High-Memory Profile
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: NodeProfile
+metadata:
+  name: high-memory
+spec:
+  name: High Memory Node
+  description: Node with high memory for memory-intensive workloads
+  labels:
+    memory: high
+    workload-type: memory-intensive
+```
+
+## Usage in Nodes
+
+Reference a profile in node definitions:
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Node
+metadata:
+  name: storage-01
+  cluster: production
+spec:
+  role: worker
+  address: 192.168.1.10
+  profile: storage-node    # Reference profile
+  labels:
+    rack: A1               # Additional label
+```
+
+## Location
+
+```
+node-profiles/
+├── storage-node.yaml
+├── gpu-node.yaml
+└── control-plane.yaml
+```
+
+Profiles are loaded from the `node-profiles/` directory at the project root.
+
+## Validation
+
+Kustodian validates:
+
+- Profile names are unique
+- Taint effects are valid
+- Referenced profiles exist
+
+```
+Error: Profile 'missing-profile' not found
+  Referenced by: clusters/production/nodes/worker-01.yaml
+```
+
+## Related Resources
+
+- [Node Profiles Concept](/concepts/node-profiles/) - Profile overview
+- [Using Profiles](/guides/using-profiles/) - Practical guide
+- [Node Configuration](/reference/config/node/) - Node reference

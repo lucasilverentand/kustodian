@@ -1,0 +1,160 @@
+---
+title: Templates
+description: Reusable application definitions for Kubernetes deployments
+---
+
+Templates are the core building blocks of Kustodian. They define how applications are deployed and can be reused across multiple clusters with customizable values.
+
+## Template Structure
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Template
+metadata:
+  name: nginx
+spec:
+  kustomizations:
+    - name: nginx
+      path: ./manifests
+      namespace:
+        default: nginx
+        create: true
+      depends_on:
+        - kustomization: cert-manager/cert-manager
+      health_checks:
+        - kind: Deployment
+          name: nginx
+      substitutions:
+        - name: REPLICA_COUNT
+          default: "1"
+```
+
+## Kustomizations
+
+Each template contains one or more kustomizations—references to Kustomize directories:
+
+```yaml
+spec:
+  kustomizations:
+    - name: crds           # Deployed first
+      path: ./crds
+
+    - name: operator       # Depends on CRDs
+      path: ./operator
+      depends_on:
+        - kustomization: nginx/crds
+```
+
+### Kustomization Fields
+
+| Field | Description |
+|-------|-------------|
+| `name` | Unique identifier within template |
+| `path` | Path to Kustomize directory (relative to template) |
+| `namespace` | Target namespace configuration |
+| `depends_on` | Dependencies on other kustomizations |
+| `health_checks` | Resources to wait for before proceeding |
+| `substitutions` | Variable definitions |
+
+## Dependencies
+
+Templates can declare dependencies on other kustomizations:
+
+```yaml
+depends_on:
+  - kustomization: cert-manager/cert-manager  # template/kustomization
+  - kustomization: nginx/crds                 # Within same template
+```
+
+Kustodian validates dependencies and detects cycles:
+
+```
+Error: Dependency cycle detected: a → b → c → a
+```
+
+## Namespaces
+
+Configure how namespaces are handled:
+
+```yaml
+namespace:
+  default: my-app     # Target namespace
+  create: true        # Create if missing (default: true)
+```
+
+## Health Checks
+
+Wait for resources to be ready before dependent kustomizations proceed:
+
+```yaml
+health_checks:
+  - kind: Deployment
+    name: nginx
+    namespace: nginx   # Optional, uses default namespace
+  - kind: CustomResourceDefinition
+    name: certificates.cert-manager.io
+```
+
+## Substitutions
+
+Define variables that can be customized per-cluster:
+
+```yaml
+substitutions:
+  - name: REPLICA_COUNT
+    default: "1"
+  - name: IMAGE_TAG
+    default: "latest"
+  - name: DATABASE_URL
+    secret: database-credentials  # Reference a secret
+```
+
+Use in manifests with `${VARIABLE_NAME}` syntax.
+
+## Directory Layout
+
+```
+templates/
+└── nginx/
+    ├── template.yaml      # Template definition
+    └── manifests/         # Kustomize directory
+        ├── kustomization.yaml
+        ├── deployment.yaml
+        └── service.yaml
+```
+
+## Multi-Kustomization Templates
+
+Complex applications often have multiple components:
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Template
+metadata:
+  name: monitoring
+spec:
+  kustomizations:
+    - name: prometheus-crds
+      path: ./prometheus/crds
+
+    - name: prometheus-operator
+      path: ./prometheus/operator
+      depends_on:
+        - kustomization: monitoring/prometheus-crds
+
+    - name: prometheus-instance
+      path: ./prometheus/instance
+      depends_on:
+        - kustomization: monitoring/prometheus-operator
+
+    - name: grafana
+      path: ./grafana
+      depends_on:
+        - kustomization: monitoring/prometheus-instance
+```
+
+## Next Steps
+
+- [Creating Templates](/guides/creating-templates/) - Step-by-step guide
+- [Template Dependencies](/guides/template-dependencies/) - Managing dependencies
+- [Template Reference](/reference/config/template/) - Complete schema

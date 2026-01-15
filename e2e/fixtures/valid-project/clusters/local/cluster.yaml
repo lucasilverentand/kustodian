@@ -3,12 +3,16 @@ kind: Cluster
 metadata:
   name: local
 spec:
+  code: local
   domain: local.example.com
   oci:
     registry: ghcr.io
     repository: test/e2e-project
     tag_strategy: git-sha
     secret_ref: ghcr-auth
+  github:
+    organization: test
+    repository: e2e-project
   templates:
     - name: example
       enabled: true

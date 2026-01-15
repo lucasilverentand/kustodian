@@ -44,7 +44,9 @@ describe('Namespace Module', () => {
       const kustomization: KustomizationType = {
         name: 'test',
         path: './test',
-        namespace: { default: 'my-namespace' },
+        namespace: { default: 'my-namespace', create: true },
+        prune: true,
+        wait: true,
       };
 
       // Act
@@ -59,6 +61,8 @@ describe('Namespace Module', () => {
       const kustomization: KustomizationType = {
         name: 'test',
         path: './test',
+        prune: true,
+        wait: true,
       };
 
       // Act
@@ -73,9 +77,21 @@ describe('Namespace Module', () => {
     it('should extract all namespaces from template', () => {
       // Arrange
       const template = create_template('app', [
-        { name: 'k1', path: './k1', namespace: { default: 'ns1' } },
-        { name: 'k2', path: './k2', namespace: { default: 'ns2' } },
-        { name: 'k3', path: './k3' },
+        {
+          name: 'k1',
+          path: './k1',
+          namespace: { default: 'ns1', create: true },
+          prune: true,
+          wait: true,
+        },
+        {
+          name: 'k2',
+          path: './k2',
+          namespace: { default: 'ns2', create: true },
+          prune: true,
+          wait: true,
+        },
+        { name: 'k3', path: './k3', prune: true, wait: true },
       ]);
 
       // Act
@@ -90,8 +106,20 @@ describe('Namespace Module', () => {
     it('should deduplicate namespaces', () => {
       // Arrange
       const template = create_template('app', [
-        { name: 'k1', path: './k1', namespace: { default: 'same' } },
-        { name: 'k2', path: './k2', namespace: { default: 'same' } },
+        {
+          name: 'k1',
+          path: './k1',
+          namespace: { default: 'same', create: true },
+          prune: true,
+          wait: true,
+        },
+        {
+          name: 'k2',
+          path: './k2',
+          namespace: { default: 'same', create: true },
+          prune: true,
+          wait: true,
+        },
       ]);
 
       // Act
@@ -106,10 +134,22 @@ describe('Namespace Module', () => {
     it('should collect namespaces from all enabled templates', () => {
       // Arrange
       const t1 = create_template('t1', [
-        { name: 'k1', path: './k1', namespace: { default: 'ns1' } },
+        {
+          name: 'k1',
+          path: './k1',
+          namespace: { default: 'ns1', create: true },
+          prune: true,
+          wait: true,
+        },
       ]);
       const t2 = create_template('t2', [
-        { name: 'k2', path: './k2', namespace: { default: 'ns2' } },
+        {
+          name: 'k2',
+          path: './k2',
+          namespace: { default: 'ns2', create: true },
+          prune: true,
+          wait: true,
+        },
       ]);
       const templates = [create_resolved(t1), create_resolved(t2)];
 
@@ -124,10 +164,22 @@ describe('Namespace Module', () => {
     it('should skip disabled templates', () => {
       // Arrange
       const t1 = create_template('t1', [
-        { name: 'k1', path: './k1', namespace: { default: 'enabled' } },
+        {
+          name: 'k1',
+          path: './k1',
+          namespace: { default: 'enabled', create: true },
+          prune: true,
+          wait: true,
+        },
       ]);
       const t2 = create_template('t2', [
-        { name: 'k2', path: './k2', namespace: { default: 'disabled' } },
+        {
+          name: 'k2',
+          path: './k2',
+          namespace: { default: 'disabled', create: true },
+          prune: true,
+          wait: true,
+        },
       ]);
       const templates = [create_resolved(t1, true), create_resolved(t2, false)];
 
@@ -142,9 +194,27 @@ describe('Namespace Module', () => {
     it('should return sorted namespaces', () => {
       // Arrange
       const t1 = create_template('t1', [
-        { name: 'k1', path: './k1', namespace: { default: 'zebra' } },
-        { name: 'k2', path: './k2', namespace: { default: 'alpha' } },
-        { name: 'k3', path: './k3', namespace: { default: 'middle' } },
+        {
+          name: 'k1',
+          path: './k1',
+          namespace: { default: 'zebra', create: true },
+          prune: true,
+          wait: true,
+        },
+        {
+          name: 'k2',
+          path: './k2',
+          namespace: { default: 'alpha', create: true },
+          prune: true,
+          wait: true,
+        },
+        {
+          name: 'k3',
+          path: './k3',
+          namespace: { default: 'middle', create: true },
+          prune: true,
+          wait: true,
+        },
       ]);
       const templates = [create_resolved(t1)];
 
@@ -216,9 +286,27 @@ describe('Namespace Module', () => {
     it('should generate resources for all non-system namespaces', () => {
       // Arrange
       const template = create_template('app', [
-        { name: 'k1', path: './k1', namespace: { default: 'production' } },
-        { name: 'k2', path: './k2', namespace: { default: 'default' } },
-        { name: 'k3', path: './k3', namespace: { default: 'nginx' } },
+        {
+          name: 'k1',
+          path: './k1',
+          namespace: { default: 'production', create: true },
+          prune: true,
+          wait: true,
+        },
+        {
+          name: 'k2',
+          path: './k2',
+          namespace: { default: 'default', create: true },
+          prune: true,
+          wait: true,
+        },
+        {
+          name: 'k3',
+          path: './k3',
+          namespace: { default: 'nginx', create: true },
+          prune: true,
+          wait: true,
+        },
       ]);
       const templates = [create_resolved(template)];
 
@@ -235,7 +323,13 @@ describe('Namespace Module', () => {
     it('should apply labels to all namespace resources', () => {
       // Arrange
       const template = create_template('app', [
-        { name: 'k1', path: './k1', namespace: { default: 'ns1' } },
+        {
+          name: 'k1',
+          path: './k1',
+          namespace: { default: 'ns1', create: true },
+          prune: true,
+          wait: true,
+        },
       ]);
       const templates = [create_resolved(template)];
       const labels = { managed: 'true' };

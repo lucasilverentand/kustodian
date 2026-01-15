@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { validate_cluster, validate_template } from '../packages/schema/dist/index.js';
+import { validate_cluster, validate_template } from '../packages/schema/src/index.js';
 
 describe('E2E: Schema Validation', () => {
   describe('Cluster validation', () => {

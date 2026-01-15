@@ -117,6 +117,12 @@ export function create_k0s_provider(options: K0sProviderOptionsType = {}): Clust
     },
 
     async get_kubeconfig(node_list: NodeListType): Promise<ResultType<string, KustodianErrorType>> {
+      // Check k0sctl is available
+      const k0sctl_check = await check_k0sctl_available();
+      if (!is_success(k0sctl_check)) {
+        return k0sctl_check;
+      }
+
       // If we have a config path from install, use it
       if (config_path) {
         return k0sctl_kubeconfig(config_path);

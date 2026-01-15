@@ -1,0 +1,347 @@
+---
+title: Creating Plugins
+description: Building custom provider plugins for Kustodian
+---
+
+import { Aside, Steps, FileTree } from '@astrojs/starlight/components';
+
+This guide covers creating custom provider plugins to support additional Kubernetes distributions.
+
+## Plugin Structure
+
+<FileTree>
+
+- plugins/
+  - my-provider/
+    - package.json
+    - src/
+      - index.ts
+      - bootstrap.ts
+      - config.ts
+    - tests/
+      - bootstrap.test.ts
+
+</FileTree>
+
+## Plugin Interface
+
+Plugins must implement the `ProviderPlugin` interface:
+
+```typescript
+import type { NodeType } from '@kustodian/schema';
+import type { ResultType } from '@kustodian/core';
+
+export interface BootstrapOptions {
+  dry_run: boolean;
+  verbose: boolean;
+}
+
+export interface ProviderPlugin {
+  /** Provider name */
+  name: string;
+
+  /** Bootstrap a controller node */
+  bootstrap_controller(
+    node: NodeType,
+    options: BootstrapOptions
+  ): Promise<ResultType<void, Error>>;
+
+  /** Bootstrap a worker node */
+  bootstrap_worker(
+    node: NodeType,
+    join_token: string,
+    options: BootstrapOptions
+  ): Promise<ResultType<void, Error>>;
+
+  /** Get join token from a controller */
+  get_join_token(
+    controller: NodeType
+  ): Promise<ResultType<string, Error>>;
+}
+```
+
+## Creating a Plugin
+
+<Steps>
+
+1. **Initialize the package**
+
+   ```bash
+   mkdir -p plugins/my-provider
+   cd plugins/my-provider
+   pnpm init
+   ```
+
+2. **Add dependencies**
+
+   ```bash
+   pnpm add @kustodian/core @kustodian/schema
+   pnpm add -D typescript @types/node vitest
+   ```
+
+3. **Create the plugin entry point**
+
+   ```typescript
+   // src/index.ts
+   import type { ProviderPlugin } from '@kustodian/core';
+   import { bootstrap_controller, bootstrap_worker } from './bootstrap';
+   import { get_join_token } from './token';
+
+   export const plugin: ProviderPlugin = {
+     name: 'my-provider',
+     bootstrap_controller,
+     bootstrap_worker,
+     get_join_token,
+   };
+
+   export default plugin;
+   ```
+
+4. **Implement bootstrap logic**
+
+   ```typescript
+   // src/bootstrap.ts
+   import type { NodeType } from '@kustodian/schema';
+   import type { BootstrapOptions } from '@kustodian/core';
+   import { ok, err, type ResultType } from '@kustodian/core';
+   import { execute_ssh } from './ssh';
+
+   export async function bootstrap_controller(
+     node: NodeType,
+     options: BootstrapOptions
+   ): Promise<ResultType<void, Error>> {
+     const commands = [
+       'curl -sSL https://my-provider.io/install.sh | sudo sh',
+       'sudo my-provider init --role controller',
+       'sudo my-provider start',
+     ];
+
+     if (options.dry_run) {
+       console.log('Would execute:', commands);
+       return ok(undefined);
+     }
+
+     for (const cmd of commands) {
+       const result = await execute_ssh(node, cmd);
+       if (!result.ok) {
+         return err(result.error);
+       }
+     }
+
+     return ok(undefined);
+   }
+
+   export async function bootstrap_worker(
+     node: NodeType,
+     join_token: string,
+     options: BootstrapOptions
+   ): Promise<ResultType<void, Error>> {
+     const commands = [
+       'curl -sSL https://my-provider.io/install.sh | sudo sh',
+       `sudo my-provider join --token ${join_token}`,
+       'sudo my-provider start',
+     ];
+
+     if (options.dry_run) {
+       console.log('Would execute:', commands);
+       return ok(undefined);
+     }
+
+     for (const cmd of commands) {
+       const result = await execute_ssh(node, cmd);
+       if (!result.ok) {
+         return err(result.error);
+       }
+     }
+
+     return ok(undefined);
+   }
+   ```
+
+5. **Implement token retrieval**
+
+   ```typescript
+   // src/token.ts
+   import type { NodeType } from '@kustodian/schema';
+   import { ok, err, type ResultType } from '@kustodian/core';
+   import { execute_ssh } from './ssh';
+
+   export async function get_join_token(
+     controller: NodeType
+   ): Promise<ResultType<string, Error>> {
+     const result = await execute_ssh(
+       controller,
+       'sudo my-provider token create --role worker'
+     );
+
+     if (!result.ok) {
+       return err(result.error);
+     }
+
+     return ok(result.value.trim());
+   }
+   ```
+
+6. **Add SSH utilities**
+
+   ```typescript
+   // src/ssh.ts
+   import type { NodeType } from '@kustodian/schema';
+   import { ok, err, type ResultType } from '@kustodian/core';
+   import { spawn } from 'node:child_process';
+
+   export async function execute_ssh(
+     node: NodeType,
+     command: string
+   ): Promise<ResultType<string, Error>> {
+     return new Promise((resolve) => {
+       const ssh = node.ssh ?? {};
+       const args = [
+         '-o', 'StrictHostKeyChecking=accept-new',
+         '-p', String(ssh.port ?? 22),
+       ];
+
+       if (ssh.key_path) {
+         args.push('-i', ssh.key_path);
+       }
+
+       args.push(`${ssh.user}@${node.address}`, command);
+
+       const proc = spawn('ssh', args);
+       let stdout = '';
+       let stderr = '';
+
+       proc.stdout.on('data', (data) => { stdout += data; });
+       proc.stderr.on('data', (data) => { stderr += data; });
+
+       proc.on('close', (code) => {
+         if (code === 0) {
+           resolve(ok(stdout));
+         } else {
+           resolve(err(new Error(stderr || `Exit code: ${code}`)));
+         }
+       });
+     });
+   }
+   ```
+
+</Steps>
+
+## Testing
+
+Write tests for your plugin:
+
+```typescript
+// tests/bootstrap.test.ts
+import { describe, it, expect, vi } from 'vitest';
+import { bootstrap_controller } from '../src/bootstrap';
+import type { NodeType } from '@kustodian/schema';
+
+describe('bootstrap_controller', () => {
+  it('should return commands in dry run mode', async () => {
+    const node: NodeType = {
+      name: 'controller-01',
+      role: 'controller',
+      address: '192.168.1.10',
+    };
+
+    const result = await bootstrap_controller(node, { dry_run: true, verbose: false });
+
+    expect(result.ok).toBe(true);
+  });
+});
+```
+
+## Registering the Plugin
+
+Add your plugin to the Kustodian configuration:
+
+```typescript
+// In your plugin's package.json
+{
+  "name": "@kustodian/plugin-my-provider",
+  "kustodian": {
+    "provider": "my-provider"
+  }
+}
+```
+
+## Best Practices
+
+### Error Handling
+
+Use the `ResultType` pattern for all operations:
+
+```typescript
+import { ok, err, type ResultType } from '@kustodian/core';
+
+async function my_function(): Promise<ResultType<string, Error>> {
+  try {
+    const value = await something();
+    return ok(value);
+  } catch (e) {
+    return err(e instanceof Error ? e : new Error(String(e)));
+  }
+}
+```
+
+### Dry Run Support
+
+Always support dry run mode:
+
+```typescript
+if (options.dry_run) {
+  console.log('Would execute:', command);
+  return ok(undefined);
+}
+```
+
+### Logging
+
+Use verbose mode for detailed output:
+
+```typescript
+if (options.verbose) {
+  console.log(`Connecting to ${node.address}...`);
+}
+```
+
+### Idempotency
+
+Make operations idempotent when possible:
+
+```typescript
+// Check if already installed
+const check = await execute_ssh(node, 'which my-provider');
+if (check.ok) {
+  console.log('Already installed, skipping');
+  return ok(undefined);
+}
+```
+
+<Aside type="tip">
+  Test your plugin against real infrastructure before publishing. Use the `--dry-run` flag during development.
+</Aside>
+
+## Publishing
+
+1. Build your plugin:
+   ```bash
+   pnpm build
+   ```
+
+2. Publish to npm:
+   ```bash
+   pnpm publish
+   ```
+
+3. Users can install with:
+   ```bash
+   pnpm add @kustodian/plugin-my-provider
+   ```
+
+## Related Resources
+
+- [Plugin Overview](/plugins/overview/) - Plugin architecture
+- [k0s Plugin](/plugins/k0s/) - Reference implementation
+- [Contributing](/contributing/development/) - Development setup

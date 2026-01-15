@@ -1,0 +1,385 @@
+---
+title: Multi-Cluster Setup
+description: Managing multiple Kubernetes clusters with shared configuration
+---
+
+import { FileTree, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Kustodian excels at managing multiple Kubernetes clusters from a single project. This guide covers setting up and managing development, staging, and production clusters with shared templates.
+
+## Multi-Cluster Architecture
+
+A typical setup has shared templates with environment-specific clusters:
+
+<FileTree>
+
+- kustodian.yaml
+- node-profiles/
+  - storage-node.yaml
+  - gpu-node.yaml
+- templates/
+  - cert-manager/
+  - ingress-nginx/
+  - monitoring/
+  - app/
+- clusters/
+  - development/
+    - cluster.yaml
+    - nodes/
+  - staging/
+    - cluster.yaml
+    - nodes/
+  - production/
+    - cluster.yaml
+    - nodes/
+
+</FileTree>
+
+## Setting Up Clusters
+
+### Development Cluster
+
+Minimal configuration for local development:
+
+```yaml
+# clusters/development/cluster.yaml
+apiVersion: kustodian.io/v1
+kind: Cluster
+metadata:
+  name: development
+spec:
+  flux:
+    source_ref:
+      kind: GitRepository
+      name: flux-system
+      namespace: flux-system
+    interval: 1m
+  templates:
+    - cert-manager
+    - app
+  values:
+    ENVIRONMENT: development
+    REPLICA_COUNT: "1"
+    LOG_LEVEL: debug
+  node_defaults:
+    label_prefix: dev.example.com
+```
+
+### Staging Cluster
+
+Production-like configuration for testing:
+
+```yaml
+# clusters/staging/cluster.yaml
+apiVersion: kustodian.io/v1
+kind: Cluster
+metadata:
+  name: staging
+spec:
+  flux:
+    source_ref:
+      kind: GitRepository
+      name: flux-system
+      namespace: flux-system
+    interval: 5m
+  templates:
+    - cert-manager
+    - ingress-nginx
+    - monitoring
+    - app
+  values:
+    ENVIRONMENT: staging
+    REPLICA_COUNT: "2"
+    LOG_LEVEL: info
+    DOMAIN: staging.example.com
+  node_defaults:
+    label_prefix: staging.example.com
+    ssh:
+      user: deploy
+```
+
+### Production Cluster
+
+Full configuration with all templates:
+
+```yaml
+# clusters/production/cluster.yaml
+apiVersion: kustodian.io/v1
+kind: Cluster
+metadata:
+  name: production
+spec:
+  flux:
+    source_ref:
+      kind: GitRepository
+      name: flux-system
+      namespace: flux-system
+    interval: 10m
+    prune: true
+  templates:
+    - cert-manager
+    - ingress-nginx
+    - monitoring
+    - name: app
+      values:
+        REPLICA_COUNT: "5"
+  values:
+    ENVIRONMENT: production
+    REPLICA_COUNT: "3"
+    LOG_LEVEL: warn
+    DOMAIN: app.example.com
+  node_defaults:
+    label_prefix: example.com
+    ssh:
+      user: deploy
+      key_path: ~/.ssh/production_key
+```
+
+## Environment-Specific Values
+
+### Value Override Hierarchy
+
+Values are resolved in order (highest priority first):
+
+1. Template-specific values in cluster
+2. Cluster-level values
+3. Template default values
+
+<Tabs>
+<TabItem label="Development">
+```yaml
+values:
+  REPLICA_COUNT: "1"
+  LOG_LEVEL: debug
+  DATABASE_HOST: localhost
+```
+</TabItem>
+<TabItem label="Staging">
+```yaml
+values:
+  REPLICA_COUNT: "2"
+  LOG_LEVEL: info
+  DATABASE_HOST: db.staging.internal
+```
+</TabItem>
+<TabItem label="Production">
+```yaml
+values:
+  REPLICA_COUNT: "3"
+  LOG_LEVEL: warn
+  DATABASE_HOST: db.prod.internal
+```
+</TabItem>
+</Tabs>
+
+### Template-Specific Overrides
+
+Override values for specific templates:
+
+```yaml
+spec:
+  templates:
+    - name: app
+      values:
+        REPLICA_COUNT: "5"     # Higher than cluster default
+        CACHE_ENABLED: "true"  # App-specific
+    - name: monitoring
+      values:
+        RETENTION_DAYS: "30"   # Monitoring-specific
+```
+
+## Selective Template Deployment
+
+Not all templates are needed in every environment:
+
+```yaml
+# Development - minimal
+templates:
+  - cert-manager
+  - app
+
+# Staging - production-like
+templates:
+  - cert-manager
+  - ingress-nginx
+  - monitoring
+  - app
+
+# Production - everything
+templates:
+  - cert-manager
+  - ingress-nginx
+  - monitoring
+  - logging
+  - app
+  - backup
+```
+
+## Node Configuration Per Cluster
+
+### Development Nodes
+
+Single node for local development:
+
+```yaml
+# clusters/development/nodes/dev-node.yaml
+apiVersion: kustodian.io/v1
+kind: Node
+metadata:
+  name: dev-node
+  cluster: development
+spec:
+  role: controller+worker
+  address: 192.168.1.10
+```
+
+### Production Nodes
+
+Full cluster with specialized nodes:
+
+```yaml
+# clusters/production/nodes/controller-01.yaml
+apiVersion: kustodian.io/v1
+kind: Node
+metadata:
+  name: controller-01
+  cluster: production
+spec:
+  role: controller
+  address: 10.0.1.10
+  profile: control-plane
+---
+# clusters/production/nodes/worker-01.yaml
+apiVersion: kustodian.io/v1
+kind: Node
+metadata:
+  name: worker-01
+  cluster: production
+spec:
+  role: worker
+  address: 10.0.2.10
+  profile: storage-node
+  labels:
+    zone: us-east-1a
+```
+
+## Validating Clusters
+
+Validate all clusters:
+
+```bash
+kustodian validate
+```
+
+Validate a specific cluster:
+
+```bash
+kustodian validate --cluster production
+```
+
+## Output Organization
+
+During Flux reconciliation, each cluster gets its own generated `flux/` directory (these files are not committed to your repository):
+
+<FileTree>
+
+- clusters/
+  - development/
+    - flux/
+      - cert-manager.yaml
+      - app.yaml
+  - staging/
+    - flux/
+      - cert-manager.yaml
+      - ingress-nginx.yaml
+      - monitoring.yaml
+      - app.yaml
+  - production/
+    - flux/
+      - cert-manager.yaml
+      - ingress-nginx.yaml
+      - monitoring.yaml
+      - logging.yaml
+      - app.yaml
+      - backup.yaml
+
+</FileTree>
+
+## GitOps Workflow
+
+### Repository Structure
+
+```
+infrastructure/
+├── kustodian.yaml
+├── node-profiles/
+├── templates/
+└── clusters/
+    ├── development/
+    ├── staging/
+    └── production/
+```
+
+### Deployment Flow
+
+1. Make changes to templates or cluster config
+2. Run `kustodian validate` to check for errors
+3. Commit and push changes
+4. Flux generates manifests and syncs to each cluster
+
+<Aside type="tip">
+  Use separate Git branches or directories for different environments if you need independent deployment pipelines.
+</Aside>
+
+## Best Practices
+
+### Consistent Naming
+
+Use the same template names across clusters:
+
+```yaml
+# All clusters use the same template names
+templates:
+  - cert-manager    # Same name
+  - ingress-nginx   # Same name
+  - app            # Same name
+```
+
+### Environment Indicators
+
+Include environment in substitution values:
+
+```yaml
+values:
+  ENVIRONMENT: production
+  ENV_PREFIX: prod
+```
+
+### Shared Profiles
+
+Use profiles consistently across clusters:
+
+```yaml
+# All production-like nodes use same profiles
+profile: storage-node    # Defined in node-profiles/
+```
+
+### Documentation
+
+Document cluster purposes:
+
+```yaml
+# clusters/staging/cluster.yaml
+# Staging cluster - mirrors production configuration
+# Used for pre-release testing and QA
+apiVersion: kustodian.io/v1
+kind: Cluster
+metadata:
+  name: staging
+```
+
+## Next Steps
+
+- [Clusters Concept](/concepts/clusters/) - Cluster configuration details
+- [Substitutions](/concepts/substitutions/) - Environment-specific values
+- [CI/CD Integration](/guides/ci-cd/) - Automated deployments

@@ -1,0 +1,290 @@
+---
+title: Development Setup
+description: Setting up your development environment for Kustodian
+---
+
+import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+This guide covers setting up a development environment to contribute to Kustodian.
+
+## Prerequisites
+
+- [Bun](https://bun.sh/) 1.0 or later
+- [Git](https://git-scm.com/)
+- [Node.js](https://nodejs.org/) 18+ (for some tooling)
+
+## Getting Started
+
+<Steps>
+
+1. **Clone the repository**
+
+   ```bash
+   git clone https://github.com/lucasilverentand/kustodian.git
+   cd kustodian
+   ```
+
+2. **Install dependencies**
+
+   ```bash
+   pnpm install
+   ```
+
+3. **Run tests**
+
+   ```bash
+   pnpm test
+   ```
+
+4. **Run the CLI**
+
+   ```bash
+   pnpm --filter @kustodian/cli start -- validate
+   ```
+
+</Steps>
+
+## Project Structure
+
+```
+kustodian/
+├── packages/
+│   ├── core/          # Error handling, Result types
+│   ├── schema/        # Zod validation schemas
+│   ├── loader/        # YAML file loading
+│   ├── nodes/         # Node types and processing
+│   ├── generator/     # Flux manifest generation
+│   └── cli/           # Command line interface
+├── plugins/
+│   └── k0s/           # k0s provider plugin
+└── docs/              # Documentation site
+```
+
+## Development Workflow
+
+### Running Tests
+
+Run all tests:
+
+```bash
+pnpm test
+```
+
+Run tests for a specific package:
+
+```bash
+pnpm --filter @kustodian/schema test
+```
+
+Run tests in watch mode:
+
+```bash
+pnpm --filter @kustodian/schema test:watch
+```
+
+### Type Checking
+
+```bash
+pnpm typecheck
+```
+
+### Linting
+
+```bash
+pnpm lint
+```
+
+Fix linting issues:
+
+```bash
+pnpm lint:fix
+```
+
+### Formatting
+
+```bash
+pnpm format
+```
+
+Check formatting:
+
+```bash
+pnpm format:check
+```
+
+## Package Development
+
+### Creating a New Package
+
+<Steps>
+
+1. Create the package directory:
+
+   ```bash
+   mkdir -p packages/my-package/src
+   ```
+
+2. Initialize package.json:
+
+   ```bash
+   cd packages/my-package
+   pnpm init
+   ```
+
+3. Configure the package:
+
+   ```json
+   {
+     "name": "@kustodian/my-package",
+     "version": "0.0.0",
+     "type": "module",
+     "main": "./src/index.ts",
+     "types": "./src/index.ts",
+     "exports": {
+       ".": "./src/index.ts"
+     }
+   }
+   ```
+
+4. Add to workspace (automatically handled by pnpm)
+
+</Steps>
+
+### Adding Dependencies
+
+```bash
+pnpm --filter @kustodian/my-package add zod
+```
+
+Add a workspace dependency:
+
+```bash
+pnpm --filter @kustodian/my-package add @kustodian/core
+```
+
+## Testing
+
+Kustodian uses [Vitest](https://vitest.dev/) for testing.
+
+### Writing Tests
+
+```typescript
+// packages/my-package/tests/example.test.ts
+import { describe, it, expect } from 'vitest';
+import { my_function } from '../src';
+
+describe('my_function', () => {
+  it('should return expected value', () => {
+    const result = my_function('input');
+    expect(result).toBe('expected');
+  });
+});
+```
+
+### Test Configuration
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    globals: true,
+  },
+});
+```
+
+## Code Style
+
+### Naming Conventions
+
+- **Files**: `snake_case.ts`
+- **Functions**: `snake_case()`
+- **Types**: `PascalCase`
+- **Constants**: `SCREAMING_SNAKE_CASE`
+
+### TypeScript Guidelines
+
+Use strict TypeScript settings:
+
+```typescript
+// Good
+function process_node(node: NodeType): ResultType<void, Error> {
+  // ...
+}
+
+// Avoid
+function processNode(node: any) {
+  // ...
+}
+```
+
+### Error Handling
+
+Use the `ResultType` pattern:
+
+```typescript
+import { ok, err, type ResultType } from '@kustodian/core';
+
+function my_function(): ResultType<string, Error> {
+  if (condition) {
+    return ok('success');
+  }
+  return err(new Error('failure'));
+}
+```
+
+## Debugging
+
+### VS Code Configuration
+
+```json
+// .vscode/launch.json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug CLI",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["--filter", "@kustodian/cli", "start"],
+      "args": ["validate"],
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}
+```
+
+### Verbose Logging
+
+Most commands support `--verbose`:
+
+```bash
+pnpm --filter @kustodian/cli start -- validate --verbose
+```
+
+## Common Tasks
+
+### Adding a New Schema
+
+1. Create schema in `packages/schema/src/`
+2. Export from `packages/schema/src/index.ts`
+3. Add tests in `packages/schema/tests/`
+
+### Adding a CLI Command
+
+1. Create command in `packages/cli/src/commands/`
+2. Register in `packages/cli/src/index.ts`
+3. Add tests
+
+### Adding a New Error Code
+
+1. Add to `packages/core/src/error.ts`
+2. Create factory function
+3. Update error handling docs
+
+## Next Steps
+
+- [Architecture](/contributing/architecture/) - System design
+- [Contributing Guidelines](/contributing/guidelines/) - PR process

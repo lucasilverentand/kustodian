@@ -62,13 +62,26 @@ export const node_defaults_schema = z.object({
 export type NodeDefaultsType = z.infer<typeof node_defaults_schema>;
 
 /**
+ * GitHub repository configuration for GitOps metadata.
+ */
+export const github_config_schema = z.object({
+  organization: z.string().min(1),
+  repository: z.string().min(1),
+  branch: z.string().min(1).optional().default('main'),
+});
+
+export type GithubConfigType = z.infer<typeof github_config_schema>;
+
+/**
  * Cluster specification.
  */
 export const cluster_spec_schema = z
   .object({
+    code: z.string().min(1).optional(),
     domain: z.string().min(1),
     git: git_config_schema.optional(),
     oci: oci_config_schema.optional(),
+    github: github_config_schema.optional(),
     templates: z.array(template_config_schema).optional(),
     plugins: z.array(plugin_config_schema).optional(),
     node_defaults: node_defaults_schema.optional(),

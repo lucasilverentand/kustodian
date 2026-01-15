@@ -1,0 +1,68 @@
+---
+title: Installation
+description: How to install the Kustodian CLI
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Prerequisites
+
+Before installing Kustodian, ensure you have:
+
+- **[Bun](https://bun.sh/)** v1.0 or later (Kustodian's runtime)
+- **Git** for version control
+- **kubectl** for Kubernetes interaction (optional, for bootstrap)
+
+## Install Kustodian
+
+<Tabs>
+  <TabItem label="From Source">
+    Clone the repository and link the CLI:
+
+    ```bash
+    git clone https://github.com/lucasilverentand/kustodian.git
+    cd kustodian
+    pnpm install
+    bun link
+    ```
+  </TabItem>
+  <TabItem label="Global Install">
+    Install globally using bun:
+
+    ```bash
+    bun add -g @kustodian/cli
+    ```
+  </TabItem>
+</Tabs>
+
+## Verify Installation
+
+Check that Kustodian is installed correctly:
+
+```bash
+kustodian --version
+```
+
+## Shell Completion
+
+Kustodian supports shell completion for bash and zsh.
+
+<Tabs>
+  <TabItem label="Bash">
+    ```bash
+    # Add to ~/.bashrc
+    eval "$(kustodian completion bash)"
+    ```
+  </TabItem>
+  <TabItem label="Zsh">
+    ```bash
+    # Add to ~/.zshrc
+    eval "$(kustodian completion zsh)"
+    ```
+  </TabItem>
+</Tabs>
+
+## Next Steps
+
+- [Quick Start](/getting-started/quick-start/) - Create your first Kustodian project
+- [Project Structure](/getting-started/project-structure/) - Understand the directory layout

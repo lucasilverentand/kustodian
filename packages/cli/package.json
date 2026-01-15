@@ -1,26 +1,24 @@
 {
   "name": "@kustodian/cli",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "CLI framework with DI and middleware for Kustodian",
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "bin": {
-    "kustodian": "./dist/bin.js"
+    "kustodian": "./src/bin.ts"
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
     }
   },
-  "files": ["dist"],
+  "files": ["src"],
   "scripts": {
-    "build": "bun run tsc --build",
     "test": "bun test",
     "test:watch": "bun test --watch",
-    "typecheck": "bun run tsc --noEmit",
-    "clean": "rm -rf dist *.tsbuildinfo"
+    "typecheck": "bun run tsc --noEmit"
   },
   "keywords": ["kustodian", "cli"],
   "author": "Luca Silverentand <luca@onezero.company>",
@@ -40,7 +38,10 @@
     "@kustodian/nodes": "workspace:*",
     "@kustodian/plugin-k0s": "workspace:*",
     "@kustodian/plugins": "workspace:*",
-    "@kustodian/schema": "workspace:*"
-  },
-  "devDependencies": {}
+    "@kustodian/registry": "workspace:*",
+    "@kustodian/schema": "workspace:*",
+    "@kustodian/sources": "workspace:*",
+    "ora": "^9.0.0",
+    "yaml": "^2.8.2"
+  }
 }

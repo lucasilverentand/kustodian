@@ -71,16 +71,42 @@ describe('Flux Generator', () => {
       // Assert
       expect(result).toEqual([{ name: 'app-operator' }, { name: 'app-config' }]);
     });
+
+    it('should format cross-template dependencies', () => {
+      // Act
+      const result = generate_depends_on('app', ['secrets/doppler']);
+
+      // Assert
+      expect(result).toEqual([{ name: 'secrets-doppler' }]);
+    });
+
+    it('should format mixed within-template and cross-template dependencies', () => {
+      // Act
+      const result = generate_depends_on('app', [
+        'config',
+        'secrets/doppler',
+        'networking/traefik',
+      ]);
+
+      // Assert
+      expect(result).toEqual([
+        { name: 'app-config' },
+        { name: 'secrets-doppler' },
+        { name: 'networking-traefik' },
+      ]);
+    });
   });
 
   describe('generate_health_checks', () => {
     it('should return undefined for empty checks', () => {
       // Arrange
-      const kustomization = {
+      const kustomization: KustomizationType = {
         name: 'test',
         path: './test',
+        prune: true,
+        wait: true,
         health_checks: [],
-      } as KustomizationType;
+      };
 
       // Act
       const result = generate_health_checks(kustomization, 'default');
@@ -91,14 +117,16 @@ describe('Flux Generator', () => {
 
     it('should format health checks', () => {
       // Arrange
-      const kustomization = {
+      const kustomization: KustomizationType = {
         name: 'test',
         path: './test',
+        prune: true,
+        wait: true,
         health_checks: [
           { kind: 'Deployment', name: 'app' },
           { kind: 'StatefulSet', name: 'db', namespace: 'database' },
         ],
-      } as KustomizationType;
+      };
 
       // Act
       const result = generate_health_checks(kustomization, 'default');
@@ -160,7 +188,9 @@ describe('Flux Generator', () => {
           {
             name: 'deployment',
             path: './deployment',
-            namespace: { default: 'nginx' },
+            prune: true,
+            wait: true,
+            namespace: { default: 'nginx', create: true },
             substitutions: [{ name: 'replicas', default: '2' }, { name: 'image_tag' }],
           },
         ],
@@ -175,8 +205,8 @@ describe('Flux Generator', () => {
       const result = resolve_kustomization(template, kustomization);
 
       // Assert
-      expect(result.values.replicas).toBe('2');
-      expect(result.values.image_tag).toBeUndefined();
+      expect(result.values['replicas']).toBe('2');
+      expect(result.values['image_tag']).toBeUndefined();
     });
 
     it('should override with cluster values', () => {
@@ -188,8 +218,8 @@ describe('Flux Generator', () => {
       const result = resolve_kustomization(template, kustomization, cluster_values);
 
       // Assert
-      expect(result.values.replicas).toBe('5');
-      expect(result.values.image_tag).toBe('1.25');
+      expect(result.values['replicas']).toBe('5');
+      expect(result.values['image_tag']).toBe('1.25');
     });
 
     it('should set namespace from config', () => {
@@ -216,7 +246,9 @@ describe('Flux Generator', () => {
             {
               name: 'deployment',
               path: './deployment',
-              namespace: { default: 'nginx' },
+              prune: true,
+              wait: true,
+              namespace: { default: 'nginx', create: true },
             },
           ],
         },
@@ -243,7 +275,7 @@ describe('Flux Generator', () => {
         apiVersion: 'kustodian.io/v1',
         kind: 'Template',
         metadata: { name: 'app' },
-        spec: { kustomizations: [{ name: 'main', path: './main' }] },
+        spec: { kustomizations: [{ name: 'main', path: './main', prune: true, wait: true }] },
       };
       const kustomization = template.spec.kustomizations[0] as KustomizationType;
       const resolved = resolve_kustomization(template, kustomization);

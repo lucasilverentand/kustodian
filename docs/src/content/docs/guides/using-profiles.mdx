@@ -1,0 +1,337 @@
+---
+title: Using Profiles
+description: Reduce duplication with reusable node configurations
+---
+
+import { Steps, Aside, FileTree } from '@astrojs/starlight/components';
+
+Node profiles let you define common configurations once and reuse them across multiple nodes. This guide shows how to create and use profiles effectively.
+
+## Why Use Profiles?
+
+Without profiles, similar nodes repeat the same configuration:
+
+```yaml
+# worker-01.yaml
+spec:
+  labels:
+    storage: nvme
+    tier: high-performance
+  taints:
+    - key: storage
+      effect: NoSchedule
+
+# worker-02.yaml - Same labels and taints!
+# worker-03.yaml - Same labels and taints!
+```
+
+With profiles, define once and reuse:
+
+```yaml
+# node-profiles/storage-node.yaml
+spec:
+  labels:
+    storage: nvme
+    tier: high-performance
+  taints:
+    - key: storage
+      effect: NoSchedule
+
+# worker-01.yaml
+spec:
+  profile: storage-node  # That's it!
+```
+
+## Creating a Profile
+
+<Steps>
+
+1. **Create the profiles directory**
+
+   ```bash
+   mkdir -p profiles
+   ```
+
+2. **Define the profile**
+
+   ```yaml
+   # node-profiles/storage-node.yaml
+   apiVersion: kustodian.io/v1
+   kind: NodeProfile
+   metadata:
+     name: storage-node
+   spec:
+     name: Storage Node
+     description: Node with NVMe storage for databases
+     labels:
+       storage: nvme
+       tier: high-performance
+     taints:
+       - key: storage
+         value: nvme
+         effect: NoSchedule
+     annotations:
+       purpose: Database and storage workloads
+   ```
+
+3. **Reference from nodes**
+
+   ```yaml
+   # clusters/production/nodes/storage-01.yaml
+   apiVersion: kustodian.io/v1
+   kind: Node
+   metadata:
+     name: storage-01
+     cluster: production
+   spec:
+     role: worker
+     address: 192.168.1.10
+     profile: storage-node
+   ```
+
+</Steps>
+
+## Profile Structure
+
+<FileTree>
+
+- node-profiles/
+  - storage-node.yaml
+  - gpu-node.yaml
+  - control-plane.yaml
+
+</FileTree>
+
+Profiles are loaded from the `node-profiles/` directory at the project root.
+
+## Merging Behavior
+
+When a node references a profile, values are merged intelligently.
+
+### Labels and Annotations
+
+Node values override profile values:
+
+```yaml
+# Profile
+labels:
+  storage: nvme
+  tier: standard
+
+# Node
+labels:
+  tier: premium   # Overrides
+  rack: A1        # Added
+
+# Result
+labels:
+  storage: nvme   # From profile
+  tier: premium   # Overridden
+  rack: A1        # From node
+```
+
+### Taints
+
+Taints are deduplicated by `key` + `effect`:
+
+```yaml
+# Profile
+taints:
+  - key: storage
+    value: standard
+    effect: NoSchedule
+
+# Node
+taints:
+  - key: storage
+    value: premium      # Same key+effect
+    effect: NoSchedule
+  - key: dedicated
+    effect: NoExecute   # New taint
+
+# Result
+taints:
+  - key: storage
+    value: premium      # Node wins
+    effect: NoSchedule
+  - key: dedicated
+    effect: NoExecute   # Added
+```
+
+<Aside type="note">
+  SSH configuration is **not** inherited from profiles. SSH settings are always node-specific or from cluster defaults.
+</Aside>
+
+## Common Profile Patterns
+
+### Storage Nodes
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: NodeProfile
+metadata:
+  name: storage-node
+spec:
+  name: Storage Node
+  labels:
+    node-type: storage
+    storage: nvme
+  taints:
+    - key: storage-only
+      effect: NoSchedule
+  annotations:
+    description: Dedicated storage node
+```
+
+### GPU Nodes
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: NodeProfile
+metadata:
+  name: gpu-node
+spec:
+  name: GPU Node
+  labels:
+    accelerator: gpu
+    nvidia.com/gpu: "true"
+  taints:
+    - key: nvidia.com/gpu
+      effect: NoSchedule
+```
+
+### Control Plane
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: NodeProfile
+metadata:
+  name: control-plane
+spec:
+  name: Control Plane Node
+  labels:
+    node-role.kubernetes.io/control-plane: ""
+  taints:
+    - key: node-role.kubernetes.io/control-plane
+      effect: NoSchedule
+```
+
+### High-Memory Nodes
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: NodeProfile
+metadata:
+  name: high-memory
+spec:
+  name: High Memory Node
+  labels:
+    memory: high
+    workload-type: memory-intensive
+```
+
+## Using Profiles with Overrides
+
+Combine profile base with node-specific additions:
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Node
+metadata:
+  name: gpu-01
+  cluster: production
+spec:
+  role: worker
+  address: 192.168.1.30
+  profile: gpu-node
+  labels:
+    # Additional labels
+    gpu-model: rtx4090
+    rack: B1
+  taints:
+    # Additional taint
+    - key: ml-training
+      effect: PreferNoSchedule
+```
+
+## Validation
+
+Kustodian validates profile references:
+
+```bash
+kustodian validate
+```
+
+If a node references a non-existent profile:
+
+```
+Error: Profile 'missing-profile' not found, referenced by nodes: node-01, node-02
+```
+
+## Best Practices
+
+### Clear Naming
+
+Use descriptive profile names:
+
+```yaml
+# Good
+metadata:
+  name: gpu-node
+  name: high-memory-node
+  name: storage-nvme-node
+
+# Avoid
+metadata:
+  name: profile1
+  name: special
+```
+
+### Document Purpose
+
+Include description in profiles:
+
+```yaml
+spec:
+  name: GPU Training Node
+  description: |
+    Nodes with NVIDIA GPUs for ML training workloads.
+    Requires nvidia-device-plugin daemonset.
+```
+
+### Group Related Labels
+
+Organize labels logically:
+
+```yaml
+labels:
+  # Hardware
+  accelerator: gpu
+  nvidia.com/gpu: "true"
+  gpu-memory: 24gb
+
+  # Workload
+  workload-type: ml-training
+```
+
+### One Purpose Per Profile
+
+Create focused profiles rather than combining purposes:
+
+```yaml
+# Good - separate profiles
+node-profiles/
+├── gpu-node.yaml
+├── storage-node.yaml
+└── high-memory-node.yaml
+
+# Avoid - combined profile
+node-profiles/
+└── special-node.yaml  # GPU + storage + high memory
+```
+
+## Next Steps
+
+- [Node Profiles Concept](/concepts/node-profiles/) - Detailed profile documentation
+- [Defining Nodes](/guides/defining-nodes/) - Node configuration guide
+- [NodeProfile Reference](/reference/config/profile/) - Complete schema

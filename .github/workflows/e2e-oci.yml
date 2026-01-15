@@ -1,0 +1,167 @@
+name: E2E OCI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  oci-e2e:
+    name: OCI Integration Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jdx/mise-action@v3
+
+      - run: bun install --frozen-lockfile
+
+      - name: Create kind cluster with local registry
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: kustodian-oci
+          wait: 60s
+          registry: true
+          registry_name: kind-registry
+          registry_port: 5000
+
+      - name: Setup Flux CLI
+        uses: fluxcd/flux2/action@main
+
+      - name: Install Flux
+        run: |
+          flux install
+          flux check
+
+      - name: Push templates to OCI registry
+        run: |
+          # Get the git info for Flux artifact metadata
+          GIT_SHA=$(git rev-parse --short HEAD)
+          GIT_SOURCE=$(git config --get remote.origin.url || echo "local")
+          GIT_REVISION="sha1:$(git rev-parse HEAD)"
+
+          # Push the e2e fixtures to the local registry
+          flux push artifact oci://localhost:5000/kustodian-e2e:${GIT_SHA} \
+            --path="./e2e/fixtures/valid-project" \
+            --source="${GIT_SOURCE}" \
+            --revision="${GIT_REVISION}"
+
+          echo "Pushed to localhost:5000/kustodian-e2e:${GIT_SHA}"
+
+          # Tag as latest for easier reference
+          flux tag artifact oci://localhost:5000/kustodian-e2e:${GIT_SHA} \
+            --tag=latest
+
+      - name: Create OCIRepository source
+        run: |
+          GIT_SHA=$(git rev-parse --short HEAD)
+
+          # Create OCIRepository pointing to local registry
+          kubectl apply -f - <<EOF
+          apiVersion: source.toolkit.fluxcd.io/v1beta2
+          kind: OCIRepository
+          metadata:
+            name: kustodian-e2e
+            namespace: flux-system
+          spec:
+            interval: 1m
+            url: oci://kind-registry:5000/kustodian-e2e
+            ref:
+              tag: ${GIT_SHA}
+            insecure: true
+          EOF
+
+          # Wait for OCIRepository to be ready
+          kubectl -n flux-system wait ocirepository/kustodian-e2e --for=condition=ready --timeout=2m
+
+      - name: Apply Flux Kustomization from OCI
+        run: |
+          # Create a Flux Kustomization that references the OCIRepository
+          kubectl apply -f - <<'EOF'
+          apiVersion: kustomize.toolkit.fluxcd.io/v1
+          kind: Kustomization
+          metadata:
+            name: example-app-oci
+            namespace: flux-system
+          spec:
+            interval: 1m
+            sourceRef:
+              kind: OCIRepository
+              name: kustodian-e2e
+            path: ./templates/example/app
+            prune: true
+            wait: true
+            timeout: 2m
+            postBuild:
+              substitute:
+                namespace: example-oci
+                replicas: "2"
+          EOF
+
+      - name: Wait for reconciliation
+        run: |
+          # Wait for Flux to reconcile the Kustomization
+          kubectl -n flux-system wait kustomization/example-app-oci --for=condition=ready --timeout=2m
+
+      - name: Verify deployment from OCI
+        run: |
+          # Check that the namespace was created
+          kubectl get namespace example-oci
+
+          # Check that the deployment exists
+          kubectl -n example-oci get deployment example-app
+
+          # Verify replicas (should be 2 from postBuild substitution)
+          REPLICAS=$(kubectl -n example-oci get deployment example-app -o jsonpath='{.spec.replicas}')
+          echo "Deployment replicas: ${REPLICAS}"
+          if [ "${REPLICAS}" != "2" ]; then
+            echo "ERROR: Expected 2 replicas, got ${REPLICAS}"
+            exit 1
+          fi
+
+          # Check pods are running
+          kubectl -n example-oci wait deployment/example-app --for=condition=available --timeout=90s
+
+          # Show deployment status
+          echo "=== OCI-deployed pods ==="
+          kubectl -n example-oci get pods
+
+      - name: Verify OCI artifact metadata
+        run: |
+          # Verify the OCIRepository has the correct artifact info
+          kubectl -n flux-system get ocirepository/kustodian-e2e -o yaml
+
+          # Show artifact details
+          echo "=== Artifact details ==="
+          kubectl -n flux-system get ocirepository/kustodian-e2e -o jsonpath='{.status.artifact}'
+          echo ""
+
+      - name: Debug on failure
+        if: failure()
+        run: |
+          echo "=== Flux status ==="
+          flux get all --all-namespaces || true
+
+          echo "=== OCIRepository status ==="
+          kubectl -n flux-system get ocirepository -o yaml || true
+
+          echo "=== Kustomizations ==="
+          kubectl -n flux-system get kustomizations -o yaml || true
+
+          echo "=== Source controller logs ==="
+          kubectl -n flux-system logs deploy/source-controller --tail=50 || true
+
+          echo "=== Kustomize controller logs ==="
+          kubectl -n flux-system logs deploy/kustomize-controller --tail=50 || true
+
+          echo "=== Events ==="
+          kubectl get events --all-namespaces --sort-by='.lastTimestamp' | tail -30 || true
+
+          echo "=== Local registry contents ==="
+          curl -s http://localhost:5000/v2/_catalog || true

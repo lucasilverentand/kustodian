@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import * as path from 'node:path';
-import { create_generator } from '../packages/generator/dist/index.js';
-import { load_project } from '../packages/loader/dist/index.js';
+import { create_generator } from '../packages/generator/src/index.js';
+import { load_project } from '../packages/loader/src/index.js';
 
 const FIXTURES_DIR = path.join(import.meta.dir, 'fixtures');
 const VALID_PROJECT = path.join(FIXTURES_DIR, 'valid-project');
@@ -14,6 +14,9 @@ describe('E2E: Generator', () => {
 
     const project = project_result.value;
     const cluster = project.clusters[0];
+    expect(cluster).toBeDefined();
+    if (!cluster) return;
+
     const templates = project.templates.map((t) => t.template);
 
     const generator = create_generator({
@@ -33,10 +36,13 @@ describe('E2E: Generator', () => {
 
       // Verify kustomization structure
       const kustomization = generation.kustomizations[0];
-      expect(kustomization.flux_kustomization).toBeDefined();
-      expect(kustomization.flux_kustomization.apiVersion).toBe('kustomize.toolkit.fluxcd.io/v1');
-      expect(kustomization.flux_kustomization.kind).toBe('Kustomization');
-      expect(kustomization.flux_kustomization.metadata.namespace).toBe('flux-system');
+      expect(kustomization).toBeDefined();
+      if (kustomization) {
+        expect(kustomization.flux_kustomization).toBeDefined();
+        expect(kustomization.flux_kustomization.apiVersion).toBe('kustomize.toolkit.fluxcd.io/v1');
+        expect(kustomization.flux_kustomization.kind).toBe('Kustomization');
+        expect(kustomization.flux_kustomization.metadata.namespace).toBe('flux-system');
+      }
     }
   });
 
@@ -47,6 +53,9 @@ describe('E2E: Generator', () => {
 
     const project = project_result.value;
     const cluster = project.clusters[0];
+    expect(cluster).toBeDefined();
+    if (!cluster) return;
+
     const templates = project.templates.map((t) => t.template);
 
     const generator = create_generator({
@@ -71,6 +80,9 @@ describe('E2E: Generator', () => {
 
     const project = project_result.value;
     const cluster = project.clusters[0];
+    expect(cluster).toBeDefined();
+    if (!cluster) return;
+
     const templates = project.templates.map((t) => t.template);
 
     const generator = create_generator();
@@ -79,8 +91,12 @@ describe('E2E: Generator', () => {
     const resolved = generator.resolve_templates(cluster.cluster, templates);
 
     expect(resolved.length).toBe(1);
-    expect(resolved[0].enabled).toBe(true);
-    expect(resolved[0].values.replicas).toBe('3'); // From cluster config
+    const first_resolved = resolved[0];
+    expect(first_resolved).toBeDefined();
+    if (first_resolved) {
+      expect(first_resolved.enabled).toBe(true);
+      expect(first_resolved.values['replicas']).toBe('3'); // From cluster config
+    }
   });
 
   it('should skip disabled templates', async () => {
@@ -91,11 +107,15 @@ describe('E2E: Generator', () => {
     const project = project_result.value;
     const templates = project.templates.map((t) => t.template);
 
+    const first_cluster = project.clusters[0];
+    expect(first_cluster).toBeDefined();
+    if (!first_cluster) return;
+
     // Create a cluster config with disabled template
     const cluster_with_disabled = {
-      ...project.clusters[0].cluster,
+      ...first_cluster.cluster,
       spec: {
-        ...project.clusters[0].cluster.spec,
+        ...first_cluster.cluster.spec,
         templates: [{ name: 'example', enabled: false }],
       },
     };

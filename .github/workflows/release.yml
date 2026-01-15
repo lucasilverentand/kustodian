@@ -3,6 +3,12 @@ name: Release
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Force publish (skip release-please check)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -23,14 +29,13 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  publish:
-    name: Publish
+  publish-npm:
+    name: Publish to npm
     needs: release-please
-    if: needs.release-please.outputs.releases_created == 'true'
+    if: needs.release-please.outputs.releases_created == 'true' || inputs.publish == true
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
       id-token: write
     steps:
       - uses: actions/checkout@v4
@@ -38,17 +43,39 @@ jobs:
       - uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
 
-      - name: Build packages
-        run: bun run build
-
-      - name: Setup GitHub npm authentication
+      - name: Publish packages to npm
+        env:
+          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          echo "@kustodian:registry=https://npm.pkg.github.com" > ~/.npmrc
-          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> ~/.npmrc
+          for pkg in packages/* plugins/*; do
+            if [ -f "$pkg/package.json" ]; then
+              cd "$pkg"
+              bun publish --access public --registry https://registry.npmjs.org || true
+              cd ../..
+            fi
+          done
 
-      - name: Publish packages to GitHub
+  publish-github:
+    name: Publish to GitHub Packages
+    needs: release-please
+    if: needs.release-please.outputs.releases_created == 'true' || inputs.publish == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Publish packages to GitHub Packages
+        env:
+          NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Define package order based on dependencies (least dependent first)
           PACKAGES=(
@@ -65,8 +92,7 @@ jobs:
           for pkg in "${PACKAGES[@]}"; do
             if [ -f "$pkg/package.json" ]; then
               cd "$pkg"
-              # Use bun publish to properly resolve workspace:* dependencies
-              bun publish --access restricted || echo "Package may already exist, continuing..."
-              cd - > /dev/null
+              bun publish --registry https://npm.pkg.github.com || true
+              cd ../..
             fi
           done

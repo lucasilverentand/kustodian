@@ -1,0 +1,152 @@
+---
+title: kustodian init
+description: Initialize a new Kustodian project
+---
+
+The `init` command creates a new Kustodian project with the standard directory structure.
+
+## Usage
+
+```bash
+kustodian init [path] [options]
+```
+
+## Arguments
+
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `path` | Directory to create project in | Current directory |
+
+## Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--name <name>` | Project name | Directory name |
+| `--with-example` | Include example templates and clusters | `false` |
+
+## Examples
+
+### Initialize in Current Directory
+
+```bash
+kustodian init
+```
+
+Creates a Kustodian project in the current directory.
+
+### Initialize with Name
+
+```bash
+kustodian init my-infrastructure --name "My Infrastructure"
+```
+
+Creates project in `my-infrastructure/` with specified name.
+
+### Initialize with Examples
+
+```bash
+kustodian init --with-example
+```
+
+Creates project with example templates and cluster configuration.
+
+## Created Structure
+
+### Basic Structure
+
+```
+.
+├── kustodian.yaml
+├── node-profiles/
+├── templates/
+└── clusters/
+```
+
+### With Examples
+
+```
+.
+├── kustodian.yaml
+├── node-profiles/
+│   └── worker-node.yaml
+├── templates/
+│   └── nginx/
+│       ├── template.yaml
+│       └── manifests/
+│           ├── kustomization.yaml
+│           ├── deployment.yaml
+│           └── service.yaml
+└── clusters/
+    └── development/
+        ├── cluster.yaml
+        └── nodes/
+            └── node-01.yaml
+```
+
+## Generated Files
+
+### kustodian.yaml
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Project
+metadata:
+  name: my-infrastructure
+```
+
+### Example Profile
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: NodeProfile
+metadata:
+  name: worker-node
+spec:
+  name: Worker Node
+  description: Standard worker node configuration
+  labels:
+    node-type: worker
+```
+
+### Example Cluster
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Cluster
+metadata:
+  name: development
+spec:
+  flux:
+    source_ref:
+      kind: GitRepository
+      name: flux-system
+      namespace: flux-system
+    interval: 5m
+  templates:
+    - nginx
+  values:
+    ENVIRONMENT: development
+```
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success |
+| `1` | Directory already exists or not empty |
+| `2` | Write error |
+
+## Next Steps
+
+After initialization:
+
+1. Create or modify profiles in `node-profiles/`
+2. Add templates in `templates/`
+3. Configure clusters in `clusters/`
+4. Run `kustodian validate` to check configuration
+5. Commit and push—Kustodian generates manifests automatically
+
+## Related Commands
+
+- [`kustodian validate`](/reference/cli/validate/) - Validate project configuration
+- [`kustodian bootstrap`](/reference/cli/bootstrap/) - Bootstrap cluster nodes

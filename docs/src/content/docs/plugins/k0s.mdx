@@ -1,0 +1,298 @@
+---
+title: k0s Plugin
+description: Using the k0s Kubernetes distribution with Kustodian
+---
+
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+The k0s plugin enables Kustodian to bootstrap and manage [k0s](https://k0sproject.io/) Kubernetes clusters.
+
+## What is k0s?
+
+k0s is a simple, certified Kubernetes distribution that:
+
+- Ships as a single binary
+- Requires no external dependencies
+- Supports air-gapped deployments
+- Works on any Linux distribution
+
+## Installation
+
+The k0s plugin is included with Kustodian. No additional installation required.
+
+## Usage
+
+### Bootstrap a Cluster
+
+<Steps>
+
+1. **Configure your cluster**
+
+   ```yaml
+   # clusters/production/cluster.yaml
+   apiVersion: kustodian.io/v1
+   kind: Cluster
+   metadata:
+     name: production
+   spec:
+     flux:
+       source_ref:
+         kind: GitRepository
+         name: flux-system
+         namespace: flux-system
+     node_defaults:
+       ssh:
+         user: ubuntu
+         key_path: ~/.ssh/cluster_key
+   ```
+
+2. **Define your nodes**
+
+   ```yaml
+   # clusters/production/nodes/controller-01.yaml
+   apiVersion: kustodian.io/v1
+   kind: Node
+   metadata:
+     name: controller-01
+     cluster: production
+   spec:
+     role: controller
+     address: 192.168.1.10
+   ```
+
+   ```yaml
+   # clusters/production/nodes/worker-01.yaml
+   apiVersion: kustodian.io/v1
+   kind: Node
+   metadata:
+     name: worker-01
+     cluster: production
+   spec:
+     role: worker
+     address: 192.168.1.20
+   ```
+
+3. **Bootstrap the cluster**
+
+   ```bash
+   kustodian bootstrap --cluster production --provider k0s
+   ```
+
+</Steps>
+
+## Bootstrap Process
+
+### Controller Nodes
+
+For controller nodes, the plugin:
+
+1. Downloads and installs k0s
+2. Generates k0s configuration
+3. Initializes the control plane
+4. Configures networking (kube-router or calico)
+
+```bash
+# Executed on controller
+curl -sSLf https://get.k0s.sh | sudo sh
+sudo k0s install controller --config /etc/k0s/k0s.yaml
+sudo k0s start
+```
+
+### Worker Nodes
+
+For worker nodes, the plugin:
+
+1. Downloads and installs k0s
+2. Retrieves join token from controller
+3. Joins the cluster
+
+```bash
+# Executed on worker
+curl -sSLf https://get.k0s.sh | sudo sh
+sudo k0s install worker --token-file /tmp/token
+sudo k0s start
+```
+
+## Node Roles
+
+| Role | k0s Mode |
+|------|----------|
+| `controller` | `k0s controller` |
+| `worker` | `k0s worker` |
+| `controller+worker` | `k0s controller --enable-worker` |
+
+## SSH Requirements
+
+Ensure SSH access is configured:
+
+```yaml
+node_defaults:
+  ssh:
+    user: ubuntu
+    key_path: ~/.ssh/cluster_key
+```
+
+The SSH user must have:
+- Passwordless sudo access
+- SSH key authentication
+
+<Aside type="tip">
+  Test SSH access before bootstrapping:
+  ```bash
+  ssh -i ~/.ssh/cluster_key ubuntu@192.168.1.10 "sudo whoami"
+  ```
+</Aside>
+
+## k0s Configuration
+
+The plugin generates k0s configuration based on your cluster settings.
+
+### Default Configuration
+
+```yaml
+# Generated /etc/k0s/k0s.yaml
+apiVersion: k0s.k0sproject.io/v1beta1
+kind: ClusterConfig
+metadata:
+  name: production
+spec:
+  api:
+    address: 192.168.1.10
+  network:
+    provider: kube-router
+  storage:
+    type: etcd
+```
+
+### Custom Configuration
+
+For advanced k0s configuration, provide a custom template in your cluster:
+
+```yaml
+# clusters/production/k0s-config.yaml
+apiVersion: k0s.k0sproject.io/v1beta1
+kind: ClusterConfig
+spec:
+  network:
+    provider: calico
+  extensions:
+    helm:
+      repositories:
+        - name: stable
+          url: https://charts.helm.sh/stable
+```
+
+## After Bootstrap
+
+### Get Kubeconfig
+
+```bash
+ssh ubuntu@192.168.1.10 "sudo k0s kubeconfig admin" > ~/.kube/production
+export KUBECONFIG=~/.kube/production
+kubectl get nodes
+```
+
+### Install Flux
+
+```bash
+flux bootstrap github \
+  --owner=your-org \
+  --repository=infrastructure \
+  --path=clusters/production/flux
+```
+
+### Apply Node Configuration
+
+Apply labels and taints to nodes:
+
+```bash
+kustodian apply --cluster production
+```
+
+## Troubleshooting
+
+### Bootstrap Failed
+
+Check k0s status on the node:
+
+```bash
+ssh ubuntu@192.168.1.10 "sudo k0s status"
+```
+
+Check k0s logs:
+
+```bash
+ssh ubuntu@192.168.1.10 "sudo journalctl -u k0scontroller"
+```
+
+### Worker Won't Join
+
+Verify the join token:
+
+```bash
+ssh ubuntu@192.168.1.10 "sudo k0s token create --role worker"
+```
+
+Check worker logs:
+
+```bash
+ssh ubuntu@192.168.1.20 "sudo journalctl -u k0sworker"
+```
+
+### Network Issues
+
+Ensure required ports are open:
+
+| Port | Protocol | Purpose |
+|------|----------|---------|
+| 6443 | TCP | Kubernetes API |
+| 8132 | TCP | Konnectivity |
+| 9443 | TCP | k0s API |
+| 10250 | TCP | Kubelet |
+
+## Best Practices
+
+### Use Dedicated Controllers
+
+For production, use dedicated controller nodes:
+
+```yaml
+# Controller - no workloads
+spec:
+  role: controller
+
+# Worker - runs workloads
+spec:
+  role: worker
+```
+
+### High Availability
+
+For HA, use 3 or 5 controllers:
+
+```
+nodes/
+├── controller-01.yaml
+├── controller-02.yaml
+├── controller-03.yaml
+├── worker-01.yaml
+└── worker-02.yaml
+```
+
+### Air-Gapped Deployment
+
+For air-gapped environments, pre-download k0s:
+
+```bash
+# On internet-connected machine
+curl -sSLf https://get.k0s.sh | sudo sh
+
+# Copy to air-gapped nodes
+scp /usr/local/bin/k0s user@node:/usr/local/bin/
+```
+
+## Related Resources
+
+- [k0s Documentation](https://docs.k0sproject.io/) - Official k0s docs
+- [Bootstrap Command](/reference/cli/bootstrap/) - CLI reference
+- [Defining Nodes](/guides/defining-nodes/) - Node configuration

@@ -1,0 +1,248 @@
+---
+title: Contributing Guidelines
+description: How to contribute to Kustodian
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+Thank you for your interest in contributing to Kustodian! This guide covers the process for submitting contributions.
+
+## Ways to Contribute
+
+- **Bug reports**: Report issues you encounter
+- **Feature requests**: Suggest new functionality
+- **Code contributions**: Fix bugs or implement features
+- **Documentation**: Improve or add documentation
+- **Testing**: Add tests or improve coverage
+
+## Getting Started
+
+<Steps>
+
+1. **Fork the repository**
+
+   Click "Fork" on GitHub to create your own copy.
+
+2. **Clone your fork**
+
+   ```bash
+   git clone https://github.com/YOUR-USERNAME/kustodian.git
+   cd kustodian
+   ```
+
+3. **Add upstream remote**
+
+   ```bash
+   git remote add upstream https://github.com/lucasilverentand/kustodian.git
+   ```
+
+4. **Create a branch**
+
+   ```bash
+   git checkout -b feature/my-feature
+   ```
+
+</Steps>
+
+## Development Process
+
+### Before Starting
+
+1. Check existing issues for related work
+2. Open an issue to discuss major changes
+3. Ensure your environment is set up ([Development Setup](/contributing/development/))
+
+### Making Changes
+
+1. Write code following the [style guide](#code-style)
+2. Add tests for new functionality
+3. Update documentation if needed
+4. Ensure all tests pass
+
+### Testing Your Changes
+
+```bash
+# Run all tests
+pnpm test
+
+# Run specific package tests
+pnpm --filter @kustodian/schema test
+
+# Type checking
+pnpm typecheck
+
+# Linting
+pnpm lint
+```
+
+## Pull Request Process
+
+### Before Submitting
+
+- [ ] Tests pass locally
+- [ ] Code follows style guidelines
+- [ ] Documentation updated (if applicable)
+- [ ] Commit messages are clear and descriptive
+
+### Creating the PR
+
+1. Push your branch:
+   ```bash
+   git push origin feature/my-feature
+   ```
+
+2. Open a pull request on GitHub
+
+3. Fill in the PR template:
+   - Describe what changes you made
+   - Link related issues
+   - List any breaking changes
+
+### PR Review
+
+- Maintainers will review your PR
+- Address any requested changes
+- Once approved, your PR will be merged
+
+<Aside type="tip">
+  Keep PRs focused on a single change. Multiple unrelated changes should be separate PRs.
+</Aside>
+
+## Code Style
+
+### TypeScript
+
+```typescript
+// Use snake_case for functions
+function process_node(node: NodeType): ResultType<void, Error> {
+  // ...
+}
+
+// Use PascalCase for types
+interface NodeType {
+  name: string;
+}
+
+// Use Result type for error handling
+function my_function(): ResultType<string, Error> {
+  if (error_condition) {
+    return err(new Error('message'));
+  }
+  return ok(value);
+}
+```
+
+### File Organization
+
+- One concept per file
+- Files named with `snake_case.ts`
+- Tests in `tests/` directory
+- Export from `index.ts`
+
+### Commit Messages
+
+Use conventional commit format:
+
+```
+type(scope): description
+
+[optional body]
+
+[optional footer]
+```
+
+Types:
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation
+- `test`: Tests
+- `refactor`: Code refactoring
+- `chore`: Maintenance
+
+Examples:
+```
+feat(schema): add profile validation
+
+fix(loader): handle empty YAML files
+
+docs: update installation guide
+```
+
+## Bug Reports
+
+When reporting bugs, include:
+
+1. **Description**: What happened?
+2. **Expected behavior**: What should have happened?
+3. **Reproduction steps**: How to reproduce the issue
+4. **Environment**: OS, Bun version, Kustodian version
+5. **Logs**: Any relevant error messages
+
+## Feature Requests
+
+When requesting features, include:
+
+1. **Problem**: What problem does this solve?
+2. **Solution**: How would you like it to work?
+3. **Alternatives**: Other approaches you've considered
+4. **Additional context**: Relevant examples or references
+
+## Documentation Contributions
+
+### Structure
+
+- Keep pages focused on one topic
+- Use practical examples
+- Include code samples where helpful
+- Link to related pages
+
+### Writing Style
+
+- Use active voice
+- Be concise
+- Address the reader directly
+- Avoid jargon without explanation
+
+### Testing Documentation
+
+```bash
+cd docs
+pnpm dev
+```
+
+Preview at `http://localhost:4321`
+
+## Community Guidelines
+
+### Be Respectful
+
+- Treat others with respect
+- Be constructive in feedback
+- Welcome newcomers
+
+### Be Patient
+
+- Maintainers are volunteers
+- Reviews take time
+- Complex changes need discussion
+
+### Be Open
+
+- Share knowledge
+- Help others learn
+- Accept feedback gracefully
+
+## Getting Help
+
+- **Questions**: Open a discussion on GitHub
+- **Bugs**: Open an issue
+- **Security**: Email maintainers directly
+
+## License
+
+By contributing, you agree that your contributions will be licensed under the project's license.
+
+## Next Steps
+
+- [Development Setup](/contributing/development/) - Set up your environment
+- [Architecture](/contributing/architecture/) - Understand the codebase

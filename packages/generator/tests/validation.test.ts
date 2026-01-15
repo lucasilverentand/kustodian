@@ -196,7 +196,7 @@ describe('Validation Module', () => {
       const result = build_dependency_graph(templates);
 
       expect(result.errors).toHaveLength(1);
-      expect(result.errors[0].type).toBe('missing_reference');
+      expect(result.errors[0]?.type).toBe('missing_reference');
     });
 
     it('should detect self-references', () => {
@@ -205,7 +205,7 @@ describe('Validation Module', () => {
       const result = build_dependency_graph(templates);
 
       expect(result.errors).toHaveLength(1);
-      expect(result.errors[0].type).toBe('self_reference');
+      expect(result.errors[0]?.type).toBe('self_reference');
     });
 
     it('should detect cross-template missing references', () => {

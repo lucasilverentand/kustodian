@@ -4,6 +4,7 @@ import { Errors, type ResultType, failure, is_success, success } from '@kustodia
 import type { KustodianErrorType } from '@kustodian/core';
 import {
   type ClusterType,
+  type NodeProfileType,
   type NodeSchemaType,
   type TemplateType,
   node_resource_to_node,
@@ -13,6 +14,7 @@ import {
 } from '@kustodian/schema';
 
 import { file_exists, list_directories, list_files, read_yaml_file } from './file.js';
+import { load_all_profiles } from './profile.js';
 
 /**
  * Standard file names used in Kustodian projects.
@@ -31,6 +33,7 @@ export const StandardDirs = {
   TEMPLATES: 'templates',
   CLUSTERS: 'clusters',
   NODES: 'nodes',
+  PROFILES: 'profiles',
 } as const;
 
 /**
@@ -57,6 +60,7 @@ export interface ProjectType {
   root: string;
   templates: LoadedTemplateType[];
   clusters: LoadedClusterType[];
+  profiles: Map<string, NodeProfileType>;
 }
 
 /**
@@ -317,6 +321,12 @@ export async function load_project(
     return failure(Errors.config_not_found('Project', project_file));
   }
 
+  // Load profiles first (they may be referenced by nodes)
+  const profiles_result = await load_all_profiles(project_root);
+  if (!is_success(profiles_result)) {
+    return profiles_result;
+  }
+
   // Load templates
   const templates_result = await load_all_templates(project_root);
   if (!is_success(templates_result)) {
@@ -333,5 +343,6 @@ export async function load_project(
     root: project_root,
     templates: templates_result.value,
     clusters: clusters_result.value,
+    profiles: profiles_result.value,
   });
 }

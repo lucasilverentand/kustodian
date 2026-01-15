@@ -257,10 +257,10 @@ Kustodian is built as a collection of packages:
 
 ```bash
 # Install the CLI
-npm install -g @kustodian/cli
+bun install -g @kustodian/cli
 
-# Or use with npx
-npx @kustodian/cli generate --cluster production
+# Or use with bunx
+bunx @kustodian/cli generate --cluster production
 ```
 
 ## Usage

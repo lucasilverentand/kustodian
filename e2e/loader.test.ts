@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import * as path from 'node:path';
-import { find_project_root, load_project } from '../packages/loader/dist/index.js';
+import { find_project_root, load_project } from '../packages/loader/src/index.js';
 
 const FIXTURES_DIR = path.join(import.meta.dir, 'fixtures');
 const VALID_PROJECT = path.join(FIXTURES_DIR, 'valid-project');
@@ -51,14 +51,20 @@ describe('E2E: Project Loader', () => {
 
         // Verify template
         const template = project.templates[0];
-        expect(template.template.metadata.name).toBe('example');
-        expect(template.template.spec.kustomizations.length).toBe(1);
+        expect(template).toBeDefined();
+        if (template) {
+          expect(template.template.metadata.name).toBe('example');
+          expect(template.template.spec.kustomizations.length).toBe(1);
+        }
 
         // Verify cluster
         const cluster = project.clusters[0];
-        expect(cluster.cluster.metadata.name).toBe('local');
-        expect(cluster.cluster.spec.domain).toBe('local.example.com');
-        expect(cluster.cluster.spec.oci).toBeDefined();
+        expect(cluster).toBeDefined();
+        if (cluster) {
+          expect(cluster.cluster.metadata.name).toBe('local');
+          expect(cluster.cluster.spec.domain).toBe('local.example.com');
+          expect(cluster.cluster.spec.oci).toBeDefined();
+        }
       }
     });
 
@@ -68,10 +74,17 @@ describe('E2E: Project Loader', () => {
       expect(result.success).toBe(true);
       if (result.success) {
         const cluster = result.value.clusters[0];
-        expect(cluster.nodes.length).toBe(1);
-        // Node schema is flattened after loading
-        expect(cluster.nodes[0].name).toBe('controller-1');
-        expect(cluster.nodes[0].role).toBe('controller');
+        expect(cluster).toBeDefined();
+        if (cluster) {
+          expect(cluster.nodes.length).toBe(1);
+          // Node schema is flattened after loading
+          const first_node = cluster.nodes[0];
+          expect(first_node).toBeDefined();
+          if (first_node) {
+            expect(first_node.name).toBe('controller-1');
+            expect(first_node.role).toBe('controller');
+          }
+        }
       }
     });
 
