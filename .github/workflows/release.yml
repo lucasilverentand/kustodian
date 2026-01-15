@@ -54,7 +54,7 @@ jobs:
           for pkg in packages/* plugins/*; do
             if [ -f "$pkg/package.json" ]; then
               cd "$pkg"
-              npm publish --provenance --access public --registry https://registry.npmjs.org
+              bun publish --access public --registry https://registry.npmjs.org || true
               cd ../..
             fi
           done
@@ -85,7 +85,7 @@ jobs:
           for pkg in packages/* plugins/*; do
             if [ -f "$pkg/package.json" ]; then
               cd "$pkg"
-              npm publish
+              bun publish --registry https://npm.pkg.github.com || true
               cd ../..
             fi
           done
