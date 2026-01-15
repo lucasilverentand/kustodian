@@ -88,6 +88,26 @@ export function generate_health_checks(
 }
 
 /**
+ * Generates custom health checks with CEL expressions for a Flux Kustomization.
+ */
+export function generate_custom_health_checks(
+  kustomization: KustomizationType,
+  namespace: string,
+): FluxKustomizationType['spec']['customHealthChecks'] {
+  if (!kustomization.health_check_exprs || kustomization.health_check_exprs.length === 0) {
+    return undefined;
+  }
+
+  return kustomization.health_check_exprs.map((check) => ({
+    apiVersion: check.api_version,
+    kind: check.kind,
+    namespace: check.namespace ?? namespace,
+    current: check.current,
+    failed: check.failed,
+  }));
+}
+
+/**
  * Generates a Flux OCIRepository resource.
  */
 export function generate_flux_oci_repository(
@@ -189,6 +209,12 @@ export function generate_flux_kustomization(
   const health_checks = generate_health_checks(kustomization, namespace);
   if (health_checks) {
     spec.healthChecks = health_checks;
+  }
+
+  // Add custom health checks with CEL expressions
+  const custom_health_checks = generate_custom_health_checks(kustomization, namespace);
+  if (custom_health_checks) {
+    spec.customHealthChecks = custom_health_checks;
   }
 
   return {
