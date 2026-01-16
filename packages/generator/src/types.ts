@@ -116,5 +116,14 @@ export interface FluxKustomizationType {
       name: string;
       namespace: string;
     }>;
+    customHealthChecks?: Array<{
+      apiVersion: string;
+      kind: string;
+      namespace?: string;
+      /** CEL expression for when resource is healthy/current */
+      current?: string;
+      /** CEL expression for when resource has failed */
+      failed?: string;
+    }>;
   };
 }

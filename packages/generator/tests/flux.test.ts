@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test';
 
 import type { KustomizationType, TemplateType } from '@kustodian/schema';
 import {
+  generate_custom_health_checks,
   generate_depends_on,
   generate_flux_kustomization,
   generate_flux_name,
@@ -175,6 +176,120 @@ describe('Flux Generator', () => {
         name: 'app',
         namespace: 'default',
       });
+    });
+  });
+
+  describe('generate_custom_health_checks', () => {
+    it('should return undefined for empty checks', () => {
+      // Arrange
+      const kustomization: KustomizationType = {
+        name: 'test',
+        path: './test',
+        prune: true,
+        wait: true,
+        health_check_exprs: [],
+      };
+
+      // Act
+      const result = generate_custom_health_checks(kustomization, 'default');
+
+      // Assert
+      expect(result).toBeUndefined();
+    });
+
+    it('should format custom health checks with CEL expressions', () => {
+      // Arrange
+      const kustomization: KustomizationType = {
+        name: 'test',
+        path: './test',
+        prune: true,
+        wait: true,
+        health_check_exprs: [
+          {
+            api_version: 'postgresql.cnpg.io/v1',
+            kind: 'Cluster',
+            current: "status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'True')",
+            failed: "status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'False')",
+          },
+        ],
+      };
+
+      // Act
+      const result = generate_custom_health_checks(kustomization, 'databases');
+
+      // Assert
+      expect(result).toHaveLength(1);
+      expect(result?.[0]).toEqual({
+        apiVersion: 'postgresql.cnpg.io/v1',
+        kind: 'Cluster',
+        namespace: 'databases',
+        current: "status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'True')",
+        failed: "status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'False')",
+      });
+    });
+
+    it('should use custom namespace when specified', () => {
+      // Arrange
+      const kustomization: KustomizationType = {
+        name: 'test',
+        path: './test',
+        prune: true,
+        wait: true,
+        health_check_exprs: [
+          {
+            api_version: 'postgresql.cnpg.io/v1',
+            kind: 'Cluster',
+            namespace: 'custom-db',
+            current: "status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'True')",
+          },
+        ],
+      };
+
+      // Act
+      const result = generate_custom_health_checks(kustomization, 'default');
+
+      // Assert
+      expect(result).toHaveLength(1);
+      expect(result?.[0]).toEqual({
+        apiVersion: 'postgresql.cnpg.io/v1',
+        kind: 'Cluster',
+        namespace: 'custom-db',
+        current: "status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'True')",
+        failed: undefined,
+      });
+    });
+
+    it('should handle multiple CEL expression health checks', () => {
+      // Arrange
+      const kustomization: KustomizationType = {
+        name: 'test',
+        path: './test',
+        prune: true,
+        wait: true,
+        health_check_exprs: [
+          {
+            api_version: 'postgresql.cnpg.io/v1',
+            kind: 'Cluster',
+            current: "status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'True')",
+          },
+          {
+            api_version: 'v1',
+            kind: 'Service',
+            namespace: 'custom',
+            current: 'status.loadBalancer.ingress.size() > 0',
+          },
+        ],
+      };
+
+      // Act
+      const result = generate_custom_health_checks(kustomization, 'default');
+
+      // Assert
+      expect(result).toHaveLength(2);
+      expect(result?.[0].kind).toBe('Cluster');
+      expect(result?.[0].namespace).toBe('default');
+      expect(result?.[1].kind).toBe('Service');
+      expect(result?.[1].namespace).toBe('custom');
     });
   });
 

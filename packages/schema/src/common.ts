@@ -27,6 +27,22 @@ export const health_check_schema = z.object({
 export type HealthCheckType = z.infer<typeof health_check_schema>;
 
 /**
+ * Health check expression configuration using CEL (Common Expression Language).
+ * Supports custom health check conditions via CEL expressions.
+ */
+export const health_check_expr_schema = z.object({
+  api_version: z.string().min(1),
+  kind: z.string().min(1),
+  namespace: z.string().min(1).optional(),
+  /** CEL expression for when resource is healthy/current */
+  current: z.string().min(1).optional(),
+  /** CEL expression for when resource has failed */
+  failed: z.string().min(1).optional(),
+});
+
+export type HealthCheckExprType = z.infer<typeof health_check_expr_schema>;
+
+/**
  * Registry configuration for version substitutions.
  */
 export const registry_config_schema = z.object({

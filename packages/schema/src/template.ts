@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import {
   api_version_schema,
+  health_check_expr_schema,
   health_check_schema,
   metadata_schema,
   namespace_config_schema,
@@ -19,6 +20,7 @@ export const kustomization_schema = z.object({
   depends_on: z.array(z.string()).optional(),
   substitutions: z.array(substitution_schema).optional(),
   health_checks: z.array(health_check_schema).optional(),
+  health_check_exprs: z.array(health_check_expr_schema).optional(),
   prune: z.boolean().optional().default(true),
   wait: z.boolean().optional().default(true),
   timeout: z.string().optional(),
