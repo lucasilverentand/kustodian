@@ -98,13 +98,29 @@ export function generate_custom_health_checks(
     return undefined;
   }
 
-  return kustomization.health_check_exprs.map((check) => ({
-    apiVersion: check.api_version,
-    kind: check.kind,
-    namespace: check.namespace ?? namespace,
-    current: check.current,
-    failed: check.failed,
-  }));
+  return kustomization.health_check_exprs.map((check) => {
+    const healthCheck: {
+      apiVersion: string;
+      kind: string;
+      namespace?: string;
+      current?: string;
+      failed?: string;
+    } = {
+      apiVersion: check.api_version,
+      kind: check.kind,
+      namespace: check.namespace ?? namespace,
+    };
+
+    if (check.current !== undefined) {
+      healthCheck.current = check.current;
+    }
+
+    if (check.failed !== undefined) {
+      healthCheck.failed = check.failed;
+    }
+
+    return healthCheck;
+  });
 }
 
 /**

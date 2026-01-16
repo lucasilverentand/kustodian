@@ -276,7 +276,7 @@ describe('Flux Generator', () => {
             api_version: 'v1',
             kind: 'Service',
             namespace: 'custom',
-            current: "status.loadBalancer.ingress.size() > 0",
+            current: 'status.loadBalancer.ingress.size() > 0',
           },
         ],
       };
