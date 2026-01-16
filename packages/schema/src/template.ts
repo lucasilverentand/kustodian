@@ -30,9 +30,32 @@ export const kustomization_schema = z.object({
 export type KustomizationType = z.infer<typeof kustomization_schema>;
 
 /**
+ * Node label requirement - requires specific labels to be present on cluster nodes.
+ */
+export const node_label_requirement_schema = z.object({
+  type: z.literal('nodeLabel'),
+  key: z.string().min(1),
+  value: z.string().optional(),
+  atLeast: z.number().int().positive().default(1),
+});
+
+export type NodeLabelRequirementType = z.infer<typeof node_label_requirement_schema>;
+
+/**
+ * Template requirement - validates cluster prerequisites before deployment.
+ * Currently supports node label requirements, extensible for future types.
+ */
+export const template_requirement_schema = z.discriminatedUnion('type', [
+  node_label_requirement_schema,
+]);
+
+export type TemplateRequirementType = z.infer<typeof template_requirement_schema>;
+
+/**
  * Template specification containing kustomizations.
  */
 export const template_spec_schema = z.object({
+  requirements: z.array(template_requirement_schema).optional(),
   kustomizations: z.array(kustomization_schema).min(1),
 });
 

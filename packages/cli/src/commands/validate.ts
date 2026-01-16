@@ -1,5 +1,8 @@
 import { failure, success } from '@kustodian/core';
-import { validate_dependency_graph } from '@kustodian/generator';
+import {
+  validate_dependency_graph,
+  validate_template_requirements,
+} from '@kustodian/generator';
 import { find_project_root, load_project } from '@kustodian/loader';
 
 import { define_command } from '../command.js';
@@ -80,6 +83,48 @@ export const validate_command = define_command({
           console.log(`      - ${t.name} ${status}`);
         }
       }
+    }
+
+    // Validate template requirements for each cluster
+    console.log('\nValidating template requirements...');
+    let has_requirement_errors = false;
+
+    for (const cluster_data of clusters) {
+      const cluster_name = cluster_data.cluster.metadata.name;
+      const enabled_template_refs =
+        cluster_data.cluster.spec.templates?.filter((t) => t.enabled !== false) || [];
+
+      if (enabled_template_refs.length === 0) {
+        continue;
+      }
+
+      // Get enabled templates
+      const enabled_templates = project.templates
+        .filter((t) =>
+          enabled_template_refs.some((ref) => ref.name === t.template.metadata.name),
+        )
+        .map((t) => t.template);
+
+      // Validate requirements
+      const requirements_result = validate_template_requirements(
+        enabled_templates,
+        cluster_data.nodes,
+      );
+
+      if (!requirements_result.valid) {
+        has_requirement_errors = true;
+        console.error(`\nRequirement validation errors for cluster '${cluster_name}':`);
+        for (const error of requirements_result.errors) {
+          console.error(`  ✗ ${error.template}: ${error.message}`);
+        }
+      }
+    }
+
+    if (has_requirement_errors) {
+      return failure({
+        code: 'REQUIREMENT_VALIDATION_ERROR',
+        message: 'Template requirement validation failed',
+      });
     }
 
     // Validate dependency graph

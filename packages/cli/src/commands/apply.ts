@@ -1,6 +1,7 @@
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import { is_success, success } from '@kustodian/core';
+import { validate_template_requirements } from '@kustodian/generator';
 import { find_project_root, load_project } from '@kustodian/loader';
 import type { NodeListType } from '@kustodian/nodes';
 import type { ClusterType } from '@kustodian/schema';
@@ -277,6 +278,40 @@ export const apply_command = define_command({
     // ===== PHASE 4: Deploy Templates =====
     if (!skip_templates) {
       console.log('\n[4/4] Deploying templates...');
+
+      // Validate template requirements
+      console.log('  → Validating template requirements...');
+      const enabled_template_refs =
+        loaded_cluster.cluster.spec.templates?.filter((t) => t.enabled !== false) || [];
+
+      if (enabled_template_refs.length > 0) {
+        const enabled_templates = project.templates
+          .filter((t) =>
+            enabled_template_refs.some((ref) => ref.name === t.template.metadata.name),
+          )
+          .map((t) => t.template);
+
+        const requirements_result = validate_template_requirements(
+          enabled_templates,
+          loaded_cluster.nodes,
+        );
+
+        if (!requirements_result.valid) {
+          console.error('  ✗ Template requirement validation failed:');
+          for (const error of requirements_result.errors) {
+            console.error(`    - ${error.template}: ${error.message}`);
+          }
+          return {
+            success: false as const,
+            error: {
+              code: 'REQUIREMENT_VALIDATION_ERROR',
+              message: 'Template requirements not met',
+            },
+          };
+        }
+
+        console.log('    ✓ All template requirements satisfied');
+      }
 
       if (loaded_cluster.cluster.spec.oci) {
         // OCI Mode - generate in memory and apply directly

@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'bun:test';
 
-import type { TemplateType } from '@kustodian/schema';
+import type { NodeSchemaType, TemplateType } from '@kustodian/schema';
 
 import { detect_cycles, has_cycles } from '../src/validation/cycle-detection.js';
 import { build_dependency_graph } from '../src/validation/graph.js';
-import { validate_dependencies, validate_dependency_graph } from '../src/validation/index.js';
+import {
+  validate_dependencies,
+  validate_dependency_graph,
+  validate_template_requirements,
+} from '../src/validation/index.js';
 import {
   create_node_id,
   is_parse_error,
@@ -474,6 +478,315 @@ describe('Validation Module', () => {
 
       expect(result.valid).toBe(false);
       expect(result.errors.some((e) => e.type === 'cycle')).toBe(true);
+    });
+  });
+
+  describe('Template Requirements', () => {
+    function create_template_with_requirements(
+      name: string,
+      requirements?: TemplateType['spec']['requirements'],
+    ): TemplateType {
+      return {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Template',
+        metadata: { name },
+        spec: {
+          requirements,
+          kustomizations: [
+            {
+              name: 'main',
+              path: './main',
+              prune: true,
+              wait: true,
+            },
+          ],
+        },
+      };
+    }
+
+    function create_node(name: string, labels?: Record<string, string | boolean | number>): NodeSchemaType {
+      return {
+        name,
+        role: 'worker',
+        address: '192.168.1.1',
+        labels,
+      };
+    }
+
+    describe('validate_template_requirements', () => {
+      it('should pass when no requirements are defined', () => {
+        const templates = [create_template_with_requirements('app')];
+        const nodes = [create_node('node1')];
+
+        const result = validate_template_requirements(templates, nodes);
+
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      });
+
+      it('should pass when node has required label with matching value', () => {
+        const templates = [
+          create_template_with_requirements('media', [
+            {
+              type: 'nodeLabel',
+              key: 'media-vpn',
+              value: 'true',
+              atLeast: 1,
+            },
+          ]),
+        ];
+        const nodes = [create_node('node1', { 'media-vpn': 'true' })];
+
+        const result = validate_template_requirements(templates, nodes);
+
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      });
+
+      it('should pass when node has required label without value check', () => {
+        const templates = [
+          create_template_with_requirements('gpu', [
+            {
+              type: 'nodeLabel',
+              key: 'nvidia.com/gpu',
+              atLeast: 1,
+            },
+          ]),
+        ];
+        const nodes = [create_node('node1', { 'nvidia.com/gpu': 'tesla-v100' })];
+
+        const result = validate_template_requirements(templates, nodes);
+
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      });
+
+      it('should fail when no nodes have the required label', () => {
+        const templates = [
+          create_template_with_requirements('media', [
+            {
+              type: 'nodeLabel',
+              key: 'media-vpn',
+              value: 'true',
+              atLeast: 1,
+            },
+          ]),
+        ];
+        const nodes = [create_node('node1', { 'other-label': 'value' })];
+
+        const result = validate_template_requirements(templates, nodes);
+
+        expect(result.valid).toBe(false);
+        expect(result.errors).toHaveLength(1);
+        expect(result.errors[0]?.template).toBe('media');
+        expect(result.errors[0]?.message).toContain('media-vpn=true');
+        expect(result.errors[0]?.message).toContain('found 0');
+      });
+
+      it('should fail when label value does not match', () => {
+        const templates = [
+          create_template_with_requirements('media', [
+            {
+              type: 'nodeLabel',
+              key: 'media-vpn',
+              value: 'true',
+              atLeast: 1,
+            },
+          ]),
+        ];
+        const nodes = [create_node('node1', { 'media-vpn': 'false' })];
+
+        const result = validate_template_requirements(templates, nodes);
+
+        expect(result.valid).toBe(false);
+        expect(result.errors).toHaveLength(1);
+      });
+
+      it('should fail when not enough nodes match', () => {
+        const templates = [
+          create_template_with_requirements('media', [
+            {
+              type: 'nodeLabel',
+              key: 'media-vpn',
+              value: 'true',
+              atLeast: 2,
+            },
+          ]),
+        ];
+        const nodes = [
+          create_node('node1', { 'media-vpn': 'true' }),
+          create_node('node2', { 'other-label': 'value' }),
+        ];
+
+        const result = validate_template_requirements(templates, nodes);
+
+        expect(result.valid).toBe(false);
+        expect(result.errors).toHaveLength(1);
+        expect(result.errors[0]?.message).toContain('at least 2');
+        expect(result.errors[0]?.message).toContain('found 1');
+      });
+
+      it('should pass when multiple nodes match', () => {
+        const templates = [
+          create_template_with_requirements('media', [
+            {
+              type: 'nodeLabel',
+              key: 'media-vpn',
+              value: 'true',
+              atLeast: 2,
+            },
+          ]),
+        ];
+        const nodes = [
+          create_node('node1', { 'media-vpn': 'true' }),
+          create_node('node2', { 'media-vpn': 'true' }),
+          create_node('node3', { 'other-label': 'value' }),
+        ];
+
+        const result = validate_template_requirements(templates, nodes);
+
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      });
+
+      it('should validate multiple requirements', () => {
+        const templates = [
+          create_template_with_requirements('media', [
+            {
+              type: 'nodeLabel',
+              key: 'media-vpn',
+              value: 'true',
+              atLeast: 1,
+            },
+            {
+              type: 'nodeLabel',
+              key: 'media-downloaders',
+              value: 'true',
+              atLeast: 1,
+            },
+          ]),
+        ];
+        const nodes = [
+          create_node('node1', { 'media-vpn': 'true' }),
+          create_node('node2', { 'media-downloaders': 'true' }),
+        ];
+
+        const result = validate_template_requirements(templates, nodes);
+
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      });
+
+      it('should fail when one of multiple requirements is not met', () => {
+        const templates = [
+          create_template_with_requirements('media', [
+            {
+              type: 'nodeLabel',
+              key: 'media-vpn',
+              value: 'true',
+              atLeast: 1,
+            },
+            {
+              type: 'nodeLabel',
+              key: 'media-downloaders',
+              value: 'true',
+              atLeast: 1,
+            },
+          ]),
+        ];
+        const nodes = [create_node('node1', { 'media-vpn': 'true' })];
+
+        const result = validate_template_requirements(templates, nodes);
+
+        expect(result.valid).toBe(false);
+        expect(result.errors).toHaveLength(1);
+        expect(result.errors[0]?.requirement.key).toBe('media-downloaders');
+      });
+
+      it('should validate multiple templates', () => {
+        const templates = [
+          create_template_with_requirements('media', [
+            {
+              type: 'nodeLabel',
+              key: 'media-vpn',
+              value: 'true',
+              atLeast: 1,
+            },
+          ]),
+          create_template_with_requirements('gpu', [
+            {
+              type: 'nodeLabel',
+              key: 'nvidia.com/gpu',
+              atLeast: 1,
+            },
+          ]),
+        ];
+        const nodes = [
+          create_node('node1', { 'media-vpn': 'true' }),
+          create_node('node2', { 'nvidia.com/gpu': 'tesla-v100' }),
+        ];
+
+        const result = validate_template_requirements(templates, nodes);
+
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      });
+
+      it('should handle boolean label values', () => {
+        const templates = [
+          create_template_with_requirements('app', [
+            {
+              type: 'nodeLabel',
+              key: 'enabled',
+              value: 'true',
+              atLeast: 1,
+            },
+          ]),
+        ];
+        const nodes = [create_node('node1', { enabled: true })];
+
+        const result = validate_template_requirements(templates, nodes);
+
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      });
+
+      it('should handle numeric label values', () => {
+        const templates = [
+          create_template_with_requirements('app', [
+            {
+              type: 'nodeLabel',
+              key: 'priority',
+              value: '10',
+              atLeast: 1,
+            },
+          ]),
+        ];
+        const nodes = [create_node('node1', { priority: 10 })];
+
+        const result = validate_template_requirements(templates, nodes);
+
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      });
+
+      it('should handle nodes without labels', () => {
+        const templates = [
+          create_template_with_requirements('app', [
+            {
+              type: 'nodeLabel',
+              key: 'special',
+              atLeast: 1,
+            },
+          ]),
+        ];
+        const nodes = [create_node('node1')];
+
+        const result = validate_template_requirements(templates, nodes);
+
+        expect(result.valid).toBe(false);
+        expect(result.errors).toHaveLength(1);
+      });
     });
   });
 });

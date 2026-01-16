@@ -19,6 +19,10 @@ export type {
   MissingReferenceErrorType,
   SelfReferenceErrorType,
 } from './types.js';
+export type {
+  RequirementValidationErrorType,
+  RequirementValidationResultType,
+} from './requirements.js';
 
 // Re-export functions
 export { build_dependency_graph, get_all_nodes, get_node } from './graph.js';
@@ -30,6 +34,7 @@ export {
   parse_node_id,
   resolve_dependency_ref,
 } from './reference.js';
+export { validate_template_requirements } from './requirements.js';
 
 /**
  * Validates the dependency graph for a set of templates.
