@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.0](https://github.com/lucasilverentand/kustodian/compare/schema-v1.1.0...schema-v1.2.0) (2026-01-16)
+
+
+### Features
+
+* add CEL expression support for health checks ([8264854](https://github.com/lucasilverentand/kustodian/commit/8264854ec9d9d8b3a987827304b57e8e03d368b6))
+* add CEL expression support for health checks ([f231bdc](https://github.com/lucasilverentand/kustodian/commit/f231bdc496f2f0db54094106f8d045d960c2390a)), closes [#104](https://github.com/lucasilverentand/kustodian/issues/104)
+* address multiple open issues ([#101](https://github.com/lucasilverentand/kustodian/issues/101), [#103](https://github.com/lucasilverentand/kustodian/issues/103), [#106](https://github.com/lucasilverentand/kustodian/issues/106)) ([ebb248b](https://github.com/lucasilverentand/kustodian/commit/ebb248b285dc8ee29764836ddd8be5be5821983c))
+
 ## [1.1.0](https://github.com/lucasilverentand/kustodian/compare/schema-v1.0.0...schema-v1.1.0) (2026-01-15)
 
 

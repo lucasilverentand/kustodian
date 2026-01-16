@@ -1,11 +1,11 @@
 {
   "packages/core": "1.1.0",
-  "packages/schema": "1.1.0",
+  "packages/schema": "1.2.0",
   "packages/loader": "1.0.1",
   "packages/cli": "1.1.0",
   "packages/nodes": "1.0.1",
   "packages/plugins": "1.0.1",
-  "packages/generator": "1.0.1",
+  "packages/generator": "1.1.0",
   "packages/k8s": "1.0.1",
   "packages/registry": "1.0.1",
   "packages/sources": "1.2.0",
