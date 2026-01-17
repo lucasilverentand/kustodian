@@ -76,6 +76,11 @@ export function validate_enablement_dependencies(
 
       // This kustomization is enabled - check its dependencies
       for (const dep of kustomization.depends_on ?? []) {
+        // Skip raw dependencies - they're external to kustodian
+        if (typeof dep !== 'string') {
+          continue;
+        }
+
         // Parse dependency to get target node ID
         const dep_parts = dep.split('/');
         let target_node_id: string;

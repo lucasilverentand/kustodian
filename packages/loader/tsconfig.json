@@ -10,6 +10,6 @@
     }
   },
   "references": [{ "path": "../core" }, { "path": "../schema" }],
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "yaml-types.d.ts"],
   "exclude": ["node_modules", "dist", "tests"]
 }

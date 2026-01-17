@@ -1,9 +1,9 @@
 import type {
   ClusterType,
-  DependencyRefType as SchemaDependencyRefType,
   KustomizationType,
   OciConfigType,
   PreservationPolicyType,
+  DependencyRefType as SchemaDependencyRefType,
   TemplateType,
 } from '@kustodian/schema';
 

@@ -18,6 +18,6 @@
     { "path": "../nodes" },
     { "path": "../../plugins/k0s" }
   ],
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "yaml-types.d.ts"],
   "exclude": ["node_modules", "dist", "tests"]
 }

@@ -30,10 +30,7 @@ export type RawDependencyRefType = z.infer<typeof raw_dependency_ref_schema>;
  * - Cross-template: `secrets/doppler`
  * - Raw external: `{ raw: { name: 'legacy-infrastructure', namespace: 'gitops-system' } }`
  */
-export const dependency_ref_schema = z.union([
-  z.string(),
-  raw_dependency_ref_schema,
-]);
+export const dependency_ref_schema = z.union([z.string(), raw_dependency_ref_schema]);
 
 export type DependencyRefType = z.infer<typeof dependency_ref_schema>;
 

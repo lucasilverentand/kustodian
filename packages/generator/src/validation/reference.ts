@@ -9,7 +9,9 @@ import type {
 /**
  * Checks if a dependency reference is a raw object reference.
  */
-function is_raw_object(ref: SchemaDependencyRefType): ref is { raw: { name: string; namespace: string } } {
+function is_raw_object(
+  ref: SchemaDependencyRefType,
+): ref is { raw: { name: string; namespace: string } } {
   return typeof ref === 'object' && 'raw' in ref;
 }
 
@@ -24,7 +26,9 @@ function is_raw_object(ref: SchemaDependencyRefType): ref is { raw: { name: stri
  * @param ref - The dependency reference from schema (string or raw object)
  * @returns Parsed dependency reference or error
  */
-export function parse_dependency_ref(ref: SchemaDependencyRefType): DependencyRefType | InvalidReferenceErrorType {
+export function parse_dependency_ref(
+  ref: SchemaDependencyRefType,
+): DependencyRefType | InvalidReferenceErrorType {
   // Handle raw object references
   if (is_raw_object(ref)) {
     return {
@@ -47,7 +51,9 @@ export function parse_dependency_ref(ref: SchemaDependencyRefType): DependencyRe
  * @param ref - The raw dependency reference string
  * @returns Parsed dependency reference or error
  */
-function parse_string_dependency_ref(ref: string): ParsedDependencyRefType | InvalidReferenceErrorType {
+function parse_string_dependency_ref(
+  ref: string,
+): ParsedDependencyRefType | InvalidReferenceErrorType {
   const trimmed = ref.trim();
 
   if (trimmed.length === 0) {
@@ -129,7 +135,10 @@ export function is_parse_error(
  * @param current_template - The template containing the reference
  * @returns Full node ID in format `template/kustomization` for string refs, or null for raw refs
  */
-export function resolve_dependency_ref(ref: DependencyRefType, current_template: string): string | null {
+export function resolve_dependency_ref(
+  ref: DependencyRefType,
+  current_template: string,
+): string | null {
   // Raw dependencies don't resolve to node IDs - they're external
   if ('name' in ref && 'namespace' in ref) {
     return null;

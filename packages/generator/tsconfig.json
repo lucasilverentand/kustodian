@@ -15,6 +15,6 @@
     { "path": "../loader" },
     { "path": "../plugins" }
   ],
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "yaml-types.d.ts"],
   "exclude": ["node_modules", "dist", "tests"]
 }

@@ -104,9 +104,7 @@ describe('Flux Generator', () => {
       ]);
 
       // Assert
-      expect(result).toEqual([
-        { name: 'legacy-infrastructure', namespace: 'gitops-system' },
-      ]);
+      expect(result).toEqual([{ name: 'legacy-infrastructure', namespace: 'gitops-system' }]);
     });
 
     it('should format mixed string and raw dependencies', () => {
