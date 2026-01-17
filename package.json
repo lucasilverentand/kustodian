@@ -29,6 +29,10 @@
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@types/bun": "^1.2.9",
+    "lefthook": "^2.0.15",
     "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "zod": "^3.25.76"
   }
 }

@@ -96,6 +96,34 @@ describe('Flux Generator', () => {
         { name: 'networking-traefik' },
       ]);
     });
+
+    it('should format raw external dependencies', () => {
+      // Act
+      const result = generate_depends_on('app', [
+        { raw: { name: 'legacy-infrastructure', namespace: 'gitops-system' } },
+      ]);
+
+      // Assert
+      expect(result).toEqual([{ name: 'legacy-infrastructure', namespace: 'gitops-system' }]);
+    });
+
+    it('should format mixed string and raw dependencies', () => {
+      // Act
+      const result = generate_depends_on('app', [
+        'database',
+        'secrets/doppler',
+        { raw: { name: 'legacy-infrastructure', namespace: 'gitops-system' } },
+        { raw: { name: 'external-config', namespace: 'config-system' } },
+      ]);
+
+      // Assert
+      expect(result).toEqual([
+        { name: 'app-database' },
+        { name: 'secrets-doppler' },
+        { name: 'legacy-infrastructure', namespace: 'gitops-system' },
+        { name: 'external-config', namespace: 'config-system' },
+      ]);
+    });
   });
 
   describe('generate_health_checks', () => {

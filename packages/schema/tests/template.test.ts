@@ -136,6 +136,66 @@ describe('Template Schema', () => {
       expect(result.success).toBe(false);
     });
 
+    it('should validate template with raw dependency references', () => {
+      // Arrange
+      const template = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Template',
+        metadata: { name: 'app' },
+        spec: {
+          kustomizations: [
+            {
+              name: 'backend',
+              path: './backend',
+              depends_on: [
+                'database',
+                'secrets/doppler',
+                { raw: { name: 'legacy-infrastructure', namespace: 'gitops-system' } },
+              ],
+            },
+          ],
+        },
+      };
+
+      // Act
+      const result = validate_template(template);
+
+      // Assert
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.spec.kustomizations[0]?.depends_on).toHaveLength(3);
+        expect(result.data.spec.kustomizations[0]?.depends_on?.[0]).toBe('database');
+        expect(result.data.spec.kustomizations[0]?.depends_on?.[1]).toBe('secrets/doppler');
+        expect(result.data.spec.kustomizations[0]?.depends_on?.[2]).toEqual({
+          raw: { name: 'legacy-infrastructure', namespace: 'gitops-system' },
+        });
+      }
+    });
+
+    it('should reject raw dependency with missing name', () => {
+      // Arrange
+      const template = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Template',
+        metadata: { name: 'app' },
+        spec: {
+          kustomizations: [
+            {
+              name: 'backend',
+              path: './backend',
+              depends_on: [{ raw: { namespace: 'gitops-system' } }],
+            },
+          ],
+        },
+      };
+
+      // Act
+      const result = validate_template(template);
+
+      // Assert
+      expect(result.success).toBe(false);
+    });
+
     it('should validate doppler substitution without project/config', () => {
       // Arrange
       const template = {
@@ -308,6 +368,30 @@ describe('Template Schema', () => {
                   name: 'api_key',
                 },
               ],
+            },
+          ],
+        },
+      };
+
+      // Act
+      const result = validate_template(template);
+
+      // Assert
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject raw dependency with missing namespace', () => {
+      // Arrange
+      const template = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Template',
+        metadata: { name: 'app' },
+        spec: {
+          kustomizations: [
+            {
+              name: 'backend',
+              path: './backend',
+              depends_on: [{ raw: { name: 'legacy-infrastructure' } }],
             },
           ],
         },

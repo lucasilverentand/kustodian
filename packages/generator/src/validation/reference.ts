@@ -1,4 +1,45 @@
-import type { DependencyRefType, InvalidReferenceErrorType } from './types.js';
+import type { DependencyRefType as SchemaDependencyRefType } from '@kustodian/schema';
+import type {
+  DependencyRefType,
+  InvalidReferenceErrorType,
+  ParsedDependencyRefType,
+  RawDependencyRefType,
+} from './types.js';
+
+/**
+ * Checks if a dependency reference is a raw object reference.
+ */
+function is_raw_object(
+  ref: SchemaDependencyRefType,
+): ref is { raw: { name: string; namespace: string } } {
+  return typeof ref === 'object' && 'raw' in ref;
+}
+
+/**
+ * Parses a dependency reference from the schema.
+ *
+ * Supports three formats:
+ * - Within-template: `kustomization-name` (e.g., `operator`)
+ * - Cross-template: `template-name/kustomization-name` (e.g., `001-secrets/doppler`)
+ * - Raw external: `{ raw: { name: 'legacy-infrastructure', namespace: 'gitops-system' } }`
+ *
+ * @param ref - The dependency reference from schema (string or raw object)
+ * @returns Parsed dependency reference or error
+ */
+export function parse_dependency_ref(
+  ref: SchemaDependencyRefType,
+): DependencyRefType | InvalidReferenceErrorType {
+  // Handle raw object references
+  if (is_raw_object(ref)) {
+    return {
+      name: ref.raw.name,
+      namespace: ref.raw.namespace,
+    } satisfies RawDependencyRefType;
+  }
+
+  // Handle string references
+  return parse_string_dependency_ref(ref);
+}
 
 /**
  * Parses a dependency reference string.
@@ -10,7 +51,9 @@ import type { DependencyRefType, InvalidReferenceErrorType } from './types.js';
  * @param ref - The raw dependency reference string
  * @returns Parsed dependency reference or error
  */
-export function parse_dependency_ref(ref: string): DependencyRefType | InvalidReferenceErrorType {
+function parse_string_dependency_ref(
+  ref: string,
+): ParsedDependencyRefType | InvalidReferenceErrorType {
   const trimmed = ref.trim();
 
   if (trimmed.length === 0) {
@@ -90,9 +133,18 @@ export function is_parse_error(
  *
  * @param ref - Parsed dependency reference
  * @param current_template - The template containing the reference
- * @returns Full node ID in format `template/kustomization`
+ * @returns Full node ID in format `template/kustomization` for string refs, or null for raw refs
  */
-export function resolve_dependency_ref(ref: DependencyRefType, current_template: string): string {
+export function resolve_dependency_ref(
+  ref: DependencyRefType,
+  current_template: string,
+): string | null {
+  // Raw dependencies don't resolve to node IDs - they're external
+  if ('name' in ref && 'namespace' in ref) {
+    return null;
+  }
+
+  // String-based dependency references
   const template = ref.template ?? current_template;
   return `${template}/${ref.kustomization}`;
 }

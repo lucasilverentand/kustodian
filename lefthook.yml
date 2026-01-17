@@ -1,0 +1,31 @@
+# Lefthook configuration for Git hooks
+# https://github.com/evilmartians/lefthook
+
+# Pre-commit: Run lint and typecheck to prevent wrong commits
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      glob: "{*,**/*}"
+      run: bun run lint
+      skip:
+        - merge
+        - rebase
+
+    typecheck:
+      glob: "{*,**/*}"
+      run: bun run typecheck
+      skip:
+        - merge
+        - rebase
+
+# Pre-push: Run fast unit tests before pushing
+pre-push:
+  parallel: true
+  commands:
+    test:
+      glob: "{*,**/*}"
+      run: bun test
+      skip:
+        - merge
+        - rebase

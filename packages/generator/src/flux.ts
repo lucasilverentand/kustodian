@@ -3,6 +3,7 @@ import type {
   KustomizationType,
   OciConfigType,
   PreservationPolicyType,
+  DependencyRefType as SchemaDependencyRefType,
   TemplateType,
 } from '@kustodian/schema';
 
@@ -13,6 +14,7 @@ import type {
   ResolvedKustomizationType,
 } from './types.js';
 import { is_parse_error, parse_dependency_ref } from './validation/reference.js';
+import { is_raw_dependency_ref } from './validation/types.js';
 
 /**
  * Default interval for Flux reconciliation.
@@ -47,14 +49,15 @@ export function generate_flux_path(
 /**
  * Generates the dependency references for a Flux Kustomization.
  *
- * Supports both within-template and cross-template references:
+ * Supports three formats:
  * - Within-template: `database` → uses current template name
  * - Cross-template: `secrets/doppler` → uses explicit template name
+ * - Raw external: `{ raw: { name: 'legacy-infrastructure', namespace: 'gitops-system' } }`
  */
 export function generate_depends_on(
   template_name: string,
-  depends_on: string[] | undefined,
-): Array<{ name: string }> | undefined {
+  depends_on: SchemaDependencyRefType[] | undefined,
+): Array<{ name: string; namespace?: string }> | undefined {
   if (!depends_on || depends_on.length === 0) {
     return undefined;
   }
@@ -63,8 +66,23 @@ export function generate_depends_on(
     const parsed = parse_dependency_ref(dep);
     if (is_parse_error(parsed)) {
       // Invalid references are caught during validation, fall back to current behavior
-      return { name: generate_flux_name(template_name, dep) };
+      // This should only happen with string refs
+      if (typeof dep === 'string') {
+        return { name: generate_flux_name(template_name, dep) };
+      }
+      // If somehow we have an invalid object ref, use a placeholder
+      return { name: 'invalid-reference' };
     }
+
+    // Handle raw dependencies - pass through name and namespace directly
+    if (is_raw_dependency_ref(parsed)) {
+      return {
+        name: parsed.name,
+        namespace: parsed.namespace,
+      };
+    }
+
+    // Handle string-based dependencies (within-template and cross-template)
     const effective_template = parsed.template ?? template_name;
     return { name: generate_flux_name(effective_template, parsed.kustomization) };
   });
