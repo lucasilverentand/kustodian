@@ -1,4 +1,12 @@
 /**
+ * Cluster-level 1Password defaults.
+ */
+export interface OnePasswordClusterDefaultsType {
+  /** Default vault name or ID */
+  vault?: string | undefined;
+}
+
+/**
  * Options for the 1Password plugin.
  */
 export interface OnePasswordPluginOptionsType {
@@ -8,6 +16,8 @@ export interface OnePasswordPluginOptionsType {
   timeout?: number | undefined;
   /** Whether to fail on missing secrets (default: true) */
   fail_on_missing?: boolean | undefined;
+  /** Cluster-level defaults for vault */
+  cluster_defaults?: OnePasswordClusterDefaultsType | undefined;
 }
 
 /**
@@ -37,20 +47,31 @@ export function parse_onepassword_ref(ref: string): OnePasswordRefType | undefin
     return undefined;
   }
 
-  const [, vault, item, section, field] = match;
+  const vault = match[1];
+  const item = match[2];
+  const section = match[3];
+  const field = match[4];
 
   // If section is undefined, the field is in position 3
   if (field === undefined) {
+    // When there's no section, match[3] contains the field
+    if (!vault || !item || !section) {
+      return undefined;
+    }
     return {
-      vault: vault!,
-      item: item!,
-      field: section!,
+      vault,
+      item,
+      field: section,
     };
   }
 
+  if (!vault || !item || !field) {
+    return undefined;
+  }
+
   return {
-    vault: vault!,
-    item: item!,
+    vault,
+    item,
     section,
     field,
   };

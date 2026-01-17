@@ -136,6 +136,7 @@ describe('Flux Generator', () => {
         path: './test',
         prune: true,
         wait: true,
+        enabled: true,
         health_checks: [],
       };
 
@@ -153,6 +154,7 @@ describe('Flux Generator', () => {
         path: './test',
         prune: true,
         wait: true,
+        enabled: true,
         health_checks: [
           { kind: 'Deployment', name: 'app' },
           { kind: 'StatefulSet', name: 'db', namespace: 'database' },
@@ -217,6 +219,7 @@ describe('Flux Generator', () => {
         path: './test',
         prune: true,
         wait: true,
+        enabled: true,
         health_check_exprs: [],
       };
 
@@ -234,6 +237,7 @@ describe('Flux Generator', () => {
         path: './test',
         prune: true,
         wait: true,
+        enabled: true,
         health_check_exprs: [
           {
             api_version: 'postgresql.cnpg.io/v1',
@@ -265,6 +269,7 @@ describe('Flux Generator', () => {
         path: './test',
         prune: true,
         wait: true,
+        enabled: true,
         health_check_exprs: [
           {
             api_version: 'postgresql.cnpg.io/v1',
@@ -285,7 +290,6 @@ describe('Flux Generator', () => {
         kind: 'Cluster',
         namespace: 'custom-db',
         current: "status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'True')",
-        failed: undefined,
       });
     });
 
@@ -296,6 +300,7 @@ describe('Flux Generator', () => {
         path: './test',
         prune: true,
         wait: true,
+        enabled: true,
         health_check_exprs: [
           {
             api_version: 'postgresql.cnpg.io/v1',
@@ -316,10 +321,12 @@ describe('Flux Generator', () => {
 
       // Assert
       expect(result).toHaveLength(2);
-      expect(result?.[0].kind).toBe('Cluster');
-      expect(result?.[0].namespace).toBe('default');
-      expect(result?.[1].kind).toBe('Service');
-      expect(result?.[1].namespace).toBe('custom');
+      if (result?.[0] && result?.[1]) {
+        expect(result[0].kind).toBe('Cluster');
+        expect(result[0].namespace).toBe('default');
+        expect(result[1].kind).toBe('Service');
+        expect(result[1].namespace).toBe('custom');
+      }
     });
   });
 
@@ -335,6 +342,7 @@ describe('Flux Generator', () => {
             path: './deployment',
             prune: true,
             wait: true,
+            enabled: true,
             namespace: { default: 'nginx', create: true },
             substitutions: [{ name: 'replicas', default: '2' }, { name: 'image_tag' }],
           },
@@ -393,6 +401,7 @@ describe('Flux Generator', () => {
               path: './deployment',
               prune: true,
               wait: true,
+              enabled: true,
               namespace: { default: 'nginx', create: true },
             },
           ],
@@ -420,7 +429,11 @@ describe('Flux Generator', () => {
         apiVersion: 'kustodian.io/v1',
         kind: 'Template',
         metadata: { name: 'app' },
-        spec: { kustomizations: [{ name: 'main', path: './main', prune: true, wait: true }] },
+        spec: {
+          kustomizations: [
+            { name: 'main', path: './main', prune: true, wait: true, enabled: true },
+          ],
+        },
       };
       const kustomization = template.spec.kustomizations[0] as KustomizationType;
       const resolved = resolve_kustomization(template, kustomization);

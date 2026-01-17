@@ -26,6 +26,7 @@ describe('Generator', () => {
   ): TemplateType['spec']['kustomizations'][0] => ({
     prune: true,
     wait: true,
+    enabled: true,
     ...overrides,
   });
 

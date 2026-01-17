@@ -12,6 +12,7 @@ import {
 /**
  * Resolves Doppler substitutions to actual secret values.
  * Groups by project/config to minimize API calls.
+ * Uses cluster-level defaults when project/config are not specified.
  * Returns a map from substitution name to resolved value.
  */
 export async function resolve_doppler_substitutions(
@@ -22,10 +23,31 @@ export async function resolve_doppler_substitutions(
     return success({});
   }
 
-  // Group substitutions by project/config to minimize API calls
-  const groups = new Map<DopplerCacheKeyType, DopplerSubstitutionType[]>();
+  // Validate and apply cluster defaults
+  const resolved_subs: Array<DopplerSubstitutionType & { project: string; config: string }> = [];
 
   for (const sub of substitutions) {
+    const project = sub.project ?? options.cluster_defaults?.project;
+    const config = sub.config ?? options.cluster_defaults?.config;
+
+    if (!project || !config) {
+      return failure({
+        code: 'MISSING_DOPPLER_CONFIG',
+        message: `Doppler substitution '${sub.name}' missing project/config and no cluster defaults configured`,
+      });
+    }
+
+    resolved_subs.push({
+      ...sub,
+      project,
+      config,
+    });
+  }
+
+  // Group substitutions by project/config to minimize API calls
+  const groups = new Map<DopplerCacheKeyType, typeof resolved_subs>();
+
+  for (const sub of resolved_subs) {
     const key = create_cache_key(sub.project, sub.config);
     const group = groups.get(key) ?? [];
     group.push(sub);
@@ -40,7 +62,10 @@ export async function resolve_doppler_substitutions(
   // Fetch secrets for each group
   for (const [key, subs] of groups) {
     // Get project and config from the first substitution in the group
-    const first = subs[0]!;
+    const first = subs[0];
+    if (!first) {
+      continue;
+    }
 
     // Check if we already have the secrets cached
     let secrets = secrets_cache.get(key);

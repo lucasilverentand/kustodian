@@ -259,7 +259,9 @@ describe('Profile Resolution', () => {
       expect(errors[0]).toContain('node-1');
       // Node should still be resolved without the profile
       expect(resolved).toHaveLength(1);
-      expect('profile' in resolved[0]!).toBe(false);
+      if (resolved[0]) {
+        expect('profile' in resolved[0]).toBe(false);
+      }
     });
   });
 

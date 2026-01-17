@@ -185,6 +185,7 @@ describe('Substitution Engine', () => {
       path: './test',
       prune: true,
       wait: true,
+      enabled: true,
       substitutions,
     });
 
@@ -264,6 +265,7 @@ describe('Substitution Engine', () => {
         path: './test',
         prune: true,
         wait: true,
+        enabled: true,
         substitutions: [{ name: 'foo', default: '1' }, { name: 'bar' }],
       };
 
@@ -281,6 +283,7 @@ describe('Substitution Engine', () => {
         path: './test',
         prune: true,
         wait: true,
+        enabled: true,
       };
 
       // Act
@@ -299,6 +302,7 @@ describe('Substitution Engine', () => {
         path: './test',
         prune: true,
         wait: true,
+        enabled: true,
         substitutions: [{ name: 'optional', default: 'value' }, { name: 'required' }],
       };
 
@@ -318,6 +322,7 @@ describe('Substitution Engine', () => {
         path: './test',
         prune: true,
         wait: true,
+        enabled: true,
         substitutions: [{ name: 'required' }, { name: 'optional', default: 'default' }],
       };
       const cluster_values = { required: 'value' };
@@ -337,6 +342,7 @@ describe('Substitution Engine', () => {
         path: './test',
         prune: true,
         wait: true,
+        enabled: true,
         substitutions: [{ name: 'required1' }, { name: 'required2' }],
       };
 
@@ -356,6 +362,7 @@ describe('Substitution Engine', () => {
         path: './test',
         prune: true,
         wait: true,
+        enabled: true,
         substitutions: [{ name: 'defined' }],
       };
       const cluster_values = { defined: 'value', unused: 'extra' };

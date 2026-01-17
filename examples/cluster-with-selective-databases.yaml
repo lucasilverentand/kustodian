@@ -1,0 +1,31 @@
+---
+apiVersion: kustodian.io/v1
+kind: Cluster
+metadata:
+  name: production
+spec:
+  domain: prod.example.com
+
+  git:
+    owner: myorg
+    repository: infrastructure
+    branch: main
+
+  templates:
+    - name: database
+      enabled: true
+      kustomizations:
+        # Enable Authelia database
+        authelia-db: true
+
+        # Enable Gitea database with custom preservation
+        gitea-db:
+          enabled: true
+          preservation:
+            mode: stateful  # Override template default if needed
+
+        # backup-jobs remains disabled (not listed)
+
+      values:
+        storage_class: "fast-nvme"
+        backup_retention: "30d"

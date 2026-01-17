@@ -1,8 +1,5 @@
 import { failure, success } from '@kustodian/core';
-import {
-  validate_dependency_graph,
-  validate_template_requirements,
-} from '@kustodian/generator';
+import { validate_dependency_graph, validate_template_requirements } from '@kustodian/generator';
 import { find_project_root, load_project } from '@kustodian/loader';
 
 import { define_command } from '../command.js';
@@ -100,9 +97,7 @@ export const validate_command = define_command({
 
       // Get enabled templates
       const enabled_templates = project.templates
-        .filter((t) =>
-          enabled_template_refs.some((ref) => ref.name === t.template.metadata.name),
-        )
+        .filter((t) => enabled_template_refs.some((ref) => ref.name === t.template.metadata.name))
         .map((t) => t.template);
 
       // Validate requirements
