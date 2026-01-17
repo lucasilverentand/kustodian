@@ -4,9 +4,6 @@
   "workspaces": {
     "": {
       "name": "kustodian",
-      "dependencies": {
-        "zod": "^3.25.76",
-      },
       "devDependencies": {
         "@biomejs/biome": "^1.9.4",
         "@types/bun": "^1.2.9",
@@ -134,6 +131,20 @@
         "@types/js-yaml": "^4.0.9",
       },
     },
+    "plugins/authentik": {
+      "name": "@kustodian/plugin-authentik",
+      "version": "1.0.0",
+      "dependencies": {
+        "@kustodian/core": "^1.1.0",
+        "@kustodian/plugins": "^1.0.1",
+        "@kustodian/schema": "^1.2.0",
+        "js-yaml": "^4.1.1",
+        "zod": "^4.3.5",
+      },
+      "devDependencies": {
+        "@types/js-yaml": "^4.0.9",
+      },
+    },
     "plugins/doppler": {
       "name": "@kustodian/plugin-doppler",
       "version": "1.0.1",
@@ -188,6 +199,8 @@
     "@kustodian/plugin-1password": ["@kustodian/plugin-1password@workspace:plugins/1password"],
 
     "@kustodian/plugin-authelia": ["@kustodian/plugin-authelia@workspace:plugins/authelia"],
+
+    "@kustodian/plugin-authentik": ["@kustodian/plugin-authentik@workspace:plugins/authentik"],
 
     "@kustodian/plugin-doppler": ["@kustodian/plugin-doppler@workspace:plugins/doppler"],
 
@@ -279,8 +292,12 @@
 
     "yoctocolors": ["yoctocolors@2.1.2", "", {}, "sha512-CzhO+pFNo8ajLM2d2IW/R93ipy99LWjtwblvC1RsoSUMZgyLbYFr221TnSNT7GjGdYui6P459mw9JH/g/zW2ug=="],
 
-    "zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
+    "zod": ["zod@4.3.5", "", {}, "sha512-k7Nwx6vuWx1IJ9Bjuf4Zt1PEllcwe7cls3VNzm4CQ1/hgtFUK2bRNG3rvnpPUhFjmqJKAKtjV576KnUkHocg/g=="],
 
-    "@kustodian/plugin-authelia/zod": ["zod@4.3.5", "", {}, "sha512-k7Nwx6vuWx1IJ9Bjuf4Zt1PEllcwe7cls3VNzm4CQ1/hgtFUK2bRNG3rvnpPUhFjmqJKAKtjV576KnUkHocg/g=="],
+    "@kustodian/plugins/zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
+
+    "@kustodian/schema/zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
+
+    "@kustodian/sources/zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
   }
 }
