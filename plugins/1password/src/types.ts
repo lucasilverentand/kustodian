@@ -1,4 +1,12 @@
 /**
+ * Cluster-level 1Password defaults.
+ */
+export interface OnePasswordClusterDefaultsType {
+  /** Default vault name or ID */
+  vault?: string | undefined;
+}
+
+/**
  * Options for the 1Password plugin.
  */
 export interface OnePasswordPluginOptionsType {
@@ -8,6 +16,8 @@ export interface OnePasswordPluginOptionsType {
   timeout?: number | undefined;
   /** Whether to fail on missing secrets (default: true) */
   fail_on_missing?: boolean | undefined;
+  /** Cluster-level defaults for vault */
+  cluster_defaults?: OnePasswordClusterDefaultsType | undefined;
 }
 
 /**
