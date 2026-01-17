@@ -82,3 +82,4 @@ temp/
 # Test repositories
 test-repo/
 test-kustodian-oci/
+/pnpm-lock.yaml
