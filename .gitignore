@@ -6,6 +6,37 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# TypeScript compiled files (build artifacts should go to dist/)
+# Only ignore in src/ and test directories, not root config files
+packages/**/src/**/*.js
+packages/**/src/**/*.d.ts
+packages/**/src/**/*.js.map
+packages/**/src/**/*.d.ts.map
+packages/**/tests/**/*.js
+packages/**/tests/**/*.d.ts
+packages/**/tests/**/*.js.map
+packages/**/tests/**/*.d.ts.map
+plugins/**/src/**/*.js
+plugins/**/src/**/*.d.ts
+plugins/**/src/**/*.js.map
+plugins/**/src/**/*.d.ts.map
+plugins/**/tests/**/*.js
+plugins/**/tests/**/*.d.ts
+plugins/**/tests/**/*.js.map
+plugins/**/tests/**/*.d.ts.map
+e2e/**/*.js
+e2e/**/*.d.ts
+e2e/**/*.js.map
+e2e/**/*.d.ts.map
+docs/src/**/*.js
+docs/src/**/*.d.ts
+docs/src/**/*.js.map
+docs/src/**/*.d.ts.map
+scripts/**/*.js
+scripts/**/*.d.ts
+scripts/**/*.js.map
+scripts/**/*.d.ts.map
+
 # Test coverage
 coverage/
 
