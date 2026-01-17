@@ -430,5 +430,123 @@ describe('Cluster Schema', () => {
       // Assert
       expect(result.success).toBe(false);
     });
+
+    it('should validate a cluster with secrets configuration', () => {
+      // Arrange
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'production' },
+        spec: {
+          domain: 'example.com',
+          git: { owner: 'org', repository: 'repo' },
+          secrets: {
+            doppler: {
+              project: 'infrastructure',
+              config: 'cluster_production',
+            },
+            onepassword: {
+              vault: 'Infrastructure',
+            },
+          },
+        },
+      };
+
+      // Act
+      const result = validate_cluster(cluster);
+
+      // Assert
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.spec.secrets?.doppler?.project).toBe('infrastructure');
+        expect(result.data.spec.secrets?.doppler?.config).toBe('cluster_production');
+        expect(result.data.spec.secrets?.onepassword?.vault).toBe('Infrastructure');
+      }
+    });
+
+    it('should validate a cluster with bootstrap credentials', () => {
+      // Arrange
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'production' },
+        spec: {
+          domain: 'example.com',
+          git: { owner: 'org', repository: 'repo' },
+          secrets: {
+            doppler: {
+              project: 'infrastructure',
+              config: 'cluster_production',
+              service_token: {
+                type: '1password',
+                ref: 'op://Operations/Doppler/service_token',
+              },
+            },
+          },
+        },
+      };
+
+      // Act
+      const result = validate_cluster(cluster);
+
+      // Assert
+      expect(result.success).toBe(true);
+      if (result.success) {
+        const doppler = result.data.spec.secrets?.doppler;
+        expect(doppler?.service_token?.type).toBe('1password');
+        if (doppler?.service_token?.type === '1password') {
+          expect(doppler.service_token.ref).toBe('op://Operations/Doppler/service_token');
+        }
+      }
+    });
+
+    it('should reject empty doppler project', () => {
+      // Arrange
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'test' },
+        spec: {
+          domain: 'test.com',
+          git: { owner: 'org', repository: 'repo' },
+          secrets: {
+            doppler: {
+              project: '',
+              config: 'prod',
+            },
+          },
+        },
+      };
+
+      // Act
+      const result = validate_cluster(cluster);
+
+      // Assert
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject empty onepassword vault', () => {
+      // Arrange
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'test' },
+        spec: {
+          domain: 'test.com',
+          git: { owner: 'org', repository: 'repo' },
+          secrets: {
+            onepassword: {
+              vault: '',
+            },
+          },
+        },
+      };
+
+      // Act
+      const result = validate_cluster(cluster);
+
+      // Assert
+      expect(result.success).toBe(false);
+    });
   });
 });

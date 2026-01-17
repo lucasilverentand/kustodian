@@ -1,4 +1,14 @@
 /**
+ * Cluster-level Doppler defaults.
+ */
+export interface DopplerClusterDefaultsType {
+  /** Default project name */
+  project?: string | undefined;
+  /** Default config name */
+  config?: string | undefined;
+}
+
+/**
  * Options for the Doppler plugin.
  */
 export interface DopplerPluginOptionsType {
@@ -8,6 +18,8 @@ export interface DopplerPluginOptionsType {
   timeout?: number | undefined;
   /** Whether to fail on missing secrets (default: true) */
   fail_on_missing?: boolean | undefined;
+  /** Cluster-level defaults for project/config */
+  cluster_defaults?: DopplerClusterDefaultsType | undefined;
 }
 
 /**

@@ -99,6 +99,56 @@ export const github_config_schema = z.object({
 export type GithubConfigType = z.infer<typeof github_config_schema>;
 
 /**
+ * Bootstrap credential configuration for secret providers.
+ * Allows obtaining credentials from another secret provider.
+ */
+export const bootstrap_credential_schema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('1password'),
+    ref: z.string().min(1),
+  }),
+  z.object({
+    type: z.literal('doppler'),
+    project: z.string().min(1),
+    config: z.string().min(1),
+    secret: z.string().min(1),
+  }),
+]);
+
+export type BootstrapCredentialType = z.infer<typeof bootstrap_credential_schema>;
+
+/**
+ * Doppler secret provider configuration at cluster level.
+ */
+export const doppler_config_schema = z.object({
+  project: z.string().min(1),
+  config: z.string().min(1),
+  service_token: bootstrap_credential_schema.optional(),
+});
+
+export type DopplerConfigType = z.infer<typeof doppler_config_schema>;
+
+/**
+ * 1Password secret provider configuration at cluster level.
+ */
+export const onepassword_config_schema = z.object({
+  vault: z.string().min(1),
+  service_account_token: bootstrap_credential_schema.optional(),
+});
+
+export type OnePasswordConfigType = z.infer<typeof onepassword_config_schema>;
+
+/**
+ * Secret providers configuration at cluster level.
+ */
+export const secrets_config_schema = z.object({
+  doppler: doppler_config_schema.optional(),
+  onepassword: onepassword_config_schema.optional(),
+});
+
+export type SecretsConfigType = z.infer<typeof secrets_config_schema>;
+
+/**
  * Cluster specification.
  */
 export const cluster_spec_schema = z
@@ -112,6 +162,7 @@ export const cluster_spec_schema = z
     plugins: z.array(plugin_config_schema).optional(),
     node_defaults: node_defaults_schema.optional(),
     nodes: z.array(z.string()).optional(),
+    secrets: secrets_config_schema.optional(),
   })
   .refine((data) => data.git || data.oci, {
     message: "Either 'git' or 'oci' must be specified",

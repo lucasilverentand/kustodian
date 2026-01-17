@@ -118,7 +118,7 @@ describe('Access Control Rules Generation', () => {
     const result = generate_access_control_rules(auth_config, default_options);
 
     expect(result.success).toBe(true);
-    if (result.success) {
+    if (result.success && result.value[0]) {
       expect(result.value.length).toBe(1);
       expect(result.value[0].domain).toBe('app.example.com');
       expect(result.value[0].policy).toBe('two_factor');
@@ -140,7 +140,7 @@ describe('Access Control Rules Generation', () => {
     const result = generate_access_control_rules(auth_config, default_options);
 
     expect(result.success).toBe(true);
-    if (result.success) {
+    if (result.success && result.value[0]) {
       expect(result.value.length).toBe(1);
       expect(result.value[0].domain).toBe('app.example.com');
       expect(result.value[0].policy).toBe('one_factor');
@@ -163,7 +163,7 @@ describe('Access Control Rules Generation', () => {
     const result = generate_access_control_rules(auth_config, default_options);
 
     expect(result.success).toBe(true);
-    if (result.success) {
+    if (result.success && result.value[0] && result.value[1]) {
       expect(result.value.length).toBe(2);
       // First rule should be bypass for health check
       expect(result.value[0].policy).toBe('bypass');
