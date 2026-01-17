@@ -1,15 +1,25 @@
 import * as path from 'node:path';
 
-import { failure, is_success, success } from '@kustodian/core';
+import { type ResultType, failure, is_success, success } from '@kustodian/core';
+import type { KustodianErrorType } from '@kustodian/core';
 import { read_yaml_file, write_yaml_file } from '@kustodian/loader';
 import { find_project_root, load_project } from '@kustodian/loader';
 import {
+  type ImageReferenceType,
+  type RegistryClientType,
+  type TagInfoType,
   check_version_update,
   create_client_for_image,
+  create_helm_client,
   filter_semver_tags,
   parse_image_reference,
 } from '@kustodian/registry';
-import { type VersionSubstitutionType, is_version_substitution } from '@kustodian/schema';
+import {
+  type HelmSubstitutionType,
+  type VersionSubstitutionType,
+  is_helm_substitution,
+  is_version_substitution,
+} from '@kustodian/schema';
 
 import { define_command } from '../command.js';
 
@@ -20,7 +30,8 @@ interface UpdateResultType {
   cluster: string;
   template: string;
   substitution: string;
-  image: string;
+  source: string; // Image name or Helm chart reference
+  source_type: 'image' | 'helm';
   current: string;
   latest: string;
   constraint?: string | undefined;
@@ -96,12 +107,13 @@ export const update_command = define_command({
       });
     }
 
-    // Collect all version substitutions from templates enabled in this cluster
+    // Collect all version and helm substitutions from templates enabled in this cluster
     const version_subs: Array<{
       template_name: string;
       kustomization_name: string;
-      substitution: VersionSubstitutionType;
+      substitution: VersionSubstitutionType | HelmSubstitutionType;
       current_value: string | undefined;
+      type: 'version' | 'helm';
     }> = [];
 
     for (const loaded_template of project.templates) {
@@ -127,6 +139,19 @@ export const update_command = define_command({
               kustomization_name: kustomization.name,
               substitution: sub,
               current_value: template_config?.values?.[sub.name] ?? sub.default,
+              type: 'version',
+            });
+          } else if (is_helm_substitution(sub)) {
+            if (substitution_filter && sub.name !== substitution_filter) {
+              continue;
+            }
+
+            version_subs.push({
+              template_name: template.metadata.name,
+              kustomization_name: kustomization.name,
+              substitution: sub,
+              current_value: template_config?.values?.[sub.name] ?? sub.default,
+              type: 'helm',
             });
           }
         }
@@ -146,19 +171,53 @@ export const update_command = define_command({
       console.log(`Found ${version_subs.length} version substitution(s) to check\n`);
     }
 
-    // Check each version substitution
+    // Check each version and helm substitution
     const results: UpdateResultType[] = [];
     const updates_to_apply: Map<string, Record<string, string>> = new Map();
 
-    for (const { template_name, substitution, current_value } of version_subs) {
-      const image_ref = parse_image_reference(substitution.registry.image);
-      const client = create_client_for_image(image_ref);
+    for (const { template_name, substitution, current_value, type } of version_subs) {
+      let source_name: string;
+      let client: RegistryClientType;
 
-      if (!json_output) {
-        console.log(`Checking ${substitution.name} (${substitution.registry.image})...`);
+      if (type === 'version') {
+        const version_sub = substitution as VersionSubstitutionType;
+        const image_ref = parse_image_reference(version_sub.registry.image);
+        source_name = version_sub.registry.image;
+        client = create_client_for_image(image_ref);
+      } else {
+        // helm type
+        const helm_sub = substitution as HelmSubstitutionType;
+        source_name = helm_sub.helm.oci || helm_sub.helm.repository || '';
+        source_name = `${source_name}/${helm_sub.helm.chart}`;
+        // Create helm config object to satisfy exactOptionalPropertyTypes
+        const helm_config: { repository?: string; oci?: string; chart: string } = {
+          chart: helm_sub.helm.chart,
+        };
+        if (helm_sub.helm.repository) {
+          helm_config.repository = helm_sub.helm.repository;
+        }
+        if (helm_sub.helm.oci) {
+          helm_config.oci = helm_sub.helm.oci;
+        }
+        client = create_helm_client(helm_config);
       }
 
-      const tags_result = await client.list_tags(image_ref);
+      if (!json_output) {
+        console.log(`Checking ${substitution.name} (${source_name})...`);
+      }
+
+      // For version type, we need to pass the image reference
+      // For helm type, the parameter is optional and ignored
+      let tags_result: ResultType<TagInfoType[], KustodianErrorType>;
+      if (type === 'version') {
+        tags_result = await client.list_tags(parse_image_reference(source_name));
+      } else {
+        // Helm client - the list_tags parameter is optional for helm clients
+        type ListTagsFn = (
+          ref?: ImageReferenceType,
+        ) => Promise<ResultType<TagInfoType[], KustodianErrorType>>;
+        tags_result = await (client.list_tags as ListTagsFn)(undefined);
+      }
       if (!is_success(tags_result)) {
         if (!json_output) {
           console.error(`  Failed to fetch tags: ${tags_result.error.message}`);
@@ -184,7 +243,8 @@ export const update_command = define_command({
         cluster: cluster_name,
         template: template_name,
         substitution: substitution.name,
-        image: substitution.registry.image,
+        source: source_name,
+        source_type: type === 'version' ? 'image' : 'helm',
         current: check.current_version,
         latest: check.latest_version,
         constraint: substitution.constraint,

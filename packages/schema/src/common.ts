@@ -55,6 +55,31 @@ export const registry_config_schema = z.object({
 export type RegistryConfigType = z.infer<typeof registry_config_schema>;
 
 /**
+ * Helm repository configuration for helm chart version substitutions.
+ * Supports both traditional Helm repositories and OCI registries.
+ */
+export const helm_config_schema = z
+  .object({
+    /** Helm chart repository URL (e.g., https://traefik.github.io/charts) */
+    repository: z.string().url().optional(),
+    /** OCI registry URL for Helm charts (e.g., oci://ghcr.io/traefik/helm) */
+    oci: z.string().startsWith('oci://').optional(),
+    /** Chart name */
+    chart: z.string().min(1),
+  })
+  .refine(
+    (data) => {
+      // Either repository or oci must be provided
+      return data.repository !== undefined || data.oci !== undefined;
+    },
+    {
+      message: "Either 'repository' or 'oci' must be specified",
+    },
+  );
+
+export type HelmConfigType = z.infer<typeof helm_config_schema>;
+
+/**
  * Generic substitution (backward compatible, default type).
  */
 export const generic_substitution_schema = z.object({
@@ -85,6 +110,25 @@ export const version_substitution_schema = z.object({
 });
 
 export type VersionSubstitutionType = z.infer<typeof version_substitution_schema>;
+
+/**
+ * Helm chart version substitution for tracking Helm chart versions.
+ */
+export const helm_substitution_schema = z.object({
+  type: z.literal('helm'),
+  name: z.string().min(1),
+  default: z.string().optional(),
+  /** Semver constraint: ^1.0.0, ~2.3.0, >=1.0.0 <2.0.0 */
+  constraint: z.string().optional(),
+  /** Helm repository configuration for fetching available chart versions */
+  helm: helm_config_schema,
+  /** Regex pattern for filtering valid tags (default: semver-like) */
+  tag_pattern: z.string().optional(),
+  /** Exclude pre-release versions (default: true) */
+  exclude_prerelease: z.boolean().optional(),
+});
+
+export type HelmSubstitutionType = z.infer<typeof helm_substitution_schema>;
 
 /**
  * Namespace substitution with Kubernetes naming validation.
@@ -153,6 +197,7 @@ export type DopplerSubstitutionType = z.infer<typeof doppler_substitution_schema
  */
 export const substitution_schema = z.union([
   version_substitution_schema,
+  helm_substitution_schema,
   namespace_substitution_schema,
   onepassword_substitution_schema,
   doppler_substitution_schema,
@@ -166,6 +211,13 @@ export type SubstitutionType = z.infer<typeof substitution_schema>;
  */
 export function is_version_substitution(sub: SubstitutionType): sub is VersionSubstitutionType {
   return 'type' in sub && sub.type === 'version';
+}
+
+/**
+ * Type guard for helm substitutions.
+ */
+export function is_helm_substitution(sub: SubstitutionType): sub is HelmSubstitutionType {
+  return 'type' in sub && sub.type === 'helm';
 }
 
 /**

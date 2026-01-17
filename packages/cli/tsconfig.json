@@ -13,6 +13,7 @@
     { "path": "../core" },
     { "path": "../schema" },
     { "path": "../loader" },
+    { "path": "../registry" },
     { "path": "../generator" },
     { "path": "../plugins" },
     { "path": "../nodes" },
