@@ -19,5 +19,13 @@ pre-commit:
         - merge
         - rebase
 
-# Pre-push hook removed - full test suite runs in CI
-# Running all tests locally before every push is too slow for good DX
+# Pre-push: Run fast unit tests before pushing
+pre-push:
+  parallel: true
+  commands:
+    test:
+      glob: "{*,**/*}"
+      run: pnpm test
+      skip:
+        - merge
+        - rebase
