@@ -47,6 +47,7 @@ describe('Namespace Module', () => {
         namespace: { default: 'my-namespace', create: true },
         prune: true,
         wait: true,
+        enabled: true,
       };
 
       // Act
@@ -84,6 +85,7 @@ describe('Namespace Module', () => {
           namespace: { default: 'ns1', create: true },
           prune: true,
           wait: true,
+          enabled: true,
         },
         {
           name: 'k2',
@@ -91,8 +93,9 @@ describe('Namespace Module', () => {
           namespace: { default: 'ns2', create: true },
           prune: true,
           wait: true,
+          enabled: true,
         },
-        { name: 'k3', path: './k3', prune: true, wait: true },
+        { name: 'k3', path: './k3', prune: true, wait: true, enabled: true },
       ]);
 
       // Act
@@ -113,6 +116,7 @@ describe('Namespace Module', () => {
           namespace: { default: 'same', create: true },
           prune: true,
           wait: true,
+          enabled: true,
         },
         {
           name: 'k2',
@@ -120,6 +124,7 @@ describe('Namespace Module', () => {
           namespace: { default: 'same', create: true },
           prune: true,
           wait: true,
+          enabled: true,
         },
       ]);
 
@@ -141,6 +146,7 @@ describe('Namespace Module', () => {
           namespace: { default: 'ns1', create: true },
           prune: true,
           wait: true,
+          enabled: true,
         },
       ]);
       const t2 = create_template('t2', [
@@ -150,6 +156,7 @@ describe('Namespace Module', () => {
           namespace: { default: 'ns2', create: true },
           prune: true,
           wait: true,
+          enabled: true,
         },
       ]);
       const templates = [create_resolved(t1), create_resolved(t2)];
@@ -171,6 +178,7 @@ describe('Namespace Module', () => {
           namespace: { default: 'enabled', create: true },
           prune: true,
           wait: true,
+          enabled: true,
         },
       ]);
       const t2 = create_template('t2', [
@@ -180,6 +188,7 @@ describe('Namespace Module', () => {
           namespace: { default: 'disabled', create: true },
           prune: true,
           wait: true,
+          enabled: true,
         },
       ]);
       const templates = [create_resolved(t1, true), create_resolved(t2, false)];
@@ -201,6 +210,7 @@ describe('Namespace Module', () => {
           namespace: { default: 'zebra', create: true },
           prune: true,
           wait: true,
+          enabled: true,
         },
         {
           name: 'k2',
@@ -208,6 +218,7 @@ describe('Namespace Module', () => {
           namespace: { default: 'alpha', create: true },
           prune: true,
           wait: true,
+          enabled: true,
         },
         {
           name: 'k3',
@@ -215,6 +226,7 @@ describe('Namespace Module', () => {
           namespace: { default: 'middle', create: true },
           prune: true,
           wait: true,
+          enabled: true,
         },
       ]);
       const templates = [create_resolved(t1)];
@@ -293,6 +305,7 @@ describe('Namespace Module', () => {
           namespace: { default: 'production', create: true },
           prune: true,
           wait: true,
+          enabled: true,
         },
         {
           name: 'k2',
@@ -300,6 +313,7 @@ describe('Namespace Module', () => {
           namespace: { default: 'default', create: true },
           prune: true,
           wait: true,
+          enabled: true,
         },
         {
           name: 'k3',
@@ -307,6 +321,7 @@ describe('Namespace Module', () => {
           namespace: { default: 'nginx', create: true },
           prune: true,
           wait: true,
+          enabled: true,
         },
       ]);
       const templates = [create_resolved(template)];
@@ -330,6 +345,7 @@ describe('Namespace Module', () => {
           namespace: { default: 'ns1', create: true },
           prune: true,
           wait: true,
+          enabled: true,
         },
       ]);
       const templates = [create_resolved(template)];
