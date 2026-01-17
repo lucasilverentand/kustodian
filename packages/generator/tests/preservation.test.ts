@@ -66,8 +66,10 @@ describe('Preservation', () => {
       const result = generate_preservation_patches(preserved_types);
 
       expect(result).toHaveLength(2);
-      expect(result[0].target.kind).toBe('PersistentVolumeClaim');
-      expect(result[1].target.kind).toBe('Secret');
+      if (result[0] && result[1]) {
+        expect(result[0].target.kind).toBe('PersistentVolumeClaim');
+        expect(result[1].target.kind).toBe('Secret');
+      }
     });
 
     it('should include preservation label in patch', () => {
@@ -75,8 +77,10 @@ describe('Preservation', () => {
 
       const result = generate_preservation_patches(preserved_types);
 
-      expect(result[0].patch).toContain('kustodian.io/preserve: "true"');
-      expect(result[0].patch).toContain('kind: PersistentVolumeClaim');
+      if (result[0]) {
+        expect(result[0].patch).toContain('kustodian.io/preserve: "true"');
+        expect(result[0].patch).toContain('kind: PersistentVolumeClaim');
+      }
     });
 
     it('should generate correct patch structure', () => {
@@ -84,10 +88,12 @@ describe('Preservation', () => {
 
       const result = generate_preservation_patches(preserved_types);
 
-      expect(result[0]).toHaveProperty('patch');
-      expect(result[0]).toHaveProperty('target');
-      expect(result[0].target).toHaveProperty('kind');
-      expect(result[0].target.kind).toBe('ConfigMap');
+      if (result[0]) {
+        expect(result[0]).toHaveProperty('patch');
+        expect(result[0]).toHaveProperty('target');
+        expect(result[0].target).toHaveProperty('kind');
+        expect(result[0].target.kind).toBe('ConfigMap');
+      }
     });
   });
 
