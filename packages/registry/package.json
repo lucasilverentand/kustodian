@@ -30,7 +30,8 @@
   },
   "dependencies": {
     "@kustodian/core": "workspace:*",
-    "semver": "^7.6.0"
+    "semver": "^7.6.0",
+    "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@types/semver": "^7.5.0"

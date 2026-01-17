@@ -19,6 +19,7 @@ export {
 // Registry implementations
 export { create_dockerhub_client } from './dockerhub.js';
 export { create_ghcr_client } from './ghcr.js';
+export { create_helm_client } from './helm.js';
 
 // Auth utilities
 export { get_dockerhub_auth, get_ghcr_auth, get_auth_for_registry } from './auth.js';
