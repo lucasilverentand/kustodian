@@ -7,14 +7,14 @@ pre-commit:
   commands:
     lint:
       glob: "{*,**/*}"
-      run: pnpm lint
+      run: bun run lint
       skip:
         - merge
         - rebase
 
     typecheck:
       glob: "{*,**/*}"
-      run: pnpm typecheck
+      run: bun run typecheck
       skip:
         - merge
         - rebase
@@ -25,7 +25,7 @@ pre-push:
   commands:
     test:
       glob: "{*,**/*}"
-      run: pnpm test
+      run: bun test
       skip:
         - merge
         - rebase
