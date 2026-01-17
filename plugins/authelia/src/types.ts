@@ -71,7 +71,7 @@ export const oidc_client_config_schema = z.object({
   /** Audience for the client */
   audience: z.array(z.string()).optional(),
   /** Additional Authelia client options */
-  additional_options: z.record(z.unknown()).optional(),
+  additional_options: z.record(z.string(), z.unknown()).optional(),
 });
 export type OIDCClientConfigType = z.infer<typeof oidc_client_config_schema>;
 
@@ -94,7 +94,7 @@ export const access_control_rule_schema = z.object({
   /** Resource patterns to match */
   resources: z.array(z.string()).optional(),
   /** Query parameter conditions */
-  query: z.array(z.array(z.record(z.unknown()))).optional(),
+  query: z.array(z.array(z.record(z.string(), z.unknown()))).optional(),
 });
 export type AccessControlRuleType = z.infer<typeof access_control_rule_schema>;
 
