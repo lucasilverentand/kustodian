@@ -62,7 +62,10 @@ export async function resolve_doppler_substitutions(
   // Fetch secrets for each group
   for (const [key, subs] of groups) {
     // Get project and config from the first substitution in the group
-    const first = subs[0]!;
+    const first = subs[0];
+    if (!first) {
+      continue;
+    }
 
     // Check if we already have the secrets cached
     let secrets = secrets_cache.get(key);

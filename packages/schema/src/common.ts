@@ -101,28 +101,30 @@ export type NamespaceSubstitutionType = z.infer<typeof namespace_substitution_sc
  * 1Password substitution for fetching secrets from 1Password vaults.
  * Uses the op:// secret reference format, or shorthand with cluster defaults.
  */
-export const onepassword_substitution_schema = z.object({
-  type: z.literal('1password'),
-  name: z.string().min(1),
-  /** 1Password secret reference: op://vault/item[/section]/field, or shorthand item/field when vault is configured at cluster level */
-  ref: z.string().min(1).optional(),
-  /** Item name (shorthand, requires cluster-level vault configuration) */
-  item: z.string().min(1).optional(),
-  /** Field name (shorthand, requires cluster-level vault configuration) */
-  field: z.string().min(1).optional(),
-  /** Section name (optional, for shorthand references) */
-  section: z.string().optional(),
-  /** Optional default value if secret cannot be fetched */
-  default: z.string().optional(),
-}).refine(
-  (data) => {
-    // Either ref must be provided, or both item and field
-    return data.ref !== undefined || (data.item !== undefined && data.field !== undefined);
-  },
-  {
-    message: "Either 'ref' or both 'item' and 'field' must be specified",
-  },
-);
+export const onepassword_substitution_schema = z
+  .object({
+    type: z.literal('1password'),
+    name: z.string().min(1),
+    /** 1Password secret reference: op://vault/item[/section]/field, or shorthand item/field when vault is configured at cluster level */
+    ref: z.string().min(1).optional(),
+    /** Item name (shorthand, requires cluster-level vault configuration) */
+    item: z.string().min(1).optional(),
+    /** Field name (shorthand, requires cluster-level vault configuration) */
+    field: z.string().min(1).optional(),
+    /** Section name (optional, for shorthand references) */
+    section: z.string().optional(),
+    /** Optional default value if secret cannot be fetched */
+    default: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      // Either ref must be provided, or both item and field
+      return data.ref !== undefined || (data.item !== undefined && data.field !== undefined);
+    },
+    {
+      message: "Either 'ref' or both 'item' and 'field' must be specified",
+    },
+  );
 
 export type OnePasswordSubstitutionType = z.infer<typeof onepassword_substitution_schema>;
 

@@ -527,7 +527,10 @@ describe('Validation Module', () => {
       };
     }
 
-    function create_node(name: string, labels?: Record<string, string | boolean | number>): NodeSchemaType {
+    function create_node(
+      name: string,
+      labels?: Record<string, string | boolean | number>,
+    ): NodeSchemaType {
       return {
         name,
         role: 'worker',
