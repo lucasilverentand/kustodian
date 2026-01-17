@@ -1,6 +1,6 @@
 {
   "name": "@kustodian/sources",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Template source fetching and caching for remote Git, HTTP, and OCI sources",
   "type": "module",
   "main": "./src/index.ts",
@@ -11,13 +11,21 @@
       "import": "./src/index.ts"
     }
   },
-  "files": ["src"],
+  "files": [
+    "src"
+  ],
   "scripts": {
     "test": "bun test || exit 0",
     "test:watch": "bun test --watch",
     "typecheck": "bun run tsc --noEmit"
   },
-  "keywords": ["kustodian", "sources", "git", "oci", "templates"],
+  "keywords": [
+    "kustodian",
+    "sources",
+    "git",
+    "oci",
+    "templates"
+  ],
   "author": "Luca Silverentand <luca@onezero.company>",
   "license": "MIT",
   "repository": {

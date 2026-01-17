@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.2.0](https://github.com/lucasilverentand/kustodian/compare/generator-v1.1.0...generator-v1.2.0) (2026-01-17)
+
+
+### Features
+
+* **generator:** add smart enable/disable system for kustomizations ([b581b5c](https://github.com/lucasilverentand/kustodian/commit/b581b5c7bedc348bc7c7399cc75ecc4897bbec84)), closes [#109](https://github.com/lucasilverentand/kustodian/issues/109)
+* **secrets:** add cluster-level secret provider configuration ([#116](https://github.com/lucasilverentand/kustodian/issues/116)) ([b7d3d19](https://github.com/lucasilverentand/kustodian/commit/b7d3d19eddf3a46b522fe919954e36dc91aed9a6))
+* support raw Flux Kustomization dependency references ([#117](https://github.com/lucasilverentand/kustodian/issues/117)) ([959906e](https://github.com/lucasilverentand/kustodian/commit/959906e596a345c0dd69b2a7bc91aac40c0ccdb5))
+* **templates:** add node label requirement validation ([07fac3a](https://github.com/lucasilverentand/kustodian/commit/07fac3a7e458fe4f14d57fd65c2b14674d56b59a)), closes [#105](https://github.com/lucasilverentand/kustodian/issues/105)
+
 ## [1.1.0](https://github.com/lucasilverentand/kustodian/compare/generator-v1.0.1...generator-v1.1.0) (2026-01-16)
 
 

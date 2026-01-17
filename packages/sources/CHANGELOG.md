@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/lucasilverentand/kustodian/compare/sources-v1.2.0...sources-v1.3.0) (2026-01-17)
+
+
+### Features
+
+* support raw Flux Kustomization dependency references ([#117](https://github.com/lucasilverentand/kustodian/issues/117)) ([959906e](https://github.com/lucasilverentand/kustodian/commit/959906e596a345c0dd69b2a7bc91aac40c0ccdb5))
+
 ## [1.2.0](https://github.com/lucasilverentand/kustodian/compare/sources-v1.1.0...sources-v1.2.0) (2026-01-15)
 
 

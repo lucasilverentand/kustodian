@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/lucasilverentand/kustodian/compare/loader-v1.0.1...loader-v1.1.0) (2026-01-17)
+
+
+### Features
+
+* support raw Flux Kustomization dependency references ([#117](https://github.com/lucasilverentand/kustodian/issues/117)) ([959906e](https://github.com/lucasilverentand/kustodian/commit/959906e596a345c0dd69b2a7bc91aac40c0ccdb5))
+
 ## [1.0.1](https://github.com/lucasilverentand/kustodian/compare/loader-v1.0.0...loader-v1.0.1) (2026-01-15)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/lucasilverentand/kustodian/compare/registry-v1.0.1...registry-v1.1.0) (2026-01-17)
+
+
+### Features
+
+* support Helm chart versions in version substitutions ([#118](https://github.com/lucasilverentand/kustodian/issues/118)) ([5201da4](https://github.com/lucasilverentand/kustodian/commit/5201da4f5f0bbcfb8a5e7bbf952cccfbc9f36a7b)), closes [#102](https://github.com/lucasilverentand/kustodian/issues/102)
+
 ## [1.0.1](https://github.com/lucasilverentand/kustodian/compare/registry-v1.0.0...registry-v1.0.1) (2026-01-15)
 
 
