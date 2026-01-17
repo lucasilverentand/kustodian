@@ -1,8 +1,9 @@
 import { type ResultType, failure, success } from '@kustodian/core';
 import type { KustodianErrorType } from '@kustodian/core';
-import type { TemplateType } from '@kustodian/schema';
+import type { ClusterType, TemplateType } from '@kustodian/schema';
 
 import { detect_cycles } from './cycle-detection.js';
+import { validate_enablement_dependencies } from './enablement.js';
 import { build_dependency_graph } from './graph.js';
 import type { GraphValidationResultType } from './types.js';
 
@@ -23,6 +24,7 @@ export type {
   RequirementValidationErrorType,
   RequirementValidationResultType,
 } from './requirements.js';
+export type { DisabledDependencyErrorType } from './enablement.js';
 
 // Re-export functions
 export { build_dependency_graph, get_all_nodes, get_node } from './graph.js';
@@ -35,6 +37,7 @@ export {
   resolve_dependency_ref,
 } from './reference.js';
 export { validate_template_requirements } from './requirements.js';
+export { validate_enablement_dependencies } from './enablement.js';
 
 /**
  * Validates the dependency graph for a set of templates.
@@ -77,16 +80,22 @@ export function validate_dependency_graph(templates: TemplateType[]): GraphValid
  * Returns a success with the topological order, or a failure with
  * detailed error information.
  *
+ * @param cluster - Cluster configuration
  * @param templates - Array of templates to validate
  * @returns Result with topological order on success, or error on failure
  */
 export function validate_dependencies(
+  cluster: ClusterType,
   templates: TemplateType[],
 ): ResultType<string[], KustodianErrorType> {
   const result = validate_dependency_graph(templates);
+  const enablement_errors = validate_enablement_dependencies(cluster, templates);
 
-  if (!result.valid) {
-    const error_messages = result.errors.map((e) => e.message);
+  // Combine all errors
+  const all_errors = [...result.errors, ...enablement_errors];
+
+  if (all_errors.length > 0) {
+    const error_messages = all_errors.map((e) => e.message);
     return failure({
       code: 'DEPENDENCY_VALIDATION_ERROR',
       message: `Dependency validation failed:\n${error_messages.map((m) => `  - ${m}`).join('\n')}`,

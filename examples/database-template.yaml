@@ -1,0 +1,36 @@
+---
+apiVersion: kustodian.io/v1
+kind: Template
+metadata:
+  name: database
+spec:
+  kustomizations:
+    # Always enabled - required operator
+    - name: cnpg-operator
+      path: operator
+      enabled: true  # Default, can be omitted
+
+    # Disabled by default - only enable when Authelia is deployed
+    - name: authelia-db
+      path: clusters/authelia
+      enabled: false
+      preservation:
+        mode: stateful  # Keep PVCs, Secrets, ConfigMaps when disabled
+
+    # Disabled by default - only enable when Gitea is deployed
+    - name: gitea-db
+      path: clusters/gitea
+      enabled: false
+      preservation:
+        mode: stateful
+
+    # Disabled by default - optional backup automation
+    - name: backup-jobs
+      path: backup
+      enabled: false
+      preservation:
+        mode: custom
+        keep_resources:
+          - PersistentVolumeClaim
+          - Secret
+          # Don't preserve ConfigMaps for backup jobs

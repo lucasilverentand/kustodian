@@ -17,6 +17,10 @@ import {
   generate_health_checks,
   resolve_kustomization,
 } from './flux.js';
+import {
+  get_template_config,
+  resolve_kustomization_state,
+} from './kustomization-resolution.js';
 import { generate_namespace_resources } from './namespace.js';
 import { serialize_resource, serialize_resources, write_generation_result } from './output.js';
 import type {
@@ -169,7 +173,7 @@ export function create_generator(
 
       // Validate dependency graph before generation (unless skipped)
       if (!skip_validation) {
-        const validation_result = validate_dependencies(templates);
+        const validation_result = validate_dependencies(cluster, templates);
         if (!validation_result.success) {
           return validation_result;
         }
@@ -201,7 +205,22 @@ export function create_generator(
           continue;
         }
 
+        // Get template configuration from cluster for kustomization overrides
+        const template_config = get_template_config(cluster, resolved.template.metadata.name);
+
         for (const kustomization of resolved.template.spec.kustomizations) {
+          // Resolve kustomization state (enabled + preservation)
+          const kustomization_state = resolve_kustomization_state(
+            kustomization,
+            template_config,
+            kustomization.name,
+          );
+
+          // Skip disabled kustomizations
+          if (!kustomization_state.enabled) {
+            continue;
+          }
+
           const resolved_kustomization = resolve_kustomization(
             resolved.template,
             kustomization,
@@ -213,6 +232,7 @@ export function create_generator(
             resolved_kustomization,
             source_repository_name,
             source_kind,
+            kustomization_state.preservation,
           );
 
           // Override namespace to configured value

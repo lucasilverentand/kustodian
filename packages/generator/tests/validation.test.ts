@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 
-import type { NodeSchemaType, TemplateType } from '@kustodian/schema';
+import type { ClusterType, NodeSchemaType, TemplateType } from '@kustodian/schema';
 
 import { detect_cycles, has_cycles } from '../src/validation/cycle-detection.js';
 import { build_dependency_graph } from '../src/validation/graph.js';
@@ -19,11 +19,30 @@ import {
 import type { GraphNodeType } from '../src/validation/types.js';
 
 /**
+ * Helper to create a minimal cluster for testing.
+ */
+function create_test_cluster(name = 'test-cluster'): ClusterType {
+  return {
+    apiVersion: 'kustodian.io/v1',
+    kind: 'Cluster',
+    metadata: { name },
+    spec: {
+      domain: 'test.example.com',
+      git: {
+        owner: 'test',
+        repository: 'test',
+        branch: 'main',
+      },
+    },
+  };
+}
+
+/**
  * Helper to create a minimal template for testing.
  */
 function create_template(
   name: string,
-  kustomizations: Array<{ name: string; depends_on?: string[] }>,
+  kustomizations: Array<{ name: string; depends_on?: string[]; enabled?: boolean }>,
 ): TemplateType {
   return {
     apiVersion: 'kustodian.io/v1',
@@ -35,6 +54,7 @@ function create_template(
         path: `./${k.name}`,
         prune: true,
         wait: true,
+        enabled: k.enabled ?? true,
         depends_on: k.depends_on,
       })),
     },
@@ -391,6 +411,7 @@ describe('Validation Module', () => {
 
     describe('validate_dependencies', () => {
       it('should return success for valid graph', () => {
+        const cluster = create_test_cluster();
         const templates = [
           create_template('app', [
             { name: 'database' },
@@ -398,7 +419,7 @@ describe('Validation Module', () => {
           ]),
         ];
 
-        const result = validate_dependencies(templates);
+        const result = validate_dependencies(cluster, templates);
 
         expect(result.success).toBe(true);
         if (result.success) {
@@ -407,6 +428,7 @@ describe('Validation Module', () => {
       });
 
       it('should return failure for invalid graph', () => {
+        const cluster = create_test_cluster();
         const templates = [
           create_template('app', [
             { name: 'a', depends_on: ['b'] },
@@ -414,7 +436,7 @@ describe('Validation Module', () => {
           ]),
         ];
 
-        const result = validate_dependencies(templates);
+        const result = validate_dependencies(cluster, templates);
 
         expect(result.success).toBe(false);
         if (!result.success) {
@@ -498,6 +520,7 @@ describe('Validation Module', () => {
               path: './main',
               prune: true,
               wait: true,
+              enabled: true,
             },
           ],
         },

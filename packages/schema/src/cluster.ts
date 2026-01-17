@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { api_version_schema, metadata_schema, values_schema } from './common.js';
 import { ssh_config_schema } from './node-list.js';
+import { preservation_mode_schema } from './template.js';
 
 /**
  * Git repository configuration for a cluster.
@@ -31,12 +32,37 @@ export const oci_config_schema = z.object({
 export type OciConfigType = z.infer<typeof oci_config_schema>;
 
 /**
+ * Kustomization override configuration within a cluster.
+ *
+ * Allows overriding kustomization enablement and preservation from template defaults.
+ */
+export const kustomization_override_schema = z.object({
+  enabled: z.boolean(),
+  preservation: z
+    .object({
+      mode: preservation_mode_schema,
+    })
+    .optional(),
+});
+
+export type KustomizationOverrideType = z.infer<typeof kustomization_override_schema>;
+
+/**
  * Template enablement configuration within a cluster.
  */
 export const template_config_schema = z.object({
   name: z.string().min(1),
   enabled: z.boolean().optional().default(true),
   values: values_schema.optional(),
+  kustomizations: z
+    .record(
+      z.string(), // kustomization name
+      z.union([
+        z.boolean(), // Simple: just enabled/disabled
+        kustomization_override_schema, // Advanced: with preservation
+      ]),
+    )
+    .optional(),
 });
 
 export type TemplateConfigType = z.infer<typeof template_config_schema>;

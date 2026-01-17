@@ -10,6 +10,27 @@ import {
 } from './common.js';
 
 /**
+ * Preservation mode for disabled kustomizations.
+ *
+ * - none: Delete all resources when disabled
+ * - stateful: Keep PVCs, Secrets, and ConfigMaps (default, safe)
+ * - custom: Keep only specified resource types
+ */
+export const preservation_mode_schema = z.enum(['none', 'stateful', 'custom']);
+
+export type PreservationModeType = z.infer<typeof preservation_mode_schema>;
+
+/**
+ * Preservation policy for a kustomization when disabled.
+ */
+export const preservation_policy_schema = z.object({
+  mode: preservation_mode_schema.default('stateful'),
+  keep_resources: z.array(z.string()).optional(),
+});
+
+export type PreservationPolicyType = z.infer<typeof preservation_policy_schema>;
+
+/**
  * A single kustomization within a template.
  * Maps to a Flux Kustomization resource.
  */
@@ -25,6 +46,8 @@ export const kustomization_schema = z.object({
   wait: z.boolean().optional().default(true),
   timeout: z.string().optional(),
   retry_interval: z.string().optional(),
+  enabled: z.boolean().optional().default(true),
+  preservation: preservation_policy_schema.optional(),
 });
 
 export type KustomizationType = z.infer<typeof kustomization_schema>;

@@ -85,6 +85,25 @@ export interface FluxOCIRepositoryType {
 }
 
 /**
+ * Flux Kustomization patch target selector.
+ */
+export interface FluxPatchTargetType {
+  kind: string;
+  name?: string;
+  namespace?: string;
+  labelSelector?: string;
+  annotationSelector?: string;
+}
+
+/**
+ * Flux Kustomization patch.
+ */
+export interface FluxPatchType {
+  patch: string;
+  target: FluxPatchTargetType;
+}
+
+/**
  * Flux Kustomization resource type.
  */
 export interface FluxKustomizationType {
@@ -125,5 +144,6 @@ export interface FluxKustomizationType {
       /** CEL expression for when resource has failed */
       failed?: string;
     }>;
+    patches?: FluxPatchType[];
   };
 }

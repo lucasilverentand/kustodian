@@ -2,9 +2,11 @@ import type {
   ClusterType,
   KustomizationType,
   OciConfigType,
+  PreservationPolicyType,
   TemplateType,
 } from '@kustodian/schema';
 
+import { generate_preservation_patches, get_preserved_resource_types } from './preservation.js';
 import type {
   FluxKustomizationType,
   FluxOCIRepositoryType,
@@ -179,6 +181,7 @@ export function generate_flux_kustomization(
   resolved: ResolvedKustomizationType,
   source_repository_name = 'flux-system',
   source_kind: 'GitRepository' | 'OCIRepository' = 'GitRepository',
+  preservation?: PreservationPolicyType,
 ): FluxKustomizationType {
   const { template, kustomization, values, namespace } = resolved;
   const name = generate_flux_name(template.metadata.name, kustomization.name);
@@ -195,6 +198,15 @@ export function generate_flux_kustomization(
       name: source_repository_name,
     },
   };
+
+  // Add preservation patches if preservation is configured
+  if (preservation) {
+    const preserved_types = get_preserved_resource_types(preservation);
+    if (preserved_types.length > 0) {
+      const patches = generate_preservation_patches(preserved_types);
+      spec.patches = patches;
+    }
+  }
 
   // Add timeout if specified
   if (kustomization.timeout) {
