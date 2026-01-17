@@ -63,6 +63,7 @@ describe('Namespace Module', () => {
         path: './test',
         prune: true,
         wait: true,
+        enabled: true,
       };
 
       // Act
