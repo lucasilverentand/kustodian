@@ -1,11 +1,11 @@
-import * as yaml from 'js-yaml';
 import {
-  create_error,
-  success,
-  failure,
-  type ResultType,
   type KustodianErrorType,
+  type ResultType,
+  create_error,
+  failure,
+  success,
 } from '@kustodian/core';
+import * as yaml from 'js-yaml';
 import type {
   AccessControlRuleType,
   AuthConfigType,
@@ -219,7 +219,9 @@ export function config_to_yaml(config: AutheliaConfigType): ResultType<string, K
 /**
  * Parses YAML string to Authelia configuration
  */
-export function yaml_to_config(yaml_string: string): ResultType<AutheliaConfigType, KustodianErrorType> {
+export function yaml_to_config(
+  yaml_string: string,
+): ResultType<AutheliaConfigType, KustodianErrorType> {
   try {
     const config = yaml.load(yaml_string) as AutheliaConfigType;
     return success(config);

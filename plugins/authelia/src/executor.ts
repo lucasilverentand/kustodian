@@ -1,15 +1,13 @@
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
-import { create_error, success, type ResultType, type KustodianErrorType } from '@kustodian/core';
+import { type KustodianErrorType, type ResultType, create_error, success } from '@kustodian/core';
 
 const exec_async = promisify(exec);
 
 /**
  * Check if authelia CLI is available
  */
-export async function check_authelia_available(): Promise<
-  ResultType<string, KustodianErrorType>
-> {
+export async function check_authelia_available(): Promise<ResultType<string, KustodianErrorType>> {
   try {
     const { stdout } = await exec_async('authelia --version', { timeout: 5000 });
     const version = stdout.trim();
@@ -71,13 +69,16 @@ export async function hash_password(
 /**
  * Generate a random secret suitable for OIDC client secrets
  */
-export async function generate_random_secret(length = 64): Promise<
-  ResultType<string, KustodianErrorType>
-> {
+export async function generate_random_secret(
+  length = 64,
+): Promise<ResultType<string, KustodianErrorType>> {
   try {
-    const { stdout } = await exec_async(`authelia crypto rand --length ${length} --charset alphanumeric`, {
-      timeout: 5000,
-    });
+    const { stdout } = await exec_async(
+      `authelia crypto rand --length ${length} --charset alphanumeric`,
+      {
+        timeout: 5000,
+      },
+    );
     return success(stdout.trim());
   } catch (error) {
     return {

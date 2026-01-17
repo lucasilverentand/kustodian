@@ -17,10 +17,7 @@ import {
   generate_health_checks,
   resolve_kustomization,
 } from './flux.js';
-import {
-  get_template_config,
-  resolve_kustomization_state,
-} from './kustomization-resolution.js';
+import { get_template_config, resolve_kustomization_state } from './kustomization-resolution.js';
 import { generate_namespace_resources } from './namespace.js';
 import { serialize_resource, serialize_resources, write_generation_result } from './output.js';
 import type {

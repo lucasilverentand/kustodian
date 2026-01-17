@@ -16,7 +16,7 @@ import {
   validate_access_control,
 } from './executor.js';
 import { generate_oidc_client } from './generator.js';
-import type { AuthConfigType, AutheliaPluginOptionsType } from './types.js';
+import type { AuthConfigType } from './types.js';
 import { authelia_plugin_options_schema } from './types.js';
 
 /**

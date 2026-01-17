@@ -6,11 +6,7 @@ import type { PreservationPolicyType } from '@kustodian/schema';
  * This list defines which Kubernetes resources contain state that should not be
  * accidentally deleted when disabling a kustomization.
  */
-export const DEFAULT_STATEFUL_RESOURCES = [
-  'PersistentVolumeClaim',
-  'Secret',
-  'ConfigMap',
-] as const;
+export const DEFAULT_STATEFUL_RESOURCES = ['PersistentVolumeClaim', 'Secret', 'ConfigMap'] as const;
 
 /**
  * Gets the list of resource types that should be preserved based on preservation policy.
@@ -52,9 +48,7 @@ export function get_preserved_resource_types(policy: PreservationPolicyType): st
  * @param preserved_types - Resource types to keep (from get_preserved_resource_types)
  * @returns Flux patch objects that add preservation labels
  */
-export function generate_preservation_patches(
-  preserved_types: string[],
-): Array<{
+export function generate_preservation_patches(preserved_types: string[]): Array<{
   patch: string;
   target: {
     kind: string;

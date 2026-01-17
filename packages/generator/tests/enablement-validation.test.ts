@@ -4,8 +4,19 @@ import type { ClusterType, TemplateType } from '@kustodian/schema';
 
 import { validate_enablement_dependencies } from '../src/validation/enablement.js';
 
+interface TemplateConfig {
+  enabled?: boolean;
+  kustomizations?: Record<
+    string,
+    boolean | { enabled: boolean; preservation?: { mode: 'stateful' | 'none' | 'custom' } }
+  >;
+}
+
 describe('Enablement Validation', () => {
-  function create_cluster(name = 'test', template_configs = {}): ClusterType {
+  function create_cluster(
+    name = 'test',
+    template_configs: Record<string, TemplateConfig> = {},
+  ): ClusterType {
     return {
       apiVersion: 'kustodian.io/v1',
       kind: 'Cluster',
@@ -17,7 +28,7 @@ describe('Enablement Validation', () => {
           repository: 'test',
           branch: 'main',
         },
-        templates: Object.entries(template_configs).map(([name, config]: [string, any]) => ({
+        templates: Object.entries(template_configs).map(([name, config]) => ({
           name,
           enabled: config.enabled ?? true,
           kustomizations: config.kustomizations,
@@ -105,9 +116,7 @@ describe('Enablement Validation', () => {
       });
       const templates = [
         create_template('secrets', [{ name: 'vault', enabled: false }]),
-        create_template('app', [
-          { name: 'api', enabled: true, depends_on: ['secrets/vault'] },
-        ]),
+        create_template('app', [{ name: 'api', enabled: true, depends_on: ['secrets/vault'] }]),
       ];
 
       const errors = validate_enablement_dependencies(cluster, templates);
@@ -183,9 +192,7 @@ describe('Enablement Validation', () => {
       });
       const templates = [
         create_template('database', [{ name: 'postgres', enabled: true }]),
-        create_template('app', [
-          { name: 'api', enabled: true, depends_on: ['database/postgres'] },
-        ]),
+        create_template('app', [{ name: 'api', enabled: true, depends_on: ['database/postgres'] }]),
       ];
 
       const errors = validate_enablement_dependencies(cluster, templates);

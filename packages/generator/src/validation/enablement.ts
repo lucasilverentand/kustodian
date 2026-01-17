@@ -1,9 +1,6 @@
 import type { ClusterType, TemplateType } from '@kustodian/schema';
 
-import {
-  get_template_config,
-  resolve_kustomization_state,
-} from '../kustomization-resolution.js';
+import { get_template_config, resolve_kustomization_state } from '../kustomization-resolution.js';
 import { create_node_id } from './reference.js';
 
 /**
@@ -54,11 +51,7 @@ export function validate_enablement_dependencies(
     // Template is enabled, check individual kustomizations
     for (const kustomization of template.spec.kustomizations) {
       const node_id = create_node_id(template.metadata.name, kustomization.name);
-      const state = resolve_kustomization_state(
-        kustomization,
-        template_config,
-        kustomization.name,
-      );
+      const state = resolve_kustomization_state(kustomization, template_config, kustomization.name);
       enablement_map.set(node_id, state.enabled);
     }
   }
@@ -74,11 +67,7 @@ export function validate_enablement_dependencies(
 
     for (const kustomization of template.spec.kustomizations) {
       const node_id = create_node_id(template.metadata.name, kustomization.name);
-      const state = resolve_kustomization_state(
-        kustomization,
-        template_config,
-        kustomization.name,
-      );
+      const state = resolve_kustomization_state(kustomization, template_config, kustomization.name);
 
       // Skip if this kustomization is disabled
       if (!state.enabled) {
