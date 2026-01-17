@@ -10,6 +10,34 @@ import {
 } from './common.js';
 
 /**
+ * Raw dependency reference to an external Flux Kustomization.
+ * Used for dependencies outside the kustodian-generated system.
+ */
+export const raw_dependency_ref_schema = z.object({
+  raw: z.object({
+    name: z.string().min(1),
+    namespace: z.string().min(1),
+  }),
+});
+
+export type RawDependencyRefType = z.infer<typeof raw_dependency_ref_schema>;
+
+/**
+ * Dependency reference - either a string or a raw reference object.
+ *
+ * Supports three formats:
+ * - Within-template: `database`
+ * - Cross-template: `secrets/doppler`
+ * - Raw external: `{ raw: { name: 'legacy-infrastructure', namespace: 'gitops-system' } }`
+ */
+export const dependency_ref_schema = z.union([
+  z.string(),
+  raw_dependency_ref_schema,
+]);
+
+export type DependencyRefType = z.infer<typeof dependency_ref_schema>;
+
+/**
  * A single kustomization within a template.
  * Maps to a Flux Kustomization resource.
  */
@@ -17,7 +45,7 @@ export const kustomization_schema = z.object({
   name: z.string().min(1),
   path: z.string().min(1),
   namespace: namespace_config_schema.optional(),
-  depends_on: z.array(z.string()).optional(),
+  depends_on: z.array(dependency_ref_schema).optional(),
   substitutions: z.array(substitution_schema).optional(),
   health_checks: z.array(health_check_schema).optional(),
   health_check_exprs: z.array(health_check_expr_schema).optional(),

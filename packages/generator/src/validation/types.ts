@@ -13,15 +13,44 @@ export interface GraphNodeType {
 }
 
 /**
- * Parsed dependency reference.
+ * Parsed dependency reference for string-based dependencies.
  */
-export interface DependencyRefType {
+export interface ParsedDependencyRefType {
   /** Template name (undefined for within-template refs) */
   readonly template?: string;
   /** Kustomization name */
   readonly kustomization: string;
   /** Original reference string */
   readonly raw: string;
+}
+
+/**
+ * Raw external dependency reference.
+ */
+export interface RawDependencyRefType {
+  /** Flux Kustomization name */
+  readonly name: string;
+  /** Flux Kustomization namespace */
+  readonly namespace: string;
+}
+
+/**
+ * Union type for all parsed dependency references.
+ */
+export type DependencyRefType = ParsedDependencyRefType | RawDependencyRefType;
+
+/**
+ * Type guard to check if a dependency reference is a raw reference.
+ */
+export function is_raw_dependency_ref(ref: DependencyRefType): ref is RawDependencyRefType {
+  return 'name' in ref && 'namespace' in ref;
+}
+
+/**
+ * Type guard to check if a dependency reference is a parsed string reference.
+ */
+export function is_parsed_dependency_ref(ref: DependencyRefType): ref is ParsedDependencyRefType {
+  return 'kustomization' in ref;
 }
 
 /**

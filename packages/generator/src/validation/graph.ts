@@ -62,6 +62,11 @@ export function build_dependency_graph(templates: TemplateType[]): BuildGraphRes
         // Resolve to full node ID
         const target_id = resolve_dependency_ref(parse_result, template_name);
 
+        // Skip raw dependencies - they're external and don't participate in graph validation
+        if (target_id === null) {
+          continue;
+        }
+
         // Check for self-reference
         if (target_id === node_id) {
           errors.push({
