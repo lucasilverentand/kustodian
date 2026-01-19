@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import {
   api_version_schema,
+  auth_config_schema,
   health_check_expr_schema,
   health_check_schema,
   metadata_schema,
@@ -73,6 +74,8 @@ export const kustomization_schema = z.object({
   retry_interval: z.string().optional(),
   enabled: z.boolean().optional().default(true),
   preservation: preservation_policy_schema.optional(),
+  /** Auth configuration for SSO integration (processed by auth plugins) */
+  auth: auth_config_schema.optional(),
 });
 
 export type KustomizationType = z.infer<typeof kustomization_schema>;

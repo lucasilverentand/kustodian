@@ -1,0 +1,85 @@
+apiVersion: kustodian.io/v1
+kind: Template
+metadata:
+  name: database
+spec:
+  # Template-level node requirements
+  requirements:
+    - type: nodeLabel
+      key: silverswarm.io/db
+      value: "true"
+      atLeast: 1
+
+  kustomizations:
+    # CloudNativePG operator
+    - name: cnpg
+      path: ./cnpg
+      namespace:
+        default: cnpg-system
+        create: true
+      substitutions:
+        - type: helm
+          name: cnpg_version
+          default: "0.21.0"
+          helm:
+            repository: https://cloudnative-pg.github.io/charts
+            chart: cloudnative-pg
+      health_checks:
+        - kind: Deployment
+          name: cnpg-controller-manager
+          api_version: apps/v1
+          namespace: cnpg-system
+      depends_on:
+        # Raw dependency to external Flux kustomization
+        - raw:
+            name: secrets-doppler
+            namespace: flux-system
+
+    # PostgreSQL cluster with CEL health checks
+    - name: app-db
+      path: ./app-db
+      namespace:
+        default: databases
+        create: true
+      depends_on:
+        - cnpg
+      substitutions:
+        - type: version
+          name: postgresql_version
+          default: "17.2"
+          registry:
+            type: dockerhub
+            image: postgres
+        - name: cluster_name
+          default: app-cluster
+        - name: instances
+          default: "3"
+        - name: storage_size
+          default: "10Gi"
+          preserve_case: true
+        - name: storage_class
+          default: longhorn-local
+        - name: db_name
+          default: appdb
+        - name: db_user
+          default: appuser
+        - type: 1password
+          name: db_password
+          ref: op://infrastructure/postgres-app/password
+        - type: doppler
+          name: backup_credentials
+          config: infrastructure
+          secret: POSTGRES_BACKUP_KEY
+      # Standard health check
+      health_checks:
+        - kind: Cluster
+          name: app-cluster
+          api_version: postgresql.cnpg.io/v1
+          namespace: databases
+      # CEL expression for more advanced readiness check
+      health_check_exprs:
+        - kind: Cluster
+          api_version: postgresql.cnpg.io/v1
+          namespace: databases
+          current: "status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'True')"
+          failed: "status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'False')"
