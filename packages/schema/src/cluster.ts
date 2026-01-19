@@ -41,6 +41,7 @@ export const kustomization_override_schema = z.object({
   preservation: z
     .object({
       mode: preservation_mode_schema,
+      keep_resources: z.array(z.string()).optional(),
     })
     .optional(),
 });

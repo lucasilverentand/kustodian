@@ -1,6 +1,7 @@
 import { success } from '@kustodian/core';
 import type {
   CommandType,
+  GeneratorHookContextType,
   HookContextType,
   HookEventType,
   KustodianPluginType,
@@ -8,6 +9,11 @@ import type {
   PluginHookContributionType,
   PluginManifestType,
 } from '@kustodian/plugins';
+import type {
+  AuthConfigType as CoreAuthConfigType,
+  KustomizationType,
+  TemplateType,
+} from '@kustodian/schema';
 
 import {
   check_authentik_available,
@@ -15,8 +21,90 @@ import {
   validate_blueprint,
 } from './executor.js';
 import { blueprint_to_yaml, generate_authentik_blueprint } from './generator.js';
-import type { AuthConfigType } from './types.js';
+import type { AuthConfigType, AuthProviderType } from './types.js';
 import { authentik_plugin_options_schema } from './types.js';
+
+/**
+ * Maps core auth config to Authentik-specific auth config.
+ * Validates that the provider is 'authentik' and maps fields appropriately.
+ */
+function map_to_authentik_config(core_config: CoreAuthConfigType): AuthConfigType | undefined {
+  // Only process configs targeting this plugin
+  if (core_config.provider !== 'authentik') {
+    return undefined;
+  }
+
+  // Map the core auth type to Authentik provider type
+  const provider_type = core_config.type as AuthProviderType;
+  if (!['oauth2', 'saml', 'proxy'].includes(provider_type)) {
+    return undefined;
+  }
+
+  // Build the Authentik-specific config
+  const authentik_config: AuthConfigType = {
+    provider: provider_type,
+    app_name: core_config.app_name,
+    app_display_name: core_config.app_display_name,
+    app_description: core_config.app_description,
+    app_icon: core_config.app_icon,
+    app_group: core_config.app_group,
+    app_launch_url: core_config.app_launch_url,
+  };
+
+  // Map provider-specific config from the passthrough config object
+  const config = core_config.config ?? {};
+  if (provider_type === 'oauth2' && config) {
+    authentik_config.oauth2 = {
+      client_id: (config['client_id'] as string) ?? core_config.app_name,
+      redirect_uris: (config['redirect_uris'] as string[]) ?? [],
+      ...(config as Record<string, unknown>),
+    };
+  }
+
+  if (provider_type === 'saml' && config) {
+    authentik_config.saml = {
+      acs_url: (config['acs_url'] as string) ?? '',
+      issuer: (config['issuer'] as string) ?? core_config.app_name,
+      ...(config as Record<string, unknown>),
+    };
+  }
+
+  if (provider_type === 'proxy' && config) {
+    authentik_config.proxy = {
+      external_host: core_config.external_host ?? (config['external_host'] as string) ?? '',
+      ...(config as Record<string, unknown>),
+    };
+  }
+
+  return authentik_config;
+}
+
+/**
+ * Extracts auth configs from templates that target Authentik.
+ */
+function extract_authentik_configs(templates: unknown[]): AuthConfigType[] {
+  const auth_configs: AuthConfigType[] = [];
+
+  for (const template_entry of templates) {
+    const resolved = template_entry as { template?: TemplateType; enabled?: boolean };
+    if (!resolved.enabled || !resolved.template) {
+      continue;
+    }
+
+    const template = resolved.template;
+    for (const kustomization of template.spec.kustomizations) {
+      const kust = kustomization as KustomizationType;
+      if (kust.auth) {
+        const authentik_config = map_to_authentik_config(kust.auth);
+        if (authentik_config) {
+          auth_configs.push(authentik_config);
+        }
+      }
+    }
+  }
+
+  return auth_configs;
+}
 
 /**
  * Authentik plugin manifest.
@@ -202,25 +290,59 @@ export function create_authentik_plugin(
           event: 'generator:after_resolve',
           priority: 40, // Run before secret providers to allow auth configs to be processed
           handler: async (_event: HookEventType, ctx: HookContextType) => {
-            // TODO: Implement auth config extraction from templates
-            // This will:
-            // 1. Extract auth configs from kustomizations
-            // 2. Generate Authentik blueprints
-            // 3. Write blueprints to output directory
-            // 4. Generate Kubernetes ConfigMaps with blueprints
+            const generator_ctx = ctx as GeneratorHookContextType;
+            const templates = generator_ctx.templates ?? [];
 
-            // For now, just pass through
-            return success(ctx);
+            // Extract auth configs targeting Authentik
+            const auth_configs = extract_authentik_configs(templates);
+
+            if (auth_configs.length === 0) {
+              return success(ctx);
+            }
+
+            // Generate Authentik blueprints for each auth config
+            const blueprints: string[] = [];
+            for (const auth_config of auth_configs) {
+              const blueprint_result = generate_authentik_blueprint(auth_config, plugin_options);
+              if (!blueprint_result.success) {
+                console.warn(
+                  `Authentik blueprint generation failed for ${auth_config.app_name}: ${blueprint_result.error.message}`,
+                );
+                continue;
+              }
+              blueprints.push(blueprint_to_yaml(blueprint_result.value));
+            }
+
+            // Store generated blueprints in context for later output
+            const extended_ctx = ctx as GeneratorHookContextType & {
+              authentik_blueprints?: string[];
+              authentik_apps?: number;
+            };
+            extended_ctx.authentik_blueprints = blueprints;
+            extended_ctx.authentik_apps = auth_configs.length;
+
+            console.log(
+              `Authentik: Generated ${blueprints.length} blueprint(s) for ${auth_configs.length} application(s)`,
+            );
+
+            return success(extended_ctx as HookContextType);
           },
         },
         {
-          event: 'generator:before',
+          event: 'generator:before_write',
           priority: 50,
           handler: async (_event: HookEventType, ctx: HookContextType) => {
-            // TODO: This hook could be used to:
-            // 1. Inject generated Authentik blueprints as ConfigMaps
-            // 2. Generate documentation for configured applications
-            // 3. Validate auth configuration consistency
+            // This hook can be used to add the Authentik blueprints to the output files
+            const extended_ctx = ctx as GeneratorHookContextType & {
+              authentik_blueprints?: string[];
+              authentik_apps?: number;
+            };
+
+            if (extended_ctx.authentik_blueprints && extended_ctx.authentik_blueprints.length > 0) {
+              console.log(
+                `Authentik: ${extended_ctx.authentik_blueprints.length} blueprint(s) ready to write`,
+              );
+            }
 
             return success(ctx);
           },

@@ -1,6 +1,7 @@
 import { success } from '@kustodian/core';
 import type {
   CommandType,
+  GeneratorHookContextType,
   HookContextType,
   HookEventType,
   KustodianPluginType,
@@ -8,6 +9,11 @@ import type {
   PluginHookContributionType,
   PluginManifestType,
 } from '@kustodian/plugins';
+import type {
+  AuthConfigType as CoreAuthConfigType,
+  KustomizationType,
+  TemplateType,
+} from '@kustodian/schema';
 
 import {
   check_authelia_available,
@@ -15,9 +21,90 @@ import {
   hash_password,
   validate_access_control,
 } from './executor.js';
-import { generate_oidc_client } from './generator.js';
-import type { AuthConfigType } from './types.js';
+import { config_to_yaml, generate_authelia_config, generate_oidc_client } from './generator.js';
+import type { AuthConfigType, AuthProviderType } from './types.js';
 import { authelia_plugin_options_schema } from './types.js';
+
+/**
+ * Maps core auth config to Authelia-specific auth config.
+ * Validates that the provider is 'authelia' and maps fields appropriately.
+ */
+function map_to_authelia_config(core_config: CoreAuthConfigType): AuthConfigType | undefined {
+  // Only process configs targeting this plugin
+  if (core_config.provider !== 'authelia') {
+    return undefined;
+  }
+
+  // Map the core auth type to Authelia provider type
+  const provider_type = core_config.type as AuthProviderType;
+  if (!['oidc', 'proxy', 'header'].includes(provider_type)) {
+    return undefined;
+  }
+
+  // Build the Authelia-specific config
+  const authelia_config: AuthConfigType = {
+    provider: provider_type,
+    app_name: core_config.app_name,
+    app_display_name: core_config.app_display_name,
+    app_description: core_config.app_description,
+    app_icon: core_config.app_icon,
+    app_group: core_config.app_group,
+    app_launch_url: core_config.app_launch_url,
+    external_host: core_config.external_host,
+    internal_host: core_config.internal_host,
+  };
+
+  // Map provider-specific config from the passthrough config object
+  const config = core_config.config ?? {};
+  if (provider_type === 'oidc' && config) {
+    authelia_config.oidc = {
+      client_id: (config['client_id'] as string) ?? core_config.app_name,
+      redirect_uris: (config['redirect_uris'] as string[]) ?? [],
+      ...(config as Record<string, unknown>),
+    };
+  }
+
+  if (provider_type === 'proxy' && config) {
+    authelia_config.proxy = {
+      external_host: core_config.external_host ?? '',
+      internal_host: core_config.internal_host ?? '',
+      ...(config as Record<string, unknown>),
+    };
+  }
+
+  if (config['access_control']) {
+    authelia_config.access_control = config['access_control'] as AuthConfigType['access_control'];
+  }
+
+  return authelia_config;
+}
+
+/**
+ * Extracts auth configs from templates that target Authelia.
+ */
+function extract_authelia_configs(templates: unknown[]): AuthConfigType[] {
+  const auth_configs: AuthConfigType[] = [];
+
+  for (const template_entry of templates) {
+    const resolved = template_entry as { template?: TemplateType; enabled?: boolean };
+    if (!resolved.enabled || !resolved.template) {
+      continue;
+    }
+
+    const template = resolved.template;
+    for (const kustomization of template.spec.kustomizations) {
+      const kust = kustomization as KustomizationType;
+      if (kust.auth) {
+        const authelia_config = map_to_authelia_config(kust.auth);
+        if (authelia_config) {
+          auth_configs.push(authelia_config);
+        }
+      }
+    }
+  }
+
+  return auth_configs;
+}
 
 /**
  * Authelia plugin manifest.
@@ -213,25 +300,60 @@ export function create_authelia_plugin(options: Record<string, unknown> = {}): K
           event: 'generator:after_resolve',
           priority: 40, // Run before secret providers to allow auth configs to be processed
           handler: async (_event: HookEventType, ctx: HookContextType) => {
-            // TODO: Implement auth config extraction from templates
-            // This will:
-            // 1. Extract auth configs from kustomizations
-            // 2. Generate Authelia OIDC clients and access control rules
-            // 3. Write configuration to output directory
-            // 4. Generate Kubernetes secrets for client credentials
+            const generator_ctx = ctx as GeneratorHookContextType;
+            const templates = generator_ctx.templates ?? [];
 
-            // For now, just pass through
-            return success(ctx);
+            // Extract auth configs targeting Authelia
+            const auth_configs = extract_authelia_configs(templates);
+
+            if (auth_configs.length === 0) {
+              return success(ctx);
+            }
+
+            // Generate Authelia configuration
+            const config_result = generate_authelia_config(auth_configs, plugin_options);
+            if (!config_result.success) {
+              console.warn(`Authelia config generation failed: ${config_result.error.message}`);
+              return success(ctx);
+            }
+
+            // Convert to YAML for output
+            const yaml_result = config_to_yaml(config_result.value);
+            if (!yaml_result.success) {
+              console.warn(`Authelia YAML conversion failed: ${yaml_result.error.message}`);
+              return success(ctx);
+            }
+
+            // Store generated config in context for later output
+            // The generator can use this to write additional files
+            const extended_ctx = ctx as GeneratorHookContextType & {
+              authelia_config?: string;
+              authelia_clients?: number;
+            };
+            extended_ctx.authelia_config = yaml_result.value;
+            extended_ctx.authelia_clients = auth_configs.length;
+
+            console.log(`Authelia: Generated config for ${auth_configs.length} application(s)`);
+
+            return success(extended_ctx as HookContextType);
           },
         },
         {
-          event: 'generator:before',
+          event: 'generator:before_write',
           priority: 50,
           handler: async (_event: HookEventType, ctx: HookContextType) => {
-            // TODO: This hook could be used to:
-            // 1. Inject generated Authelia configurations as additional kustomizations
-            // 2. Add ConfigMaps with Authelia config fragments
-            // 3. Generate documentation for configured auth apps
+            // This hook can be used to add the Authelia config to the output files
+            // For now, we just log that the config was generated
+            const extended_ctx = ctx as GeneratorHookContextType & {
+              authelia_config?: string;
+              authelia_clients?: number;
+            };
+
+            if (extended_ctx.authelia_config) {
+              console.log(
+                `Authelia: Config ready to write (${extended_ctx.authelia_clients} client(s))`,
+              );
+            }
 
             return success(ctx);
           },

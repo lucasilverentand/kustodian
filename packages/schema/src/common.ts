@@ -261,6 +261,38 @@ export const namespace_config_schema = z.object({
 export type NamespaceConfigType = z.infer<typeof namespace_config_schema>;
 
 /**
+ * Base auth configuration for kustomizations.
+ * This schema defines common fields that all auth providers share.
+ * Plugins (e.g., authelia, authentik) extend validation for provider-specific fields.
+ */
+export const auth_config_schema = z.object({
+  /** Auth provider plugin name (e.g., 'authelia', 'authentik') */
+  provider: z.string().min(1),
+  /** Provider-specific auth type (e.g., 'oidc', 'proxy', 'oauth2', 'saml') */
+  type: z.string().min(1),
+  /** Application identifier (used for client_id, slug, etc.) */
+  app_name: z.string().min(1),
+  /** Display name for the application */
+  app_display_name: z.string().optional(),
+  /** Application description */
+  app_description: z.string().optional(),
+  /** Application icon URL */
+  app_icon: z.string().optional(),
+  /** Application group/category */
+  app_group: z.string().optional(),
+  /** Application launch URL */
+  app_launch_url: z.string().optional(),
+  /** External host for the application */
+  external_host: z.string().optional(),
+  /** Internal service host (for proxy auth) */
+  internal_host: z.string().optional(),
+  /** Provider-specific configuration (validated by auth plugins) */
+  config: z.record(z.string(), z.unknown()).optional(),
+});
+
+export type AuthConfigType = z.infer<typeof auth_config_schema>;
+
+/**
  * Key-value pairs for substitution values.
  */
 export const values_schema = z.record(z.string(), z.string());

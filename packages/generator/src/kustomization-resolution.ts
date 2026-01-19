@@ -88,7 +88,7 @@ export function resolve_kustomization_preservation(
   if (override.preservation) {
     return {
       mode: override.preservation.mode,
-      keep_resources: template_default.keep_resources,
+      keep_resources: override.preservation.keep_resources ?? template_default.keep_resources,
     };
   }
 

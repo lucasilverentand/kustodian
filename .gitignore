@@ -79,6 +79,10 @@ temp/
 # Claude Code local settings
 .claude/
 
+# Root markdown files (project notes, migration docs) - except CLAUDE.md
+/*.md
+!CLAUDE.md
+
 # Test repositories
 test-repo/
 test-kustodian-oci/

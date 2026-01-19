@@ -125,7 +125,7 @@ export interface FluxKustomizationType {
       kind: 'GitRepository' | 'OCIRepository';
       name: string;
     };
-    dependsOn?: Array<{ name: string }>;
+    dependsOn?: Array<{ name: string; namespace?: string }>;
     postBuild?: {
       substitute?: Record<string, string>;
     };
