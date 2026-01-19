@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/lucasilverentand/kustodian/compare/cli-v1.2.0...cli-v1.2.1) (2026-01-19)
+
+
+### Bug Fixes
+
+* apply Biome formatting to resolve lint errors ([d1cc63d](https://github.com/lucasilverentand/kustodian/commit/d1cc63d43e8b4165b44dc56379b7a5dd551398b8))
+
 ## [1.2.0](https://github.com/lucasilverentand/kustodian/compare/cli-v1.1.0...cli-v1.2.0) (2026-01-17)
 
 

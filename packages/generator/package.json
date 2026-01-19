@@ -1,6 +1,6 @@
 {
   "name": "@kustodian/generator",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Template processing and Flux generation for Kustodian",
   "type": "module",
   "main": "./src/index.ts",
@@ -11,13 +11,19 @@
       "import": "./src/index.ts"
     }
   },
-  "files": ["src"],
+  "files": [
+    "src"
+  ],
   "scripts": {
     "test": "bun test",
     "test:watch": "bun test --watch",
     "typecheck": "bun run tsc --noEmit"
   },
-  "keywords": ["kustodian", "generator", "flux"],
+  "keywords": [
+    "kustodian",
+    "generator",
+    "flux"
+  ],
   "author": "Luca Silverentand <luca@onezero.company>",
   "license": "MIT",
   "repository": {
