@@ -5,6 +5,8 @@ import starlightThemeRapide from 'starlight-theme-rapide';
 
 // https://astro.build/config
 export default defineConfig({
+  site: 'https://lucasilverentand.github.io',
+  base: '/kustodian',
   integrations: [
     starlight({
       plugins: [starlightThemeRapide()],
@@ -47,6 +49,7 @@ export default defineConfig({
             { label: 'Using Profiles', slug: 'guides/using-profiles' },
             { label: 'Template Dependencies', slug: 'guides/template-dependencies' },
             { label: 'Multi-Cluster Setup', slug: 'guides/multi-cluster' },
+            { label: 'VS Code Setup', slug: 'guides/vscode-setup' },
             { label: 'CI/CD Integration', slug: 'guides/ci-cd' },
           ],
         },
