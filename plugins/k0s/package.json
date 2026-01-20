@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@kustodian/core": "workspace:*",
+    "@kustodian/k8s": "workspace:*",
     "@kustodian/nodes": "workspace:*",
     "@kustodian/plugins": "workspace:*",
     "yaml": "^2.8.2"

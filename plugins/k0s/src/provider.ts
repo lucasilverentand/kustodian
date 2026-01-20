@@ -1,9 +1,8 @@
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
-
-import { Errors, type ResultType, failure, is_success, success } from '@kustodian/core';
 import type { KustodianErrorType } from '@kustodian/core';
+import { Errors, type ResultType, failure, is_success, success } from '@kustodian/core';
 import type { NodeListType } from '@kustodian/nodes';
 import { get_controllers } from '@kustodian/nodes';
 import type {
@@ -111,6 +110,45 @@ export function create_k0s_provider(options: K0sProviderOptionsType = {}): Clust
 
       if (!is_success(apply_result)) {
         return apply_result;
+      }
+
+      // Apply node labels if configured
+      if (node_list.nodes.some((n) => n.labels && Object.keys(n.labels).length > 0)) {
+        console.log('  → Applying node labels...');
+
+        // Get kubeconfig
+        const kubeconfig_result = await k0sctl_kubeconfig(config_path);
+        if (!is_success(kubeconfig_result)) {
+          console.warn(
+            `  ⚠ Failed to get kubeconfig for labeling: ${kubeconfig_result.error.message}`,
+          );
+          return success(undefined);
+        }
+
+        // Create kubectl client and labeler
+        const { create_kubectl_client } = await import('@kustodian/k8s');
+        const { create_kubectl_labeler } = await import('@kustodian/nodes');
+
+        const kubectl = create_kubectl_client({
+          kubeconfig: kubeconfig_result.value,
+        });
+        const labeler = create_kubectl_labeler(kubectl);
+
+        // Sync labels
+        const label_result = await labeler.sync_labels(
+          node_list,
+          bootstrap_options.dry_run
+            ? {
+                dry_run: true,
+              }
+            : {},
+        );
+
+        if (!is_success(label_result)) {
+          console.warn(`  ⚠ Label sync failed: ${label_result.error.message}`);
+        } else {
+          console.log(`    ✓ Applied ${label_result.value.applied} labels`);
+        }
       }
 
       return success(undefined);
