@@ -1,0 +1,20 @@
+{
+  "yaml.schemas": {
+    "https://kustodian.io/schemas/template.json": [
+      "templates/*/template.yaml",
+      "templates/*/template.yml"
+    ],
+    "https://kustodian.io/schemas/cluster.json": [
+      "clusters/*/cluster.yaml",
+      "clusters/*/cluster.yml"
+    ],
+    "https://kustodian.io/schemas/node.json": ["clusters/*/nodes/*.yaml", "clusters/*/nodes/*.yml"],
+    "https://kustodian.io/schemas/node-profile.json": ["profiles/*.yaml", "profiles/*.yml"]
+  },
+  "yaml.customTags": ["!ENV scalar", "!ENV sequence"],
+  "files.associations": {
+    "**/templates/*/template.{yaml,yml}": "yaml",
+    "**/clusters/*/cluster.{yaml,yml}": "yaml",
+    "**/clusters/*/nodes/*.{yaml,yml}": "yaml"
+  }
+}
