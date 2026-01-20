@@ -82,6 +82,7 @@ temp/
 # Root markdown files (project notes, migration docs) - except CLAUDE.md
 /*.md
 !CLAUDE.md
+!README.md
 
 # Test repositories
 test-repo/
