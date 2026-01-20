@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-html
+  namespace: ${namespace}
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Kustodian Nginx Demo</title>
+      <style>
+        body {
+          font-family: system-ui, -apple-system, sans-serif;
+          max-width: 800px;
+          margin: 100px auto;
+          padding: 20px;
+          text-align: center;
+        }
+        h1 { color: #009639; }
+        .info {
+          background: #f5f5f5;
+          padding: 20px;
+          border-radius: 8px;
+          margin-top: 30px;
+        }
+      </style>
+    </head>
+    <body>
+      <h1>🎉 Kustodian + Nginx</h1>
+      <p>This is a test website deployed via Kustodian templates.</p>
+      <div class="info">
+        <p><strong>Domain:</strong> ${domain}</p>
+        <p><strong>Replicas:</strong> ${replicas}</p>
+        <p><strong>Namespace:</strong> ${namespace}</p>
+      </div>
+    </body>
+    </html>

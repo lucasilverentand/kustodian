@@ -1,0 +1,14 @@
+apiVersion: kustodian.io/v1
+kind: Node
+metadata:
+  name: controller-1
+  cluster: local
+spec:
+  role: controller+worker
+  address: 10.0.0.10
+  labels:
+    environment: development
+    storage: local
+  ssh:
+    user: ubuntu
+    key_path: ~/.ssh/id_rsa

@@ -1,0 +1,19 @@
+apiVersion: kustodian.io/v1
+kind: Cluster
+metadata:
+  name: local
+spec:
+  domain: local.cluster
+
+  oci:
+    registry: ghcr.io
+    repository: your-org/kustodian
+    tag_strategy: git-sha
+
+  templates:
+    - name: nginx
+      enabled: true
+      values:
+        replicas: "3"
+        domain: "nginx.local.cluster"
+        service_type: "NodePort"
