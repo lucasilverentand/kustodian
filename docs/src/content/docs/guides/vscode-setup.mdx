@@ -1,0 +1,353 @@
+---
+title: VS Code Setup
+description: Configure Visual Studio Code for Kustodian development with JSON schema validation and autocompletion
+---
+
+import { Steps, Aside, Code, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Enable intelligent autocompletion, validation, and inline documentation for Kustodian YAML files in VS Code.
+
+## Prerequisites
+
+Install the YAML extension for VS Code:
+
+```bash
+code --install-extension redhat.vscode-yaml
+```
+
+Or search for **"YAML"** by Red Hat in the VS Code extensions marketplace.
+
+## Quick Setup
+
+<Steps>
+
+1. **Create VS Code workspace settings**
+
+   Create or edit `.vscode/settings.json` in your project root:
+
+   ```json
+   {
+     "yaml.schemas": {
+       "https://kustodian.io/schemas/template.json": [
+         "templates/*/template.yaml",
+         "templates/*/template.yml"
+       ],
+       "https://kustodian.io/schemas/cluster.json": [
+         "clusters/*/cluster.yaml",
+         "clusters/*/cluster.yml"
+       ],
+       "https://kustodian.io/schemas/node.json": [
+         "clusters/*/nodes/*.yaml",
+         "clusters/*/nodes/*.yml"
+       ],
+       "https://kustodian.io/schemas/node-profile.json": [
+         "profiles/*.yaml",
+         "profiles/*.yml"
+       ]
+     },
+     "yaml.customTags": [
+       "!ENV scalar",
+       "!ENV sequence"
+     ],
+     "files.associations": {
+       "**/templates/*/template.{yaml,yml}": "yaml",
+       "**/clusters/*/cluster.{yaml,yml}": "yaml",
+       "**/clusters/*/nodes/*.{yaml,yml}": "yaml"
+     }
+   }
+   ```
+
+2. **Commit the settings file**
+
+   ```bash
+   git add .vscode/settings.json
+   git commit -m "chore: add VS Code schema configuration"
+   ```
+
+3. **Reload VS Code**
+
+   Press `Cmd+Shift+P` (macOS) or `Ctrl+Shift+P` (Windows/Linux), then select **"Developer: Reload Window"**.
+
+</Steps>
+
+## What You Get
+
+Once configured, you'll have:
+
+- **Autocompletion**: Type-ahead suggestions for all configuration properties
+- **Inline Documentation**: Hover over any field to see descriptions and examples
+- **Validation**: Real-time error detection for invalid configurations
+- **Schema Awareness**: Context-aware suggestions based on your file location
+
+## Schema Mapping Options
+
+Choose the approach that best fits your workflow:
+
+<Tabs>
+  <TabItem label="Hosted Schemas (Recommended)">
+
+Reference schemas from the Kustodian website:
+
+```json
+{
+  "yaml.schemas": {
+    "https://kustodian.io/schemas/template.json": [
+      "templates/*/template.yaml"
+    ]
+  }
+}
+```
+
+**Pros:**
+- Always up-to-date with latest schema version
+- Works immediately without local installation
+- Shared across team via git
+
+**Cons:**
+- Requires internet connection
+- No offline support
+
+  </TabItem>
+  <TabItem label="Local Package">
+
+Install `@kustodian/schema` and reference local files:
+
+```bash
+bun add -D @kustodian/schema
+```
+
+```json
+{
+  "yaml.schemas": {
+    "./node_modules/@kustodian/schema/schemas/template.json": [
+      "templates/*/template.yaml"
+    ]
+  }
+}
+```
+
+**Pros:**
+- Works offline
+- Schema version locked to package version
+- Faster validation (no network requests)
+
+**Cons:**
+- Requires package installation
+- Must update package to get schema changes
+
+  </TabItem>
+  <TabItem label="Inline Schema">
+
+Add `$schema` comment to individual files:
+
+```yaml
+# $schema: https://kustodian.io/schemas/template.json
+apiVersion: kustodian.io/v1
+kind: Template
+metadata:
+  name: my-app
+```
+
+**Pros:**
+- Works in any editor with YAML schema support
+- Explicit and visible in the file
+- No workspace configuration needed
+
+**Cons:**
+- Must be added to each file
+- Can be verbose in repositories with many files
+
+  </TabItem>
+</Tabs>
+
+<Aside type="tip">
+For team projects, use **hosted schemas** in `.vscode/settings.json` and commit the file to your repository. This ensures everyone on the team gets the same experience.
+</Aside>
+
+## Available Schemas
+
+Kustodian provides JSON schemas for all resource types:
+
+| Resource | Schema URL | Typical Location |
+|----------|-----------|------------------|
+| Template | `https://kustodian.io/schemas/template.json` | `templates/*/template.yaml` |
+| Cluster | `https://kustodian.io/schemas/cluster.json` | `clusters/*/cluster.yaml` |
+| Node | `https://kustodian.io/schemas/node.json` | `clusters/*/nodes/*.yaml` |
+| NodeProfile | `https://kustodian.io/schemas/node-profile.json` | `profiles/*.yaml` |
+
+## Custom File Patterns
+
+Adjust the file patterns to match your project structure:
+
+```json
+{
+  "yaml.schemas": {
+    "https://kustodian.io/schemas/template.json": [
+      // Match templates in any nested directory
+      "**/templates/**/*.yaml",
+
+      // Match specific naming convention
+      "*.template.yaml",
+
+      // Match files in a specific subdirectory
+      "infra/templates/*/config.yaml"
+    ]
+  }
+}
+```
+
+<Aside>
+Glob patterns support `*` (any characters except `/`) and `**` (any characters including `/`). More specific patterns take precedence.
+</Aside>
+
+## Troubleshooting
+
+### Schemas not working?
+
+<Steps>
+
+1. **Verify the YAML extension is active**
+
+   Open the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`) and run:
+   ```
+   YAML: Show Document Symbols
+   ```
+
+   If this command doesn't exist, reinstall the YAML extension.
+
+2. **Check the Output panel**
+
+   Go to **View → Output**, then select **"YAML Support"** from the dropdown to see any errors.
+
+3. **Test schema URL accessibility**
+
+   Open the schema URL in your browser to verify it's accessible:
+   ```
+   https://kustodian.io/schemas/template.json
+   ```
+
+4. **Reload VS Code**
+
+   Press `Cmd+Shift+P` / `Ctrl+Shift+P` and select **"Developer: Reload Window"**.
+
+</Steps>
+
+### Schema validation errors?
+
+If you're seeing unexpected validation errors:
+
+- **Update schema package**: Run `bun update @kustodian/schema` to get the latest version
+- **Check for breaking changes**: Review the [changelog](/changelog) for schema updates
+- **Verify YAML syntax**: Ensure proper indentation (2 spaces) and no tabs
+
+### Autocompletion not appearing?
+
+- **Trigger manually**: Press `Ctrl+Space` to force autocompletion
+- **Check file association**: Ensure the file is recognized as YAML (check bottom-right status bar)
+- **Verify schema mapping**: Ensure your file path matches the patterns in `yaml.schemas`
+
+## Global Configuration
+
+To enable schemas across all your Kustodian projects:
+
+<Tabs>
+  <TabItem label="macOS/Linux">
+
+Edit `~/.config/Code/User/settings.json`:
+
+```json
+{
+  "yaml.schemas": {
+    "https://kustodian.io/schemas/template.json": "**/templates/*/template.{yaml,yml}",
+    "https://kustodian.io/schemas/cluster.json": "**/clusters/*/cluster.{yaml,yml}",
+    "https://kustodian.io/schemas/node.json": "**/clusters/*/nodes/*.{yaml,yml}",
+    "https://kustodian.io/schemas/node-profile.json": "**/profiles/*.{yaml,yml}"
+  }
+}
+```
+
+  </TabItem>
+  <TabItem label="Windows">
+
+Edit `%APPDATA%\Code\User\settings.json`:
+
+```json
+{
+  "yaml.schemas": {
+    "https://kustodian.io/schemas/template.json": "**/templates/*/template.{yaml,yml}",
+    "https://kustodian.io/schemas/cluster.json": "**/clusters/*/cluster.{yaml,yml}",
+    "https://kustodian.io/schemas/node.json": "**/clusters/*/nodes/*.{yaml,yml}",
+    "https://kustodian.io/schemas/node-profile.json": "**/profiles/*.{yaml,yml}"
+  }
+}
+```
+
+  </TabItem>
+</Tabs>
+
+<Aside type="caution">
+Global settings apply to all projects. This may cause conflicts if other projects use similar file patterns.
+</Aside>
+
+## Advanced Configuration
+
+### Custom Tags Support
+
+If you use custom YAML tags (like `!ENV`), add them to your configuration:
+
+```json
+{
+  "yaml.customTags": [
+    "!ENV scalar",
+    "!ENV sequence",
+    "!SECRET scalar"
+  ]
+}
+```
+
+### Schema Validation Level
+
+Control how strict validation should be:
+
+```json
+{
+  "yaml.validate": true,
+  "yaml.hover": true,
+  "yaml.completion": true,
+  "yaml.schemaStore.enable": true
+}
+```
+
+### Multiple Schema Versions
+
+Support different schema versions across projects:
+
+```json
+{
+  "yaml.schemas": {
+    "https://kustodian.io/schemas/v1/template.json": [
+      "legacy/templates/*/template.yaml"
+    ],
+    "https://kustodian.io/schemas/v2/template.json": [
+      "templates/*/template.yaml"
+    ]
+  }
+}
+```
+
+## Other Editors
+
+While this guide focuses on VS Code, Kustodian schemas work with any editor supporting JSON Schema:
+
+- **IntelliJ IDEA**: Supports YAML schemas via the YAML plugin
+- **Neovim**: Use `yaml-language-server` with schema configuration
+- **Sublime Text**: Install LSP-yaml package for schema support
+- **Zed**: Built-in YAML schema support
+
+See your editor's documentation for YAML schema configuration.
+
+## Next Steps
+
+- [Creating Templates](/guides/creating-templates) - Build your first template with autocompletion
+- [Defining Nodes](/guides/defining-nodes) - Configure node resources with validation
+- [Project Structure](/getting-started/project-structure) - Understand the recommended layout
