@@ -9,7 +9,7 @@
       "@/*": ["./src/*"]
     }
   },
-  "references": [{ "path": "../core" }, { "path": "../schema" }],
+  "references": [{ "path": "../core" }, { "path": "../k8s" }, { "path": "../schema" }],
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tests"]
 }

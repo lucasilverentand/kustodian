@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@kustodian/core": "workspace:*",
+    "@kustodian/k8s": "workspace:*",
     "@kustodian/schema": "workspace:*"
   },
   "devDependencies": {}
