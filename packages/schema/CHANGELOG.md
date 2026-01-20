@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.4.0](https://github.com/lucasilverentand/kustodian/compare/schema-v1.3.0...schema-v1.4.0) (2026-01-19)
+
+
+### Features
+
+* **phase2:** Complete Generator Validation with comprehensive test fixtures ([#122](https://github.com/lucasilverentand/kustodian/issues/122)) ([6afa349](https://github.com/lucasilverentand/kustodian/commit/6afa34971a2d86f308287f6972f5033571d128a2))
+
+
+### Bug Fixes
+
+* apply Biome formatting to resolve lint errors ([d1cc63d](https://github.com/lucasilverentand/kustodian/commit/d1cc63d43e8b4165b44dc56379b7a5dd551398b8))
+
 ## [1.3.0](https://github.com/lucasilverentand/kustodian/compare/schema-v1.2.0...schema-v1.3.0) (2026-01-17)
 
 
