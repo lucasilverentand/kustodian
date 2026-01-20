@@ -198,9 +198,24 @@ export const apply_command = define_command({
             return kubeconfig_result;
           }
           console.log(`    ✓ Kubeconfig: ${kubeconfig_result.value}`);
+
+          console.log('  → Waiting for cluster nodes to be ready...');
+          try {
+            await execAsync('kubectl wait --for=condition=Ready node --all --timeout=300s', {
+              timeout: 320000,
+            });
+            console.log('    ✓ All nodes are ready');
+          } catch {
+            console.log('    ⚠ Some nodes may not be ready yet');
+          }
         }
 
         console.log('  ✓ Cluster bootstrapped successfully');
+
+        if (!dry_run) {
+          console.log('  → Allowing control plane to stabilize...');
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+        }
       }
     } else {
       console.log('\n[2/3] Skipping bootstrap (using existing cluster)');
