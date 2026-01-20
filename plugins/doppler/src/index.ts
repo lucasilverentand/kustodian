@@ -1,16 +1,15 @@
 // Plugin exports
-export { create_doppler_plugin, plugin } from './plugin.js';
-export { plugin as default } from './plugin.js';
 
 // Executor exports
 export {
+  type CommandResultType,
   check_doppler_available,
-  exec_command,
   doppler_secret_get,
   doppler_secrets_download,
-  type CommandResultType,
   type ExecOptionsType,
+  exec_command,
 } from './executor.js';
+export { create_doppler_plugin, plugin, plugin as default } from './plugin.js';
 
 // Resolver exports
 export { resolve_doppler_substitutions } from './resolver.js';

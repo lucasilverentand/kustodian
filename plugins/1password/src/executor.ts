@@ -1,8 +1,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-
-import { Errors, type ResultType, failure, success } from '@kustodian/core';
 import type { KustodianErrorType } from '@kustodian/core';
+import { Errors, type ResultType, failure, success } from '@kustodian/core';
 
 import { DEFAULT_TIMEOUT, type OnePasswordPluginOptionsType } from './types.js';
 

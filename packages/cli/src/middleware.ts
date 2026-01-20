@@ -1,5 +1,5 @@
-import { type ResultType, failure } from '@kustodian/core';
 import type { KustodianErrorType } from '@kustodian/core';
+import { type ResultType, failure } from '@kustodian/core';
 import ora, { type Ora } from 'ora';
 
 /**

@@ -1,8 +1,7 @@
 import * as child_process from 'node:child_process';
 import * as util from 'node:util';
-
-import { Errors, type ResultType, failure, success } from '@kustodian/core';
 import type { KustodianErrorType } from '@kustodian/core';
+import { Errors, type ResultType, failure, success } from '@kustodian/core';
 
 const exec_async = util.promisify(child_process.exec);
 

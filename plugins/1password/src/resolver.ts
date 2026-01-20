@@ -1,5 +1,5 @@
-import { type ResultType, failure, success } from '@kustodian/core';
 import type { KustodianErrorType } from '@kustodian/core';
+import { type ResultType, failure, success } from '@kustodian/core';
 import type { OnePasswordSubstitutionType } from '@kustodian/schema';
 
 import { op_read } from './executor.js';

@@ -1,5 +1,5 @@
-import { type ResultType, failure, success } from '@kustodian/core';
 import type { KustodianErrorType } from '@kustodian/core';
+import { type ResultType, failure, success } from '@kustodian/core';
 import type { ClusterType, TemplateType } from '@kustodian/schema';
 
 import { detect_cycles } from './cycle-detection.js';
@@ -7,6 +7,24 @@ import { validate_enablement_dependencies } from './enablement.js';
 import { build_dependency_graph } from './graph.js';
 import type { GraphValidationResultType } from './types.js';
 
+export { detect_cycles, has_cycles } from './cycle-detection.js';
+export type { DisabledDependencyErrorType } from './enablement.js';
+export { validate_enablement_dependencies } from './enablement.js';
+
+// Re-export functions
+export { build_dependency_graph, get_all_nodes, get_node } from './graph.js';
+export {
+  create_node_id,
+  is_parse_error,
+  parse_dependency_ref,
+  parse_node_id,
+  resolve_dependency_ref,
+} from './reference.js';
+export type {
+  RequirementValidationErrorType,
+  RequirementValidationResultType,
+} from './requirements.js';
+export { validate_template_requirements } from './requirements.js';
 // Re-export types
 export type {
   BuildGraphResultType,
@@ -20,24 +38,6 @@ export type {
   MissingReferenceErrorType,
   SelfReferenceErrorType,
 } from './types.js';
-export type {
-  RequirementValidationErrorType,
-  RequirementValidationResultType,
-} from './requirements.js';
-export type { DisabledDependencyErrorType } from './enablement.js';
-
-// Re-export functions
-export { build_dependency_graph, get_all_nodes, get_node } from './graph.js';
-export { detect_cycles, has_cycles } from './cycle-detection.js';
-export {
-  create_node_id,
-  is_parse_error,
-  parse_dependency_ref,
-  parse_node_id,
-  resolve_dependency_ref,
-} from './reference.js';
-export { validate_template_requirements } from './requirements.js';
-export { validate_enablement_dependencies } from './enablement.js';
 
 /**
  * Validates the dependency graph for a set of templates.

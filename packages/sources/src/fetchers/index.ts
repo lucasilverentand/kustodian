@@ -1,7 +1,7 @@
-export type { SourceFetcherType } from './types.js';
 export { create_git_fetcher } from './git.js';
 export { create_http_fetcher } from './http.js';
 export { create_oci_fetcher } from './oci.js';
+export type { SourceFetcherType } from './types.js';
 
 import {
   type TemplateSourceType,

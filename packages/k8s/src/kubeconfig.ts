@@ -1,9 +1,8 @@
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
-
-import { type ResultType, failure, success } from '@kustodian/core';
 import type { KustodianErrorType } from '@kustodian/core';
+import { type ResultType, failure, success } from '@kustodian/core';
 
 import { exec_command } from './exec.js';
 

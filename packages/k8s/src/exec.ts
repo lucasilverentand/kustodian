@@ -1,8 +1,7 @@
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
-
-import { type ResultType, failure, success } from '@kustodian/core';
 import type { KustodianErrorType } from '@kustodian/core';
+import { type ResultType, failure, success } from '@kustodian/core';
 
 import type { ExecResultType } from './types.js';
 

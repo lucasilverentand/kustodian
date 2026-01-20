@@ -1,7 +1,6 @@
+import { describe, expect, it } from 'bun:test';
 import * as os from 'node:os';
 import * as path from 'node:path';
-
-import { describe, expect, it } from 'bun:test';
 
 import { create_kubeconfig_manager } from '../src/kubeconfig.js';
 

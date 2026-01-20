@@ -1,5 +1,5 @@
-import { type ResultType, success } from '@kustodian/core';
 import type { KustodianErrorType } from '@kustodian/core';
+import { type ResultType, success } from '@kustodian/core';
 import type {
   GeneratedResourceType,
   LegacyPluginRegistryType,

@@ -1,5 +1,5 @@
-import { Errors, type ResultType, failure, is_success, success } from '@kustodian/core';
 import type { KustodianErrorType } from '@kustodian/core';
+import { Errors, type ResultType, failure, is_success, success } from '@kustodian/core';
 
 import type { PluginGeneratorType } from './generators.js';
 import { type HookDispatcherType, create_hook_dispatcher } from './hooks.js';

@@ -1,4 +1,38 @@
 // Types
+
+// Cache
+export {
+  type CacheMetaType,
+  cache_meta_schema,
+  calculate_expiry,
+  create_cache_manager,
+  DEFAULT_TTL,
+  is_expired,
+  META_FILENAME,
+  parse_ttl,
+  TEMPLATES_DIRNAME,
+} from './cache/index.js';
+// Fetchers
+export {
+  create_git_fetcher,
+  create_http_fetcher,
+  create_oci_fetcher,
+  get_fetcher_for_source,
+} from './fetchers/index.js';
+// Template loader integration
+export {
+  type LoadedSourcesResultType,
+  type LoadSourcesOptionsType,
+  load_templates_from_sources,
+  type SourcedTemplateType,
+} from './loader.js';
+
+// Resolver
+export {
+  type CreateResolverOptionsType,
+  create_source_resolver,
+  DEFAULT_CACHE_DIR,
+} from './resolver.js';
 export type {
   CacheEntryType,
   CacheManagerType,
@@ -10,39 +44,3 @@ export type {
   SourceFetcherType,
   SourceResolverType,
 } from './types.js';
-
-// Cache
-export {
-  create_cache_manager,
-  parse_ttl,
-  calculate_expiry,
-  is_expired,
-  DEFAULT_TTL,
-  META_FILENAME,
-  TEMPLATES_DIRNAME,
-  cache_meta_schema,
-  type CacheMetaType,
-} from './cache/index.js';
-
-// Fetchers
-export {
-  create_git_fetcher,
-  create_http_fetcher,
-  create_oci_fetcher,
-  get_fetcher_for_source,
-} from './fetchers/index.js';
-
-// Resolver
-export {
-  create_source_resolver,
-  DEFAULT_CACHE_DIR,
-  type CreateResolverOptionsType,
-} from './resolver.js';
-
-// Template loader integration
-export {
-  load_templates_from_sources,
-  type LoadedSourcesResultType,
-  type LoadSourcesOptionsType,
-  type SourcedTemplateType,
-} from './loader.js';

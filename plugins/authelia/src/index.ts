@@ -8,29 +8,29 @@
  * @packageDocumentation
  */
 
-export { create_authelia_plugin, plugin as default } from './plugin.js';
-export type {
-  AuthConfigType,
-  AuthProviderType,
-  AutheliaPolicyType,
-  AutheliaPluginOptionsType,
-  OIDCClientConfigType,
-  AccessControlRuleType,
-  ProxyAuthConfigType,
-  ConsentModeType,
-  PKCEChallengeMethodType,
-  TokenEndpointAuthMethodType,
-} from './types.js';
-export {
-  generate_oidc_client,
-  generate_access_control_rules,
-  generate_authelia_config,
-  config_to_yaml,
-  yaml_to_config,
-} from './generator.js';
 export {
   check_authelia_available,
-  hash_password,
   generate_random_secret,
+  hash_password,
   validate_access_control,
 } from './executor.js';
+export {
+  config_to_yaml,
+  generate_access_control_rules,
+  generate_authelia_config,
+  generate_oidc_client,
+  yaml_to_config,
+} from './generator.js';
+export { create_authelia_plugin, plugin as default } from './plugin.js';
+export type {
+  AccessControlRuleType,
+  AuthConfigType,
+  AutheliaPluginOptionsType,
+  AutheliaPolicyType,
+  AuthProviderType,
+  ConsentModeType,
+  OIDCClientConfigType,
+  PKCEChallengeMethodType,
+  ProxyAuthConfigType,
+  TokenEndpointAuthMethodType,
+} from './types.js';

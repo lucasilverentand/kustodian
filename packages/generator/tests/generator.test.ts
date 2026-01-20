@@ -1,9 +1,8 @@
 import { describe, expect, it, vi } from 'bun:test';
 
 import type { ClusterType, TemplateType } from '@kustodian/schema';
-
-import { create_generator } from '../src/generator.js';
 import type { GeneratorHookContextType, GeneratorHookPhaseType } from '../src/generator.js';
+import { create_generator } from '../src/generator.js';
 
 describe('Generator', () => {
   const create_cluster = (templates?: ClusterType['spec']['templates']): ClusterType => ({

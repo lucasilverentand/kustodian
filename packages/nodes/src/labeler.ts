@@ -1,5 +1,5 @@
-import { type ResultType, success } from '@kustodian/core';
 import type { KustodianErrorType } from '@kustodian/core';
+import { type ResultType, success } from '@kustodian/core';
 
 import { type NodeListType, type NodeType, format_node_labels } from './types.js';
 

@@ -16,14 +16,14 @@ import {
 } from './metadata.js';
 import { calculate_expiry, is_expired } from './ttl.js';
 
-export { parse_ttl, calculate_expiry, is_expired, DEFAULT_TTL } from './ttl.js';
+export type { CacheManagerType } from '../types.js';
 export {
+  type CacheMetaType,
+  cache_meta_schema,
   META_FILENAME,
   TEMPLATES_DIRNAME,
-  cache_meta_schema,
-  type CacheMetaType,
 } from './metadata.js';
-export type { CacheManagerType } from '../types.js';
+export { calculate_expiry, DEFAULT_TTL, is_expired, parse_ttl } from './ttl.js';
 
 /**
  * Creates a safe directory name from a source name.

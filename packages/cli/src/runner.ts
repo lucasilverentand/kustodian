@@ -1,5 +1,5 @@
-import { type ResultType, failure, success } from '@kustodian/core';
 import type { KustodianErrorType } from '@kustodian/core';
+import { type ResultType, failure, success } from '@kustodian/core';
 
 import type { CommandType, HandlerType } from './command.js';
 import type { ContainerType } from './container.js';

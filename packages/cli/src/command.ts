@@ -1,5 +1,5 @@
-import { type ResultType, success } from '@kustodian/core';
 import type { KustodianErrorType } from '@kustodian/core';
+import { type ResultType, success } from '@kustodian/core';
 
 import type { ContainerType } from './container.js';
 import type { ContextType, MiddlewareType } from './middleware.js';
