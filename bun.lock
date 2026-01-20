@@ -67,6 +67,7 @@
       "version": "1.1.1",
       "dependencies": {
         "@kustodian/core": "workspace:*",
+        "@kustodian/k8s": "workspace:*",
         "@kustodian/schema": "workspace:*",
       },
     },
@@ -163,6 +164,7 @@
       "version": "1.1.1",
       "dependencies": {
         "@kustodian/core": "workspace:*",
+        "@kustodian/k8s": "workspace:*",
         "@kustodian/nodes": "workspace:*",
         "@kustodian/plugins": "workspace:*",
         "yaml": "^2.8.2",
