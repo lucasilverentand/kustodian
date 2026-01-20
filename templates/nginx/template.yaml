@@ -1,0 +1,29 @@
+apiVersion: kustodian.io/v1
+kind: Template
+metadata:
+  name: nginx
+spec:
+  kustomizations:
+    - name: web
+      path: ./web
+      namespace:
+        default: nginx
+        create: true
+      prune: true
+      wait: true
+      timeout: 5m
+      health_checks:
+        - kind: Deployment
+          name: nginx
+          namespace: nginx
+      substitutions:
+        - name: replicas
+          default: "2"
+        - name: image_tag
+          default: "1.25-alpine"
+        - name: domain
+          default: "nginx.local"
+        - name: service_type
+          default: "NodePort"
+        - name: namespace
+          default: "nginx"

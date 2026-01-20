@@ -71,25 +71,52 @@ export const init_command = define_command({
     }
     console.log('  Created kustodian.yaml');
 
-    // Create example template
-    const example_template = {
+    // Create nginx template
+    const nginx_template = {
       apiVersion: 'kustodian.io/v1',
       kind: 'Template',
       metadata: {
-        name: 'example',
+        name: 'nginx',
       },
       spec: {
         kustomizations: [
           {
-            name: 'app',
-            path: './app',
+            name: 'web',
+            path: './web',
             namespace: {
-              default: 'example',
+              default: 'nginx',
+              create: true,
             },
+            prune: true,
+            wait: true,
+            timeout: '5m',
+            health_checks: [
+              {
+                kind: 'Deployment',
+                name: 'nginx',
+                namespace: 'nginx',
+              },
+            ],
             substitutions: [
               {
                 name: 'replicas',
-                default: '1',
+                default: '2',
+              },
+              {
+                name: 'image_tag',
+                default: '1.25-alpine',
+              },
+              {
+                name: 'domain',
+                default: 'nginx.local',
+              },
+              {
+                name: 'service_type',
+                default: 'NodePort',
+              },
+              {
+                name: 'namespace',
+                default: 'nginx',
               },
             ],
           },
@@ -98,73 +125,197 @@ export const init_command = define_command({
     };
 
     result = await write_yaml_file(
-      path.join(project_dir, 'templates', 'example', 'template.yaml'),
-      example_template,
+      path.join(project_dir, 'templates', 'nginx', 'template.yaml'),
+      nginx_template,
     );
     if (!result.success) {
       console.error(`Error creating template: ${result.error.message}`);
       return result;
     }
-    console.log('  Created templates/example/template.yaml');
+    console.log('  Created templates/nginx/template.yaml');
 
-    // Create example kustomization.yaml
-    const example_kustomization = `apiVersion: kustomize.config.k8s.io/v1beta1
+    // Create nginx kustomization.yaml
+    const nginx_kustomization = `apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+  - namespace.yaml
+  - configmap.yaml
   - deployment.yaml
+  - service.yaml
 `;
 
     result = await write_file(
-      path.join(project_dir, 'templates', 'example', 'app', 'kustomization.yaml'),
-      example_kustomization,
+      path.join(project_dir, 'templates', 'nginx', 'web', 'kustomization.yaml'),
+      nginx_kustomization,
     );
     if (!result.success) {
       console.error(`Error creating kustomization.yaml: ${result.error.message}`);
       return result;
     }
-    console.log('  Created templates/example/app/kustomization.yaml');
+    console.log('  Created templates/nginx/web/kustomization.yaml');
 
-    // Create example deployment
-    const example_deployment = `apiVersion: apps/v1
+    // Create namespace
+    const nginx_namespace = `apiVersion: v1
+kind: Namespace
+metadata:
+  name: \${namespace}
+`;
+
+    result = await write_file(
+      path.join(project_dir, 'templates', 'nginx', 'web', 'namespace.yaml'),
+      nginx_namespace,
+    );
+    if (!result.success) {
+      console.error(`Error creating namespace.yaml: ${result.error.message}`);
+      return result;
+    }
+    console.log('  Created templates/nginx/web/namespace.yaml');
+
+    // Create configmap with test website
+    const nginx_configmap = `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-html
+  namespace: \${namespace}
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Kustodian Nginx Demo</title>
+      <style>
+        body {
+          font-family: system-ui, -apple-system, sans-serif;
+          max-width: 800px;
+          margin: 100px auto;
+          padding: 20px;
+          text-align: center;
+        }
+        h1 { color: #009639; }
+        .info {
+          background: #f5f5f5;
+          padding: 20px;
+          border-radius: 8px;
+          margin-top: 30px;
+        }
+      </style>
+    </head>
+    <body>
+      <h1>🎉 Kustodian + Nginx</h1>
+      <p>This is a test website deployed via Kustodian templates.</p>
+      <div class="info">
+        <p><strong>Domain:</strong> \${domain}</p>
+        <p><strong>Replicas:</strong> \${replicas}</p>
+        <p><strong>Namespace:</strong> \${namespace}</p>
+      </div>
+    </body>
+    </html>
+`;
+
+    result = await write_file(
+      path.join(project_dir, 'templates', 'nginx', 'web', 'configmap.yaml'),
+      nginx_configmap,
+    );
+    if (!result.success) {
+      console.error(`Error creating configmap.yaml: ${result.error.message}`);
+      return result;
+    }
+    console.log('  Created templates/nginx/web/configmap.yaml');
+
+    // Create deployment
+    const nginx_deployment = `apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: example
+  name: nginx
+  namespace: \${namespace}
+  labels:
+    app: nginx
 spec:
   replicas: \${replicas}
   selector:
     matchLabels:
-      app: example
+      app: nginx
   template:
     metadata:
       labels:
-        app: example
+        app: nginx
     spec:
       containers:
-        - name: example
-          image: nginx:latest
+        - name: nginx
+          image: nginx:\${image_tag}
           ports:
-            - containerPort: 80
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          volumeMounts:
+            - name: html
+              mountPath: /usr/share/nginx/html
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: html
+          configMap:
+            name: nginx-html
 `;
 
     result = await write_file(
-      path.join(project_dir, 'templates', 'example', 'app', 'deployment.yaml'),
-      example_deployment,
+      path.join(project_dir, 'templates', 'nginx', 'web', 'deployment.yaml'),
+      nginx_deployment,
     );
     if (!result.success) {
       console.error(`Error creating deployment.yaml: ${result.error.message}`);
       return result;
     }
-    console.log('  Created templates/example/app/deployment.yaml');
+    console.log('  Created templates/nginx/web/deployment.yaml');
 
-    // Create example cluster
-    const example_cluster = {
+    // Create service
+    const nginx_service = `apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  namespace: \${namespace}
+  labels:
+    app: nginx
+spec:
+  type: \${service_type}
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app: nginx
+`;
+
+    result = await write_file(
+      path.join(project_dir, 'templates', 'nginx', 'web', 'service.yaml'),
+      nginx_service,
+    );
+    if (!result.success) {
+      console.error(`Error creating service.yaml: ${result.error.message}`);
+      return result;
+    }
+    console.log('  Created templates/nginx/web/service.yaml');
+
+    // Create local cluster
+    const local_cluster = {
       apiVersion: 'kustodian.io/v1',
       kind: 'Cluster',
       metadata: {
         name: 'local',
       },
       spec: {
-        domain: 'local.example.com',
+        domain: 'local.cluster',
         oci: {
           registry: 'ghcr.io',
           repository: `your-org/${project_name}`,
@@ -173,10 +324,12 @@ spec:
         },
         templates: [
           {
-            name: 'example',
+            name: 'nginx',
             enabled: true,
             values: {
-              replicas: '2',
+              replicas: '3',
+              domain: 'nginx.local.cluster',
+              service_type: 'NodePort',
             },
           },
         ],
@@ -185,7 +338,7 @@ spec:
 
     result = await write_yaml_file(
       path.join(project_dir, 'clusters', 'local', 'cluster.yaml'),
-      example_cluster,
+      local_cluster,
     );
     if (!result.success) {
       console.error(`Error creating cluster: ${result.error.message}`);
