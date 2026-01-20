@@ -80,6 +80,65 @@ export const helm_config_schema = z
 export type HelmConfigType = z.infer<typeof helm_config_schema>;
 
 /**
+ * Base fields shared by all version entries in spec.versions.
+ */
+const version_entry_base_schema = z.object({
+  name: z.string().min(1),
+  default: z.string().optional(),
+  /** Semver constraint: ^1.0.0, ~2.3.0, >=1.0.0 <2.0.0 */
+  constraint: z.string().optional(),
+  /** Regex pattern for filtering valid tags */
+  tag_pattern: z.string().optional(),
+  /** Exclude pre-release versions (default: true) */
+  exclude_prerelease: z.boolean().optional(),
+});
+
+/**
+ * Image version entry - tracks container image versions.
+ * Used in template spec.versions for shared version tracking.
+ */
+export const image_version_entry_schema = version_entry_base_schema.extend({
+  registry: registry_config_schema,
+});
+
+export type ImageVersionEntryType = z.infer<typeof image_version_entry_schema>;
+
+/**
+ * Helm version entry - tracks Helm chart versions.
+ * Used in template spec.versions for shared version tracking.
+ */
+export const helm_version_entry_schema = version_entry_base_schema.extend({
+  helm: helm_config_schema,
+});
+
+export type HelmVersionEntryType = z.infer<typeof helm_version_entry_schema>;
+
+/**
+ * Version entry - either an image or helm version.
+ * Discriminated by presence of `registry` (image) vs `helm` (chart) field.
+ */
+export const version_entry_schema = z.union([
+  image_version_entry_schema,
+  helm_version_entry_schema,
+]);
+
+export type VersionEntryType = z.infer<typeof version_entry_schema>;
+
+/**
+ * Type guard for image version entries.
+ */
+export function is_image_version_entry(entry: VersionEntryType): entry is ImageVersionEntryType {
+  return 'registry' in entry;
+}
+
+/**
+ * Type guard for helm version entries.
+ */
+export function is_helm_version_entry(entry: VersionEntryType): entry is HelmVersionEntryType {
+  return 'helm' in entry;
+}
+
+/**
  * Generic substitution (backward compatible, default type).
  */
 export const generic_substitution_schema = z.object({

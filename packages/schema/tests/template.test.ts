@@ -433,5 +433,216 @@ describe('Template Schema', () => {
       // Assert
       expect(result.success).toBe(false);
     });
+
+    it('should validate template with image version entries', () => {
+      // Arrange
+      const template = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Template',
+        metadata: { name: 'media' },
+        spec: {
+          versions: [
+            {
+              name: 'nginx_version',
+              default: '1.25.0',
+              registry: { image: 'nginx' },
+            },
+            {
+              name: 'redis_version',
+              default: '7.2.0',
+              registry: { image: 'redis', type: 'dockerhub' },
+              constraint: '^7.0.0',
+            },
+          ],
+          kustomizations: [{ name: 'app', path: './app' }],
+        },
+      };
+
+      // Act
+      const result = validate_template(template);
+
+      // Assert
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.spec.versions).toHaveLength(2);
+        expect(result.data.spec.versions?.[0]?.name).toBe('nginx_version');
+      }
+    });
+
+    it('should validate template with helm version entries', () => {
+      // Arrange
+      const template = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Template',
+        metadata: { name: 'infra' },
+        spec: {
+          versions: [
+            {
+              name: 'traefik_version',
+              default: '28.0.0',
+              helm: {
+                repository: 'https://traefik.github.io/charts',
+                chart: 'traefik',
+              },
+              constraint: '^28.0.0',
+            },
+            {
+              name: 'cert_manager_version',
+              default: '1.14.0',
+              helm: {
+                oci: 'oci://quay.io/jetstack',
+                chart: 'cert-manager',
+              },
+            },
+          ],
+          kustomizations: [{ name: 'operator', path: './operator' }],
+        },
+      };
+
+      // Act
+      const result = validate_template(template);
+
+      // Assert
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.spec.versions).toHaveLength(2);
+      }
+    });
+
+    it('should validate template with mixed image and helm version entries', () => {
+      // Arrange
+      const template = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Template',
+        metadata: { name: 'stack' },
+        spec: {
+          versions: [
+            {
+              name: 'app_version',
+              default: '2.0.0',
+              registry: { image: 'ghcr.io/my-org/my-app', type: 'ghcr' },
+            },
+            {
+              name: 'ingress_version',
+              default: '4.10.0',
+              helm: {
+                repository: 'https://kubernetes.github.io/ingress-nginx',
+                chart: 'ingress-nginx',
+              },
+            },
+          ],
+          kustomizations: [{ name: 'deploy', path: './deploy' }],
+        },
+      };
+
+      // Act
+      const result = validate_template(template);
+
+      // Assert
+      expect(result.success).toBe(true);
+    });
+
+    it('should reject version entry without registry or helm', () => {
+      // Arrange
+      const template = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Template',
+        metadata: { name: 'invalid' },
+        spec: {
+          versions: [
+            {
+              name: 'orphan_version',
+              default: '1.0.0',
+            },
+          ],
+          kustomizations: [{ name: 'app', path: './app' }],
+        },
+      };
+
+      // Act
+      const result = validate_template(template);
+
+      // Assert
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject version entry with empty name', () => {
+      // Arrange
+      const template = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Template',
+        metadata: { name: 'invalid' },
+        spec: {
+          versions: [
+            {
+              name: '',
+              default: '1.0.0',
+              registry: { image: 'nginx' },
+            },
+          ],
+          kustomizations: [{ name: 'app', path: './app' }],
+        },
+      };
+
+      // Act
+      const result = validate_template(template);
+
+      // Assert
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject helm version without chart', () => {
+      // Arrange
+      const template = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Template',
+        metadata: { name: 'invalid' },
+        spec: {
+          versions: [
+            {
+              name: 'broken_helm',
+              default: '1.0.0',
+              helm: {
+                repository: 'https://charts.example.com',
+              },
+            },
+          ],
+          kustomizations: [{ name: 'app', path: './app' }],
+        },
+      };
+
+      // Act
+      const result = validate_template(template);
+
+      // Assert
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject helm version without repository or oci', () => {
+      // Arrange
+      const template = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Template',
+        metadata: { name: 'invalid' },
+        spec: {
+          versions: [
+            {
+              name: 'broken_helm',
+              default: '1.0.0',
+              helm: {
+                chart: 'my-chart',
+              },
+            },
+          ],
+          kustomizations: [{ name: 'app', path: './app' }],
+        },
+      };
+
+      // Act
+      const result = validate_template(template);
+
+      // Assert
+      expect(result.success).toBe(false);
+    });
   });
 });

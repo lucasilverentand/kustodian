@@ -8,6 +8,7 @@ import type {
 } from '@kustodian/schema';
 
 import { generate_preservation_patches, get_preserved_resource_types } from './preservation.js';
+import { collect_all_substitution_values } from './substitution.js';
 import type {
   FluxKustomizationType,
   FluxOCIRepositoryType,
@@ -276,22 +277,15 @@ export function generate_flux_kustomization(
 
 /**
  * Resolves a kustomization with values from the cluster config.
+ * Includes both template-level versions and kustomization-level substitutions.
  */
 export function resolve_kustomization(
   template: TemplateType,
   kustomization: KustomizationType,
   cluster_values: Record<string, string> = {},
 ): ResolvedKustomizationType {
-  // Collect values with defaults
-  const values: Record<string, string> = {};
-
-  for (const sub of kustomization.substitutions ?? []) {
-    // Check cluster-provided value first, then fall back to default
-    const value = cluster_values[sub.name] ?? sub.default;
-    if (value !== undefined) {
-      values[sub.name] = value;
-    }
-  }
+  // Collect values from template versions and kustomization substitutions
+  const values = collect_all_substitution_values(template, kustomization, cluster_values);
 
   // Determine namespace
   const namespace = kustomization.namespace?.default ?? 'default';

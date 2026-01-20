@@ -18,6 +18,8 @@ import {
   type HelmSubstitutionType,
   type VersionSubstitutionType,
   is_helm_substitution,
+  is_helm_version_entry,
+  is_image_version_entry,
   is_version_substitution,
 } from '@kustodian/schema';
 
@@ -127,6 +129,48 @@ export const update_command = define_command({
         continue;
       }
 
+      // Collect template-level versions (shared across all kustomizations)
+      for (const version of template.spec.versions ?? []) {
+        if (substitution_filter && version.name !== substitution_filter) {
+          continue;
+        }
+
+        if (is_image_version_entry(version)) {
+          version_subs.push({
+            template_name: template.metadata.name,
+            kustomization_name: '__template__',
+            substitution: {
+              type: 'version',
+              name: version.name,
+              default: version.default,
+              constraint: version.constraint,
+              registry: version.registry,
+              tag_pattern: version.tag_pattern,
+              exclude_prerelease: version.exclude_prerelease,
+            },
+            current_value: template_config?.values?.[version.name] ?? version.default,
+            type: 'version',
+          });
+        } else if (is_helm_version_entry(version)) {
+          version_subs.push({
+            template_name: template.metadata.name,
+            kustomization_name: '__template__',
+            substitution: {
+              type: 'helm',
+              name: version.name,
+              default: version.default,
+              constraint: version.constraint,
+              helm: version.helm,
+              tag_pattern: version.tag_pattern,
+              exclude_prerelease: version.exclude_prerelease,
+            },
+            current_value: template_config?.values?.[version.name] ?? version.default,
+            type: 'helm',
+          });
+        }
+      }
+
+      // Collect kustomization-level substitutions
       for (const kustomization of template.spec.kustomizations) {
         for (const sub of kustomization.substitutions ?? []) {
           if (is_version_substitution(sub)) {

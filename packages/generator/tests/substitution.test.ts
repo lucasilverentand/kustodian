@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'bun:test';
 
-import type { KustomizationType } from '@kustodian/schema';
+import type { KustomizationType, TemplateType } from '@kustodian/schema';
 
 import {
   SUBSTITUTION_PATTERN,
+  collect_all_substitution_values,
   collect_substitution_values,
+  collect_template_versions,
   extract_variables,
   generate_flux_substitutions,
   get_defined_substitutions,
@@ -393,6 +395,205 @@ describe('Substitution Engine', () => {
 
       // Assert
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe('collect_template_versions', () => {
+    const create_template = (
+      versions: Array<{
+        name: string;
+        default?: string;
+        registry?: { image: string; type?: 'dockerhub' | 'ghcr' };
+        helm?: { repository?: string; oci?: string; chart: string };
+      }>,
+    ): TemplateType => ({
+      apiVersion: 'kustodian.io/v1',
+      kind: 'Template',
+      metadata: { name: 'test-template' },
+      spec: {
+        versions: versions.map((v) => {
+          if (v.registry) {
+            return { name: v.name, default: v.default, registry: v.registry };
+          }
+          const helm = v.helm ?? { repository: 'https://example.com', chart: 'test' };
+          return { name: v.name, default: v.default, helm };
+        }),
+        kustomizations: [{ name: 'app', path: './app', prune: true, wait: true, enabled: true }],
+      },
+    });
+
+    it('should collect image version entries with defaults', () => {
+      // Arrange
+      const template = create_template([
+        { name: 'nginx_version', default: '1.25.0', registry: { image: 'nginx' } },
+        {
+          name: 'redis_version',
+          default: '7.2.0',
+          registry: { image: 'redis', type: 'dockerhub' },
+        },
+      ]);
+
+      // Act
+      const result = collect_template_versions(template);
+
+      // Assert
+      expect(result).toEqual({
+        nginx_version: '1.25.0',
+        redis_version: '7.2.0',
+      });
+    });
+
+    it('should collect helm version entries with defaults', () => {
+      // Arrange
+      const template = create_template([
+        {
+          name: 'traefik_version',
+          default: '28.0.0',
+          helm: { repository: 'https://traefik.github.io/charts', chart: 'traefik' },
+        },
+      ]);
+
+      // Act
+      const result = collect_template_versions(template);
+
+      // Assert
+      expect(result).toEqual({
+        traefik_version: '28.0.0',
+      });
+    });
+
+    it('should override defaults with cluster values', () => {
+      // Arrange
+      const template = create_template([
+        { name: 'nginx_version', default: '1.25.0', registry: { image: 'nginx' } },
+      ]);
+      const cluster_values = { nginx_version: '1.26.0' };
+
+      // Act
+      const result = collect_template_versions(template, cluster_values);
+
+      // Assert
+      expect(result).toEqual({
+        nginx_version: '1.26.0',
+      });
+    });
+
+    it('should exclude versions without values', () => {
+      // Arrange
+      const template = create_template([
+        { name: 'with_default', default: '1.0.0', registry: { image: 'test' } },
+        { name: 'without_default', registry: { image: 'test2' } },
+      ]);
+
+      // Act
+      const result = collect_template_versions(template);
+
+      // Assert
+      expect(result).toEqual({ with_default: '1.0.0' });
+      expect(result['without_default']).toBeUndefined();
+    });
+
+    it('should return empty object when no versions defined', () => {
+      // Arrange
+      const template: TemplateType = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Template',
+        metadata: { name: 'test' },
+        spec: {
+          kustomizations: [{ name: 'app', path: './app', prune: true, wait: true, enabled: true }],
+        },
+      };
+
+      // Act
+      const result = collect_template_versions(template);
+
+      // Assert
+      expect(result).toEqual({});
+    });
+  });
+
+  describe('collect_all_substitution_values', () => {
+    const create_template_with_versions = (
+      versions: Array<{ name: string; default?: string; registry: { image: string } }>,
+      kustomization: KustomizationType,
+    ): TemplateType => ({
+      apiVersion: 'kustodian.io/v1',
+      kind: 'Template',
+      metadata: { name: 'test-template' },
+      spec: {
+        versions,
+        kustomizations: [kustomization],
+      },
+    });
+
+    it('should combine template versions and kustomization substitutions', () => {
+      // Arrange
+      const kustomization: KustomizationType = {
+        name: 'app',
+        path: './app',
+        prune: true,
+        wait: true,
+        enabled: true,
+        substitutions: [{ name: 'replicas', default: '3' }],
+      };
+      const template = create_template_with_versions(
+        [{ name: 'nginx_version', default: '1.25.0', registry: { image: 'nginx' } }],
+        kustomization,
+      );
+
+      // Act
+      const result = collect_all_substitution_values(template, kustomization);
+
+      // Assert
+      expect(result).toEqual({
+        nginx_version: '1.25.0',
+        replicas: '3',
+      });
+    });
+
+    it('should give kustomization substitutions precedence over template versions', () => {
+      // Arrange
+      const kustomization: KustomizationType = {
+        name: 'app',
+        path: './app',
+        prune: true,
+        wait: true,
+        enabled: true,
+        substitutions: [{ name: 'shared_name', default: 'from_kustomization' }],
+      };
+      const template = create_template_with_versions(
+        [{ name: 'shared_name', default: 'from_template', registry: { image: 'test' } }],
+        kustomization,
+      );
+
+      // Act
+      const result = collect_all_substitution_values(template, kustomization);
+
+      // Assert
+      expect(result['shared_name']).toBe('from_kustomization');
+    });
+
+    it('should give cluster values highest precedence', () => {
+      // Arrange
+      const kustomization: KustomizationType = {
+        name: 'app',
+        path: './app',
+        prune: true,
+        wait: true,
+        enabled: true,
+        substitutions: [{ name: 'version', default: 'from_kustomization' }],
+      };
+      const template = create_template_with_versions(
+        [{ name: 'version', default: 'from_template', registry: { image: 'test' } }],
+        kustomization,
+      );
+      const cluster_values = { version: 'from_cluster' };
+
+      // Act
+      const result = collect_all_substitution_values(template, kustomization, cluster_values);
+
+      // Assert
+      expect(result['version']).toBe('from_cluster');
     });
   });
 });

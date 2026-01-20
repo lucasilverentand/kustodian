@@ -8,6 +8,7 @@ import {
   metadata_schema,
   namespace_config_schema,
   substitution_schema,
+  version_entry_schema,
 } from './common.js';
 
 /**
@@ -107,6 +108,8 @@ export type TemplateRequirementType = z.infer<typeof template_requirement_schema
  */
 export const template_spec_schema = z.object({
   requirements: z.array(template_requirement_schema).optional(),
+  /** Template-level version tracking, shared across all kustomizations */
+  versions: z.array(version_entry_schema).optional(),
   kustomizations: z.array(kustomization_schema).min(1),
 });
 

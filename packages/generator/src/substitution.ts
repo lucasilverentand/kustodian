@@ -1,4 +1,4 @@
-import type { KustomizationType } from '@kustodian/schema';
+import type { KustomizationType, TemplateType } from '@kustodian/schema';
 
 /**
  * Pattern for matching substitution variables: ${variable_name}
@@ -81,6 +81,49 @@ export function collect_substitution_values(
   }
 
   return values;
+}
+
+/**
+ * Collects template-level version entries as substitution values.
+ * These are shared across all kustomizations in the template.
+ */
+export function collect_template_versions(
+  template: TemplateType,
+  cluster_values: Record<string, string> = {},
+): Record<string, string> {
+  const values: Record<string, string> = {};
+
+  for (const version of template.spec.versions ?? []) {
+    // Cluster value takes precedence over default
+    const value = cluster_values[version.name] ?? version.default;
+    if (value !== undefined) {
+      values[version.name] = value;
+    }
+  }
+
+  return values;
+}
+
+/**
+ * Collects all substitution values from template versions and kustomization substitutions.
+ * Precedence: template versions < kustomization substitutions < cluster values
+ */
+export function collect_all_substitution_values(
+  template: TemplateType,
+  kustomization: KustomizationType,
+  cluster_values: Record<string, string> = {},
+): Record<string, string> {
+  // Start with template-level versions (lowest precedence)
+  const template_versions = collect_template_versions(template, cluster_values);
+
+  // Add kustomization-level substitutions (higher precedence)
+  const kustomization_values = collect_substitution_values(kustomization, cluster_values);
+
+  // Merge with kustomization values taking precedence over template versions
+  return {
+    ...template_versions,
+    ...kustomization_values,
+  };
 }
 
 /**
