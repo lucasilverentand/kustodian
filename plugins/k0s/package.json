@@ -1,6 +1,6 @@
 {
   "name": "@kustodian/plugin-k0s",
-  "version": "1.1.1",
+  "version": "2.0.0",
   "description": "k0s cluster provider plugin for Kustodian",
   "type": "module",
   "main": "./dist/index.js",

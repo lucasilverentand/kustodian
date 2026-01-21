@@ -1,0 +1,15 @@
+# Changelog
+
+## [2.0.0](https://github.com/lucasilverentand/kustodian/compare/plugin-authelia-v1.0.0...plugin-authelia-v2.0.0) (2026-01-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* The `enabled` field has been removed from template configuration. Templates are now deployed using an opt-in model: only templates explicitly listed in cluster.yaml will be deployed.
+
+### Features
+
+* **phase2:** Complete Generator Validation with comprehensive test fixtures ([#122](https://github.com/lucasilverentand/kustodian/issues/122)) ([6afa349](https://github.com/lucasilverentand/kustodian/commit/6afa34971a2d86f308287f6972f5033571d128a2))
+* **plugins:** add Authelia authentication provider plugin ([0c8178b](https://github.com/lucasilverentand/kustodian/commit/0c8178beda6b9a122c17485f43e4707b1f82758c))
+* remove deprecated enabled field from templates ([#124](https://github.com/lucasilverentand/kustodian/issues/124)) ([ba1f60f](https://github.com/lucasilverentand/kustodian/commit/ba1f60f1c8c8e19ba20fbbf6af1301547a93f7f0))
+* **secrets:** add cluster-level secret provider configuration ([#116](https://github.com/lucasilverentand/kustodian/issues/116)) ([b7d3d19](https://github.com/lucasilverentand/kustodian/commit/b7d3d19eddf3a46b522fe919954e36dc91aed9a6))

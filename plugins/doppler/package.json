@@ -1,6 +1,6 @@
 {
   "name": "@kustodian/plugin-doppler",
-  "version": "1.1.1",
+  "version": "2.0.0",
   "description": "Doppler secret provider plugin for Kustodian",
   "type": "module",
   "main": "./dist/index.js",

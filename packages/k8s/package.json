@@ -1,6 +1,6 @@
 {
   "name": "@kustodian/k8s",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "description": "Kubernetes client wrappers for runtime operations",
   "type": "module",
   "main": "./dist/index.js",
