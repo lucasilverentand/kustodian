@@ -2,8 +2,7 @@ import { describe, expect, it } from 'bun:test';
 
 import {
   node_profile_resource_to_profile,
-  validate_node_profile_resource,
-} from '../src/profile.js';
+  validate_node_profile_resource} from '../src/profile.js';
 
 describe('NodeProfile Schema', () => {
   describe('validate_node_profile_resource', () => {
@@ -13,10 +12,8 @@ describe('NodeProfile Schema', () => {
         apiVersion: 'kustodian.io/v1',
         kind: 'NodeProfile',
         metadata: {
-          name: 'minimal-profile',
-        },
-        spec: {},
-      };
+          name: 'minimal-profile'},
+        spec: {}};
 
       // Act
       const result = validate_node_profile_resource(profile);
@@ -34,28 +31,22 @@ describe('NodeProfile Schema', () => {
         apiVersion: 'kustodian.io/v1',
         kind: 'NodeProfile',
         metadata: {
-          name: 'storage-node',
-        },
+          name: 'storage-node'},
         spec: {
           name: 'Storage Node',
           description: 'Node with NVMe storage for high-performance workloads',
           labels: {
             storage: 'nvme',
-            'storage-tier': 'high-performance',
-          },
+            'storage-tier': 'high-performance'},
           taints: [
             {
               key: 'storage',
               value: 'nvme',
-              effect: 'NoSchedule',
-            },
+              effect: 'NoSchedule'},
           ],
           annotations: {
             description: 'High-performance storage node',
-            'storage-capacity': '2TB',
-          },
-        },
-      };
+            'storage-capacity': '2TB'}}};
 
       // Act
       const result = validate_node_profile_resource(profile);
@@ -78,17 +69,12 @@ describe('NodeProfile Schema', () => {
         apiVersion: 'kustodian.io/v1',
         kind: 'NodeProfile',
         metadata: {
-          name: 'mixed-labels',
-        },
+          name: 'mixed-labels'},
         spec: {
           labels: {
-            enabled: true,
             disabled: false,
             count: 5,
-            ratio: 1.5,
-          },
-        },
-      };
+            ratio: 1.5}}};
 
       // Act
       const result = validate_node_profile_resource(profile);
@@ -109,16 +95,13 @@ describe('NodeProfile Schema', () => {
         apiVersion: 'kustodian.io/v1',
         kind: 'NodeProfile',
         metadata: {
-          name: 'taint-effects',
-        },
+          name: 'taint-effects'},
         spec: {
           taints: [
             { key: 'no-schedule', effect: 'NoSchedule' },
             { key: 'prefer-no-schedule', effect: 'PreferNoSchedule' },
             { key: 'no-execute', effect: 'NoExecute' },
-          ],
-        },
-      };
+          ]}};
 
       // Act
       const result = validate_node_profile_resource(profile);
@@ -136,10 +119,8 @@ describe('NodeProfile Schema', () => {
         apiVersion: 'wrong/v1',
         kind: 'NodeProfile',
         metadata: {
-          name: 'invalid',
-        },
-        spec: {},
-      };
+          name: 'invalid'},
+        spec: {}};
 
       // Act
       const result = validate_node_profile_resource(profile);
@@ -154,10 +135,8 @@ describe('NodeProfile Schema', () => {
         apiVersion: 'kustodian.io/v1',
         kind: 'WrongKind',
         metadata: {
-          name: 'invalid',
-        },
-        spec: {},
-      };
+          name: 'invalid'},
+        spec: {}};
 
       // Act
       const result = validate_node_profile_resource(profile);
@@ -172,10 +151,8 @@ describe('NodeProfile Schema', () => {
         apiVersion: 'kustodian.io/v1',
         kind: 'NodeProfile',
         metadata: {
-          name: '',
-        },
-        spec: {},
-      };
+          name: ''},
+        spec: {}};
 
       // Act
       const result = validate_node_profile_resource(profile);
@@ -190,12 +167,9 @@ describe('NodeProfile Schema', () => {
         apiVersion: 'kustodian.io/v1',
         kind: 'NodeProfile',
         metadata: {
-          name: 'invalid-taint',
-        },
+          name: 'invalid-taint'},
         spec: {
-          taints: [{ key: 'test', effect: 'InvalidEffect' }],
-        },
-      };
+          taints: [{ key: 'test', effect: 'InvalidEffect' }]}};
 
       // Act
       const result = validate_node_profile_resource(profile);
@@ -212,10 +186,8 @@ describe('NodeProfile Schema', () => {
         apiVersion: 'kustodian.io/v1' as const,
         kind: 'NodeProfile' as const,
         metadata: {
-          name: 'minimal',
-        },
-        spec: {},
-      };
+          name: 'minimal'},
+        spec: {}};
 
       // Act
       const profile = node_profile_resource_to_profile(resource);
@@ -235,20 +207,15 @@ describe('NodeProfile Schema', () => {
         apiVersion: 'kustodian.io/v1' as const,
         kind: 'NodeProfile' as const,
         metadata: {
-          name: 'storage-node',
-        },
+          name: 'storage-node'},
         spec: {
           name: 'Storage Node',
           description: 'High-performance storage',
           labels: {
-            storage: 'nvme',
-          },
+            storage: 'nvme'},
           taints: [{ key: 'storage', effect: 'NoSchedule' as const }],
           annotations: {
-            note: 'test',
-          },
-        },
-      };
+            note: 'test'}}};
 
       // Act
       const profile = node_profile_resource_to_profile(resource);

@@ -20,12 +20,10 @@ describe('E2E: Generator', () => {
     const templates = project.templates.map((t) => t.template);
 
     const generator = create_generator({
-      flux_namespace: 'flux-system',
-    });
+      flux_namespace: 'flux-system'});
 
     const result = await generator.generate(cluster.cluster, templates, {
-      output_dir: '/tmp/e2e-output',
-    });
+      output_dir: '/tmp/e2e-output'});
 
     expect(result.success).toBe(true);
     if (result.success) {
@@ -59,8 +57,7 @@ describe('E2E: Generator', () => {
     const templates = project.templates.map((t) => t.template);
 
     const generator = create_generator({
-      flux_namespace: 'flux-system',
-    });
+      flux_namespace: 'flux-system'});
 
     const result = await generator.generate(cluster.cluster, templates);
 
@@ -116,9 +113,7 @@ describe('E2E: Generator', () => {
       ...first_cluster.cluster,
       spec: {
         ...first_cluster.cluster.spec,
-        templates: [{ name: 'example', enabled: false }],
-      },
-    };
+        templates: [{ name: 'example', enabled: false }]}};
 
     const generator = create_generator();
     const result = await generator.generate(cluster_with_disabled, templates);

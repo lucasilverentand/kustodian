@@ -4,19 +4,13 @@ import type { ClusterType, TemplateType } from '@kustodian/schema';
 
 import { validate_enablement_dependencies } from '../src/validation/enablement.js';
 
-interface TemplateConfig {
-  enabled?: boolean;
-  kustomizations?: Record<
-    string,
-    boolean | { enabled: boolean; preservation?: { mode: 'stateful' | 'none' | 'custom' } }
-  >;
-}
-
-describe('Enablement Validation', () => {
-  function create_cluster(
-    name = 'test',
-    template_configs: Record<string, TemplateConfig> = {},
-  ): ClusterType {
+/**
+ * Tests for the opt-in template model.
+ * Templates are only deployed if explicitly listed in cluster.yaml.
+ * Dependencies must reference templates that are listed.
+ */
+describe('Enablement Validation (Opt-in Model)', () => {
+  function create_cluster(name = 'test', template_names: string[] = []): ClusterType {
     return {
       apiVersion: 'kustodian.io/v1',
       kind: 'Cluster',
@@ -28,18 +22,14 @@ describe('Enablement Validation', () => {
           repository: 'test',
           branch: 'main',
         },
-        templates: Object.entries(template_configs).map(([name, config]) => ({
-          name,
-          enabled: config.enabled ?? true,
-          kustomizations: config.kustomizations,
-        })),
+        templates: template_names.map((name) => ({ name })),
       },
     };
   }
 
   function create_template(
     name: string,
-    kustomizations: Array<{ name: string; enabled?: boolean; depends_on?: string[] }>,
+    kustomizations: Array<{ name: string; depends_on?: string[] }>,
   ): TemplateType {
     return {
       apiVersion: 'kustodian.io/v1',
@@ -51,7 +41,6 @@ describe('Enablement Validation', () => {
           path: `./${k.name}`,
           prune: true,
           wait: true,
-          enabled: k.enabled ?? true,
           depends_on: k.depends_on,
         })),
       },
@@ -59,12 +48,13 @@ describe('Enablement Validation', () => {
   }
 
   describe('validate_enablement_dependencies', () => {
-    it('should pass when all kustomizations are enabled', () => {
-      const cluster = create_cluster();
+    it('should pass when all dependencies are from listed templates', () => {
+      // Both templates are listed in cluster.yaml
+      const cluster = create_cluster('test', ['database', 'app']);
       const templates = [
+        create_template('database', [{ name: 'postgres' }]),
         create_template('app', [
-          { name: 'database', enabled: true },
-          { name: 'api', enabled: true, depends_on: ['database'] },
+          { name: 'api', depends_on: ['database/postgres'] },
         ]),
       ];
 
@@ -73,12 +63,12 @@ describe('Enablement Validation', () => {
       expect(errors).toHaveLength(0);
     });
 
-    it('should pass when disabled kustomization has no dependents', () => {
-      const cluster = create_cluster();
+    it('should pass for templates with within-template dependencies', () => {
+      const cluster = create_cluster('test', ['app']);
       const templates = [
         create_template('app', [
-          { name: 'database', enabled: false },
-          { name: 'api', enabled: true },
+          { name: 'database' },
+          { name: 'api', depends_on: ['database'] },
         ]),
       ];
 
@@ -87,96 +77,30 @@ describe('Enablement Validation', () => {
       expect(errors).toHaveLength(0);
     });
 
-    it('should fail when enabled kustomization depends on disabled one', () => {
-      const cluster = create_cluster();
+    it('should fail when dependency is from template not listed in cluster.yaml', () => {
+      // Only 'app' is listed, but it depends on 'database' which is not listed
+      const cluster = create_cluster('test', ['app']);
       const templates = [
+        create_template('database', [{ name: 'postgres' }]),
         create_template('app', [
-          { name: 'database', enabled: false },
-          { name: 'api', enabled: true, depends_on: ['database'] },
+          { name: 'api', depends_on: ['database/postgres'] },
         ]),
       ];
 
       const errors = validate_enablement_dependencies(cluster, templates);
 
       expect(errors).toHaveLength(1);
-      expect(errors[0]?.type).toBe('disabled_dependency');
-      expect(errors[0]?.source).toBe('app/api');
-      expect(errors[0]?.target).toBe('app/database');
+      expect(errors[0]?.type).toBe('missing_dependency');
+      expect(errors[0]?.message).toContain('database/postgres');
     });
 
-    it('should fail with cross-template disabled dependency', () => {
-      const cluster = create_cluster('test', {
-        secrets: { enabled: true },
-        app: {
-          enabled: true,
-          kustomizations: {
-            api: true,
-          },
-        },
-      });
+    it('should pass when template is not listed but has no dependents', () => {
+      // Only 'app' is listed, 'database' exists but is not needed
+      const cluster = create_cluster('test', ['app']);
       const templates = [
-        create_template('secrets', [{ name: 'vault', enabled: false }]),
-        create_template('app', [{ name: 'api', enabled: true, depends_on: ['secrets/vault'] }]),
-      ];
-
-      const errors = validate_enablement_dependencies(cluster, templates);
-
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.type).toBe('disabled_dependency');
-      expect(errors[0]?.source).toBe('app/api');
-      expect(errors[0]?.target).toBe('secrets/vault');
-    });
-
-    it('should respect cluster overrides for enablement', () => {
-      const cluster = create_cluster('test', {
-        database: {
-          enabled: true,
-          kustomizations: {
-            postgres: true, // Enable via cluster override
-          },
-        },
-      });
-      const templates = [
-        create_template('database', [
-          { name: 'postgres', enabled: false }, // Disabled in template
-          { name: 'api', enabled: true, depends_on: ['postgres'] },
-        ]),
-      ];
-
-      const errors = validate_enablement_dependencies(cluster, templates);
-
-      // Should pass because cluster enables postgres
-      expect(errors).toHaveLength(0);
-    });
-
-    it('should fail when cluster disables a dependency', () => {
-      const cluster = create_cluster('test', {
-        database: {
-          enabled: true,
-          kustomizations: {
-            postgres: false, // Disable via cluster override
-          },
-        },
-      });
-      const templates = [
-        create_template('database', [
-          { name: 'postgres', enabled: true }, // Enabled in template
-          { name: 'api', enabled: true, depends_on: ['postgres'] },
-        ]),
-      ];
-
-      const errors = validate_enablement_dependencies(cluster, templates);
-
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.type).toBe('disabled_dependency');
-    });
-
-    it('should pass when both kustomizations are disabled', () => {
-      const cluster = create_cluster();
-      const templates = [
+        create_template('database', [{ name: 'postgres' }]),
         create_template('app', [
-          { name: 'database', enabled: false },
-          { name: 'api', enabled: false, depends_on: ['database'] },
+          { name: 'api' }, // No dependency on database
         ]),
       ];
 
@@ -185,54 +109,51 @@ describe('Enablement Validation', () => {
       expect(errors).toHaveLength(0);
     });
 
-    it('should handle template-level disable', () => {
-      const cluster = create_cluster('test', {
-        database: { enabled: false },
-        app: { enabled: true },
-      });
+    it('should fail with multiple errors for multiple missing dependencies', () => {
+      const cluster = create_cluster('test', ['app']);
       const templates = [
-        create_template('database', [{ name: 'postgres', enabled: true }]),
-        create_template('app', [{ name: 'api', enabled: true, depends_on: ['database/postgres'] }]),
-      ];
-
-      const errors = validate_enablement_dependencies(cluster, templates);
-
-      expect(errors).toHaveLength(1);
-      expect(errors[0]?.type).toBe('disabled_dependency');
-      expect(errors[0]?.target).toBe('database/postgres');
-    });
-
-    it('should handle multiple dependencies', () => {
-      const cluster = create_cluster();
-      const templates = [
+        create_template('database', [{ name: 'postgres' }]),
+        create_template('cache', [{ name: 'redis' }]),
         create_template('app', [
-          { name: 'database', enabled: false },
-          { name: 'cache', enabled: false },
-          { name: 'api', enabled: true, depends_on: ['database', 'cache'] },
+          { name: 'api', depends_on: ['database/postgres', 'cache/redis'] },
         ]),
       ];
 
       const errors = validate_enablement_dependencies(cluster, templates);
 
       expect(errors).toHaveLength(2);
-      expect(errors.every((e) => e.type === 'disabled_dependency')).toBe(true);
+      expect(errors.map((e) => e.target).sort()).toEqual([
+        'cache/redis',
+        'database/postgres',
+      ]);
     });
 
-    it('should provide clear error messages', () => {
-      const cluster = create_cluster();
+    it('should skip templates not listed in cluster.yaml when checking dependencies', () => {
+      // 'database' is not listed, so its internal dependencies are not checked
+      const cluster = create_cluster('test', ['app']);
       const templates = [
-        create_template('app', [
-          { name: 'database', enabled: false },
-          { name: 'api', enabled: true, depends_on: ['database'] },
+        create_template('database', [
+          { name: 'init' },
+          { name: 'postgres', depends_on: ['init'] },
         ]),
+        create_template('app', [{ name: 'api' }]),
       ];
 
       const errors = validate_enablement_dependencies(cluster, templates);
 
-      expect(errors[0]?.message).toContain('app/api');
-      expect(errors[0]?.message).toContain('app/database');
-      expect(errors[0]?.message).toContain('Either enable');
-      expect(errors[0]?.message).toContain('or disable');
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should handle empty template list in cluster.yaml', () => {
+      const cluster = create_cluster('test', []);
+      const templates = [
+        create_template('app', [{ name: 'api' }]),
+      ];
+
+      const errors = validate_enablement_dependencies(cluster, templates);
+
+      // No templates listed means no dependencies to check
+      expect(errors).toHaveLength(0);
     });
   });
 });

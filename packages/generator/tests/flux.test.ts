@@ -8,8 +8,7 @@ import {
   generate_flux_name,
   generate_flux_path,
   generate_health_checks,
-  resolve_kustomization,
-} from '../src/flux.js';
+  resolve_kustomization} from '../src/flux.js';
 
 describe('Flux Generator', () => {
   describe('generate_flux_name', () => {
@@ -134,9 +133,7 @@ describe('Flux Generator', () => {
         path: './test',
         prune: true,
         wait: true,
-        enabled: true,
-        health_checks: [],
-      };
+        health_checks: []};
 
       // Act
       const result = generate_health_checks(kustomization, 'default');
@@ -152,12 +149,10 @@ describe('Flux Generator', () => {
         path: './test',
         prune: true,
         wait: true,
-        enabled: true,
         health_checks: [
           { kind: 'Deployment', name: 'app' },
           { kind: 'StatefulSet', name: 'db', namespace: 'database' },
-        ],
-      };
+        ]};
 
       // Act
       const result = generate_health_checks(kustomization, 'default');
@@ -168,14 +163,12 @@ describe('Flux Generator', () => {
         apiVersion: 'apps/v1',
         kind: 'Deployment',
         name: 'app',
-        namespace: 'default',
-      });
+        namespace: 'default'});
       expect(result?.[1]).toEqual({
         apiVersion: 'apps/v1',
         kind: 'StatefulSet',
         name: 'db',
-        namespace: 'database',
-      });
+        namespace: 'database'});
     });
 
     it('should use custom api_version when specified', () => {
@@ -186,8 +179,7 @@ describe('Flux Generator', () => {
         health_checks: [
           { kind: 'Cluster', name: 'my-cluster', api_version: 'postgresql.cnpg.io/v1' },
           { kind: 'Deployment', name: 'app' },
-        ],
-      } as KustomizationType;
+        ]} as KustomizationType;
 
       // Act
       const result = generate_health_checks(kustomization, 'default');
@@ -198,14 +190,12 @@ describe('Flux Generator', () => {
         apiVersion: 'postgresql.cnpg.io/v1',
         kind: 'Cluster',
         name: 'my-cluster',
-        namespace: 'default',
-      });
+        namespace: 'default'});
       expect(result?.[1]).toEqual({
         apiVersion: 'apps/v1',
         kind: 'Deployment',
         name: 'app',
-        namespace: 'default',
-      });
+        namespace: 'default'});
     });
   });
 
@@ -217,9 +207,7 @@ describe('Flux Generator', () => {
         path: './test',
         prune: true,
         wait: true,
-        enabled: true,
-        health_check_exprs: [],
-      };
+        health_check_exprs: []};
 
       // Act
       const result = generate_custom_health_checks(kustomization, 'default');
@@ -235,16 +223,13 @@ describe('Flux Generator', () => {
         path: './test',
         prune: true,
         wait: true,
-        enabled: true,
         health_check_exprs: [
           {
             api_version: 'postgresql.cnpg.io/v1',
             kind: 'Cluster',
             current: "status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'True')",
-            failed: "status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'False')",
-          },
-        ],
-      };
+            failed: "status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'False')"},
+        ]};
 
       // Act
       const result = generate_custom_health_checks(kustomization, 'databases');
@@ -256,8 +241,7 @@ describe('Flux Generator', () => {
         kind: 'Cluster',
         namespace: 'databases',
         current: "status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'True')",
-        failed: "status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'False')",
-      });
+        failed: "status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'False')"});
     });
 
     it('should use custom namespace when specified', () => {
@@ -267,16 +251,13 @@ describe('Flux Generator', () => {
         path: './test',
         prune: true,
         wait: true,
-        enabled: true,
         health_check_exprs: [
           {
             api_version: 'postgresql.cnpg.io/v1',
             kind: 'Cluster',
             namespace: 'custom-db',
-            current: "status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'True')",
-          },
-        ],
-      };
+            current: "status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'True')"},
+        ]};
 
       // Act
       const result = generate_custom_health_checks(kustomization, 'default');
@@ -287,8 +268,7 @@ describe('Flux Generator', () => {
         apiVersion: 'postgresql.cnpg.io/v1',
         kind: 'Cluster',
         namespace: 'custom-db',
-        current: "status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'True')",
-      });
+        current: "status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'True')"});
     });
 
     it('should handle multiple CEL expression health checks', () => {
@@ -298,21 +278,17 @@ describe('Flux Generator', () => {
         path: './test',
         prune: true,
         wait: true,
-        enabled: true,
         health_check_exprs: [
           {
             api_version: 'postgresql.cnpg.io/v1',
             kind: 'Cluster',
-            current: "status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'True')",
-          },
+            current: "status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'True')"},
           {
             api_version: 'v1',
             kind: 'Service',
             namespace: 'custom',
-            current: 'status.loadBalancer.ingress.size() > 0',
-          },
-        ],
-      };
+            current: 'status.loadBalancer.ingress.size() > 0'},
+        ]};
 
       // Act
       const result = generate_custom_health_checks(kustomization, 'default');
@@ -340,13 +316,9 @@ describe('Flux Generator', () => {
             path: './deployment',
             prune: true,
             wait: true,
-            enabled: true,
             namespace: { default: 'nginx', create: true },
-            substitutions: [{ name: 'replicas', default: '2' }, { name: 'image_tag' }],
-          },
-        ],
-      },
-    };
+            substitutions: [{ name: 'replicas', default: '2' }, { name: 'image_tag' }]},
+        ]}};
 
     it('should use default values', () => {
       // Arrange
@@ -399,12 +371,8 @@ describe('Flux Generator', () => {
               path: './deployment',
               prune: true,
               wait: true,
-              enabled: true,
-              namespace: { default: 'nginx', create: true },
-            },
-          ],
-        },
-      };
+              namespace: { default: 'nginx', create: true }},
+          ]}};
       const kustomization = template.spec.kustomizations[0] as KustomizationType;
       const resolved = resolve_kustomization(template, kustomization);
 
@@ -429,10 +397,8 @@ describe('Flux Generator', () => {
         metadata: { name: 'app' },
         spec: {
           kustomizations: [
-            { name: 'main', path: './main', prune: true, wait: true, enabled: true },
-          ],
-        },
-      };
+            { name: 'main', path: './main', prune: true, wait: true},
+          ]}};
       const kustomization = template.spec.kustomizations[0] as KustomizationType;
       const resolved = resolve_kustomization(template, kustomization);
 

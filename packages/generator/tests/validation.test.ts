@@ -7,15 +7,13 @@ import { build_dependency_graph } from '../src/validation/graph.js';
 import {
   validate_dependencies,
   validate_dependency_graph,
-  validate_template_requirements,
-} from '../src/validation/index.js';
+  validate_template_requirements} from '../src/validation/index.js';
 import {
   create_node_id,
   is_parse_error,
   parse_dependency_ref,
   parse_node_id,
-  resolve_dependency_ref,
-} from '../src/validation/reference.js';
+  resolve_dependency_ref} from '../src/validation/reference.js';
 import type { GraphNodeType } from '../src/validation/types.js';
 
 /**
@@ -31,10 +29,7 @@ function create_test_cluster(name = 'test-cluster'): ClusterType {
       git: {
         owner: 'test',
         repository: 'test',
-        branch: 'main',
-      },
-    },
-  };
+        branch: 'main'}}};
 }
 
 /**
@@ -55,10 +50,7 @@ function create_template(
         prune: true,
         wait: true,
         enabled: k.enabled ?? true,
-        depends_on: k.depends_on,
-      })),
-    },
-  };
+        depends_on: k.depends_on}))}};
 }
 
 describe('Validation Module', () => {
@@ -519,12 +511,8 @@ describe('Validation Module', () => {
               name: 'main',
               path: './main',
               prune: true,
-              wait: true,
-              enabled: true,
-            },
-          ],
-        },
-      };
+              wait: true},
+          ]}};
     }
 
     function create_node(
@@ -535,8 +523,7 @@ describe('Validation Module', () => {
         name,
         role: 'worker',
         address: '192.168.1.1',
-        labels,
-      };
+        labels};
     }
 
     describe('validate_template_requirements', () => {
@@ -557,8 +544,7 @@ describe('Validation Module', () => {
               type: 'nodeLabel',
               key: 'media-vpn',
               value: 'true',
-              atLeast: 1,
-            },
+              atLeast: 1},
           ]),
         ];
         const nodes = [create_node('node1', { 'media-vpn': 'true' })];
@@ -575,8 +561,7 @@ describe('Validation Module', () => {
             {
               type: 'nodeLabel',
               key: 'nvidia.com/gpu',
-              atLeast: 1,
-            },
+              atLeast: 1},
           ]),
         ];
         const nodes = [create_node('node1', { 'nvidia.com/gpu': 'tesla-v100' })];
@@ -594,8 +579,7 @@ describe('Validation Module', () => {
               type: 'nodeLabel',
               key: 'media-vpn',
               value: 'true',
-              atLeast: 1,
-            },
+              atLeast: 1},
           ]),
         ];
         const nodes = [create_node('node1', { 'other-label': 'value' })];
@@ -616,8 +600,7 @@ describe('Validation Module', () => {
               type: 'nodeLabel',
               key: 'media-vpn',
               value: 'true',
-              atLeast: 1,
-            },
+              atLeast: 1},
           ]),
         ];
         const nodes = [create_node('node1', { 'media-vpn': 'false' })];
@@ -635,8 +618,7 @@ describe('Validation Module', () => {
               type: 'nodeLabel',
               key: 'media-vpn',
               value: 'true',
-              atLeast: 2,
-            },
+              atLeast: 2},
           ]),
         ];
         const nodes = [
@@ -659,8 +641,7 @@ describe('Validation Module', () => {
               type: 'nodeLabel',
               key: 'media-vpn',
               value: 'true',
-              atLeast: 2,
-            },
+              atLeast: 2},
           ]),
         ];
         const nodes = [
@@ -682,14 +663,12 @@ describe('Validation Module', () => {
               type: 'nodeLabel',
               key: 'media-vpn',
               value: 'true',
-              atLeast: 1,
-            },
+              atLeast: 1},
             {
               type: 'nodeLabel',
               key: 'media-downloaders',
               value: 'true',
-              atLeast: 1,
-            },
+              atLeast: 1},
           ]),
         ];
         const nodes = [
@@ -710,14 +689,12 @@ describe('Validation Module', () => {
               type: 'nodeLabel',
               key: 'media-vpn',
               value: 'true',
-              atLeast: 1,
-            },
+              atLeast: 1},
             {
               type: 'nodeLabel',
               key: 'media-downloaders',
               value: 'true',
-              atLeast: 1,
-            },
+              atLeast: 1},
           ]),
         ];
         const nodes = [create_node('node1', { 'media-vpn': 'true' })];
@@ -736,15 +713,13 @@ describe('Validation Module', () => {
               type: 'nodeLabel',
               key: 'media-vpn',
               value: 'true',
-              atLeast: 1,
-            },
+              atLeast: 1},
           ]),
           create_template_with_requirements('gpu', [
             {
               type: 'nodeLabel',
               key: 'nvidia.com/gpu',
-              atLeast: 1,
-            },
+              atLeast: 1},
           ]),
         ];
         const nodes = [
@@ -765,8 +740,7 @@ describe('Validation Module', () => {
               type: 'nodeLabel',
               key: 'enabled',
               value: 'true',
-              atLeast: 1,
-            },
+              atLeast: 1},
           ]),
         ];
         const nodes = [create_node('node1', { enabled: true })];
@@ -784,8 +758,7 @@ describe('Validation Module', () => {
               type: 'nodeLabel',
               key: 'priority',
               value: '10',
-              atLeast: 1,
-            },
+              atLeast: 1},
           ]),
         ];
         const nodes = [create_node('node1', { priority: 10 })];
@@ -802,8 +775,7 @@ describe('Validation Module', () => {
             {
               type: 'nodeLabel',
               key: 'special',
-              atLeast: 1,
-            },
+              atLeast: 1},
           ]),
         ];
         const nodes = [create_node('node1')];

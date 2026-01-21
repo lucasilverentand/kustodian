@@ -10,16 +10,12 @@ describe('Cluster Schema', () => {
         apiVersion: 'kustodian.io/v1',
         kind: 'Cluster',
         metadata: {
-          name: 'production',
-        },
+          name: 'production'},
         spec: {
           domain: 'example.com',
           git: {
             owner: 'my-org',
-            repository: 'my-repo',
-          },
-        },
-      };
+            repository: 'my-repo'}}};
 
       // Act
       const result = validate_cluster(cluster);
@@ -40,35 +36,27 @@ describe('Cluster Schema', () => {
         apiVersion: 'kustodian.io/v1',
         kind: 'Cluster',
         metadata: {
-          name: 'full-cluster',
-        },
+          name: 'full-cluster'},
         spec: {
           domain: 'production.example.com',
           git: {
             owner: 'my-org',
             repository: 'gitops-repo',
             branch: 'develop',
-            path: 'clusters/production',
-          },
+            path: 'clusters/production'},
           templates: [
             {
               name: 'nginx',
-              enabled: true,
-              values: { replicas: '3' },
-            },
+              values: { replicas: '3' }},
             {
               name: 'redis',
-              enabled: false,
-            },
+              enabled: false},
           ],
           plugins: [
             {
               name: 'doppler',
-              config: { project: 'my-project' },
-            },
-          ],
-        },
-      };
+              config: { project: 'my-project' }},
+          ]}};
 
       // Act
       const result = validate_cluster(cluster);
@@ -88,17 +76,13 @@ describe('Cluster Schema', () => {
         apiVersion: 'kustodian.io/v1',
         kind: 'Cluster',
         metadata: {
-          name: 'test',
-        },
+          name: 'test'},
         spec: {
           domain: 'test.com',
           git: {
             owner: 'org',
-            repository: 'repo',
-          },
-          templates: [{ name: 'nginx' }],
-        },
-      };
+            repository: 'repo'},
+          templates: [{ name: 'nginx' }]}};
 
       // Act
       const result = validate_cluster(cluster);
@@ -108,7 +92,7 @@ describe('Cluster Schema', () => {
       if (result.success) {
         const templates = result.data.spec.templates;
         expect(templates).toBeDefined();
-        expect(templates?.[0]?.enabled).toBe(true);
+        expect(templates?.[0]?.name).toBe('nginx');
       }
     });
 
@@ -120,9 +104,7 @@ describe('Cluster Schema', () => {
         metadata: { name: 'test' },
         spec: {
           domain: 'test.com',
-          git: { owner: 'org', repository: 'repo' },
-        },
-      };
+          git: { owner: 'org', repository: 'repo' }}};
 
       // Act
       const result = validate_cluster(cluster);
@@ -139,9 +121,7 @@ describe('Cluster Schema', () => {
         metadata: { name: 'test' },
         spec: {
           domain: 'test.com',
-          git: { owner: 'org', repository: 'repo' },
-        },
-      };
+          git: { owner: 'org', repository: 'repo' }}};
 
       // Act
       const result = validate_cluster(cluster);
@@ -157,9 +137,7 @@ describe('Cluster Schema', () => {
         kind: 'Cluster',
         metadata: { name: 'test' },
         spec: {
-          git: { owner: 'org', repository: 'repo' },
-        },
-      };
+          git: { owner: 'org', repository: 'repo' }}};
 
       // Act
       const result = validate_cluster(cluster);
@@ -175,9 +153,7 @@ describe('Cluster Schema', () => {
         kind: 'Cluster',
         metadata: { name: 'test' },
         spec: {
-          domain: 'test.com',
-        },
-      };
+          domain: 'test.com'}};
 
       // Act
       const result = validate_cluster(cluster);
@@ -194,9 +170,7 @@ describe('Cluster Schema', () => {
         metadata: { name: 'test' },
         spec: {
           domain: 'test.com',
-          git: { owner: '', repository: 'repo' },
-        },
-      };
+          git: { owner: '', repository: 'repo' }}};
 
       // Act
       const result = validate_cluster(cluster);
@@ -213,9 +187,7 @@ describe('Cluster Schema', () => {
         metadata: { name: 'test' },
         spec: {
           domain: 'test.com',
-          git: { owner: 'org', repository: '' },
-        },
-      };
+          git: { owner: 'org', repository: '' }}};
 
       // Act
       const result = validate_cluster(cluster);
@@ -233,9 +205,7 @@ describe('Cluster Schema', () => {
         spec: {
           domain: 'test.com',
           git: { owner: 'org', repository: 'repo' },
-          templates: [{ name: '' }],
-        },
-      };
+          templates: [{ name: '' }]}};
 
       // Act
       const result = validate_cluster(cluster);
@@ -253,9 +223,7 @@ describe('Cluster Schema', () => {
         spec: {
           domain: 'test.com',
           git: { owner: 'org', repository: 'repo' },
-          plugins: [{ name: '' }],
-        },
-      };
+          plugins: [{ name: '' }]}};
 
       // Act
       const result = validate_cluster(cluster);
@@ -273,9 +241,7 @@ describe('Cluster Schema', () => {
         spec: {
           code: 'prod',
           domain: 'example.com',
-          git: { owner: 'org', repository: 'repo' },
-        },
-      };
+          git: { owner: 'org', repository: 'repo' }}};
 
       // Act
       const result = validate_cluster(cluster);
@@ -298,10 +264,7 @@ describe('Cluster Schema', () => {
           git: { owner: 'org', repository: 'repo' },
           github: {
             organization: 'acme-corp',
-            repository: 'infrastructure',
-          },
-        },
-      };
+            repository: 'infrastructure'}}};
 
       // Act
       const result = validate_cluster(cluster);
@@ -327,10 +290,7 @@ describe('Cluster Schema', () => {
           github: {
             organization: 'acme-corp',
             repository: 'infrastructure',
-            branch: 'production',
-          },
-        },
-      };
+            branch: 'production'}}};
 
       // Act
       const result = validate_cluster(cluster);
@@ -355,10 +315,7 @@ describe('Cluster Schema', () => {
           github: {
             organization: 'acme-corp',
             repository: 'infrastructure',
-            branch: 'production',
-          },
-        },
-      };
+            branch: 'production'}}};
 
       // Act
       const result = validate_cluster(cluster);
@@ -380,9 +337,7 @@ describe('Cluster Schema', () => {
         spec: {
           code: '',
           domain: 'test.com',
-          git: { owner: 'org', repository: 'repo' },
-        },
-      };
+          git: { owner: 'org', repository: 'repo' }}};
 
       // Act
       const result = validate_cluster(cluster);
@@ -400,9 +355,7 @@ describe('Cluster Schema', () => {
         spec: {
           domain: 'test.com',
           git: { owner: 'org', repository: 'repo' },
-          github: { organization: '', repository: 'infra' },
-        },
-      };
+          github: { organization: '', repository: 'infra' }}};
 
       // Act
       const result = validate_cluster(cluster);
@@ -420,9 +373,7 @@ describe('Cluster Schema', () => {
         spec: {
           domain: 'test.com',
           git: { owner: 'org', repository: 'repo' },
-          github: { organization: 'acme', repository: '' },
-        },
-      };
+          github: { organization: 'acme', repository: '' }}};
 
       // Act
       const result = validate_cluster(cluster);
@@ -443,14 +394,9 @@ describe('Cluster Schema', () => {
           secrets: {
             doppler: {
               project: 'infrastructure',
-              config: 'cluster_production',
-            },
+              config: 'cluster_production'},
             onepassword: {
-              vault: 'Infrastructure',
-            },
-          },
-        },
-      };
+              vault: 'Infrastructure'}}}};
 
       // Act
       const result = validate_cluster(cluster);
@@ -479,12 +425,7 @@ describe('Cluster Schema', () => {
               config: 'cluster_production',
               service_token: {
                 type: '1password',
-                ref: 'op://Operations/Doppler/service_token',
-              },
-            },
-          },
-        },
-      };
+                ref: 'op://Operations/Doppler/service_token'}}}}};
 
       // Act
       const result = validate_cluster(cluster);
@@ -512,11 +453,7 @@ describe('Cluster Schema', () => {
           secrets: {
             doppler: {
               project: '',
-              config: 'prod',
-            },
-          },
-        },
-      };
+              config: 'prod'}}}};
 
       // Act
       const result = validate_cluster(cluster);
@@ -536,11 +473,7 @@ describe('Cluster Schema', () => {
           git: { owner: 'org', repository: 'repo' },
           secrets: {
             onepassword: {
-              vault: '',
-            },
-          },
-        },
-      };
+              vault: ''}}}};
 
       // Act
       const result = validate_cluster(cluster);

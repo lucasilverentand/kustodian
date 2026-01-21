@@ -13,8 +13,7 @@ import {
   get_required_substitutions,
   substitute_object,
   substitute_string,
-  validate_substitutions,
-} from '../src/substitution.js';
+  validate_substitutions} from '../src/substitution.js';
 
 describe('Substitution Engine', () => {
   describe('SUBSTITUTION_PATTERN', () => {
@@ -110,8 +109,7 @@ describe('Substitution Engine', () => {
       // Arrange
       const obj = {
         name: '${app_name}',
-        namespace: '${ns}',
-      };
+        namespace: '${ns}'};
       const values = { app_name: 'nginx', ns: 'production' };
 
       // Act
@@ -120,17 +118,14 @@ describe('Substitution Engine', () => {
       // Assert
       expect(result).toEqual({
         name: 'nginx',
-        namespace: 'production',
-      });
+        namespace: 'production'});
     });
 
     it('should handle nested objects', () => {
       // Arrange
       const obj = {
         outer: {
-          inner: '${value}',
-        },
-      };
+          inner: '${value}'}};
       const values = { value: 'test' };
 
       // Act
@@ -139,9 +134,7 @@ describe('Substitution Engine', () => {
       // Assert
       expect(result).toEqual({
         outer: {
-          inner: 'test',
-        },
-      });
+          inner: 'test'}});
     });
 
     it('should handle arrays', () => {
@@ -160,10 +153,8 @@ describe('Substitution Engine', () => {
       // Arrange
       const obj = {
         count: 42,
-        enabled: true,
         data: null,
-        name: '${name}',
-      };
+        name: '${name}'};
       const values = { name: 'test' };
 
       // Act
@@ -172,10 +163,8 @@ describe('Substitution Engine', () => {
       // Assert
       expect(result).toEqual({
         count: 42,
-        enabled: true,
         data: null,
-        name: 'test',
-      });
+        name: 'test'});
     });
   });
 
@@ -187,9 +176,7 @@ describe('Substitution Engine', () => {
       path: './test',
       prune: true,
       wait: true,
-      enabled: true,
-      substitutions,
-    });
+      substitutions});
 
     it('should use default values when no cluster values provided', () => {
       // Arrange
@@ -204,8 +191,7 @@ describe('Substitution Engine', () => {
       // Assert
       expect(result).toEqual({
         replicas: '2',
-        image: 'nginx:latest',
-      });
+        image: 'nginx:latest'});
     });
 
     it('should override defaults with cluster values', () => {
@@ -222,8 +208,7 @@ describe('Substitution Engine', () => {
       // Assert
       expect(result).toEqual({
         replicas: '5',
-        image: 'nginx:latest',
-      });
+        image: 'nginx:latest'});
     });
 
     it('should exclude substitutions without values', () => {
@@ -254,8 +239,7 @@ describe('Substitution Engine', () => {
       // Assert
       expect(result).toEqual({
         timezone: 'Europe/Amsterdam',
-        env_var: 'PRODUCTION',
-      });
+        env_var: 'PRODUCTION'});
     });
   });
 
@@ -267,9 +251,7 @@ describe('Substitution Engine', () => {
         path: './test',
         prune: true,
         wait: true,
-        enabled: true,
-        substitutions: [{ name: 'foo', default: '1' }, { name: 'bar' }],
-      };
+        substitutions: [{ name: 'foo', default: '1' }, { name: 'bar' }]};
 
       // Act
       const result = get_defined_substitutions(kustomization);
@@ -284,9 +266,7 @@ describe('Substitution Engine', () => {
         name: 'test',
         path: './test',
         prune: true,
-        wait: true,
-        enabled: true,
-      };
+        wait: true};
 
       // Act
       const result = get_defined_substitutions(kustomization);
@@ -304,9 +284,7 @@ describe('Substitution Engine', () => {
         path: './test',
         prune: true,
         wait: true,
-        enabled: true,
-        substitutions: [{ name: 'optional', default: 'value' }, { name: 'required' }],
-      };
+        substitutions: [{ name: 'optional', default: 'value' }, { name: 'required' }]};
 
       // Act
       const result = get_required_substitutions(kustomization);
@@ -324,9 +302,7 @@ describe('Substitution Engine', () => {
         path: './test',
         prune: true,
         wait: true,
-        enabled: true,
-        substitutions: [{ name: 'required' }, { name: 'optional', default: 'default' }],
-      };
+        substitutions: [{ name: 'required' }, { name: 'optional', default: 'default' }]};
       const cluster_values = { required: 'value' };
 
       // Act
@@ -344,9 +320,7 @@ describe('Substitution Engine', () => {
         path: './test',
         prune: true,
         wait: true,
-        enabled: true,
-        substitutions: [{ name: 'required1' }, { name: 'required2' }],
-      };
+        substitutions: [{ name: 'required1' }, { name: 'required2' }]};
 
       // Act
       const result = validate_substitutions(kustomization, {});
@@ -364,9 +338,7 @@ describe('Substitution Engine', () => {
         path: './test',
         prune: true,
         wait: true,
-        enabled: true,
-        substitutions: [{ name: 'defined' }],
-      };
+        substitutions: [{ name: 'defined' }]};
       const cluster_values = { defined: 'value', unused: 'extra' };
 
       // Act
@@ -418,9 +390,7 @@ describe('Substitution Engine', () => {
           const helm = v.helm ?? { repository: 'https://example.com', chart: 'test' };
           return { name: v.name, default: v.default, helm };
         }),
-        kustomizations: [{ name: 'app', path: './app', prune: true, wait: true, enabled: true }],
-      },
-    });
+        kustomizations: [{ name: 'app', path: './app', prune: true, wait: true}]}});
 
     it('should collect image version entries with defaults', () => {
       // Arrange
@@ -429,8 +399,7 @@ describe('Substitution Engine', () => {
         {
           name: 'redis_version',
           default: '7.2.0',
-          registry: { image: 'redis', type: 'dockerhub' },
-        },
+          registry: { image: 'redis', type: 'dockerhub' }},
       ]);
 
       // Act
@@ -439,8 +408,7 @@ describe('Substitution Engine', () => {
       // Assert
       expect(result).toEqual({
         nginx_version: '1.25.0',
-        redis_version: '7.2.0',
-      });
+        redis_version: '7.2.0'});
     });
 
     it('should collect helm version entries with defaults', () => {
@@ -449,8 +417,7 @@ describe('Substitution Engine', () => {
         {
           name: 'traefik_version',
           default: '28.0.0',
-          helm: { repository: 'https://traefik.github.io/charts', chart: 'traefik' },
-        },
+          helm: { repository: 'https://traefik.github.io/charts', chart: 'traefik' }},
       ]);
 
       // Act
@@ -458,8 +425,7 @@ describe('Substitution Engine', () => {
 
       // Assert
       expect(result).toEqual({
-        traefik_version: '28.0.0',
-      });
+        traefik_version: '28.0.0'});
     });
 
     it('should override defaults with cluster values', () => {
@@ -474,8 +440,7 @@ describe('Substitution Engine', () => {
 
       // Assert
       expect(result).toEqual({
-        nginx_version: '1.26.0',
-      });
+        nginx_version: '1.26.0'});
     });
 
     it('should exclude versions without values', () => {
@@ -500,9 +465,7 @@ describe('Substitution Engine', () => {
         kind: 'Template',
         metadata: { name: 'test' },
         spec: {
-          kustomizations: [{ name: 'app', path: './app', prune: true, wait: true, enabled: true }],
-        },
-      };
+          kustomizations: [{ name: 'app', path: './app', prune: true, wait: true}]}};
 
       // Act
       const result = collect_template_versions(template);
@@ -522,9 +485,7 @@ describe('Substitution Engine', () => {
       metadata: { name: 'test-template' },
       spec: {
         versions,
-        kustomizations: [kustomization],
-      },
-    });
+        kustomizations: [kustomization]}});
 
     it('should combine template versions and kustomization substitutions', () => {
       // Arrange
@@ -533,9 +494,7 @@ describe('Substitution Engine', () => {
         path: './app',
         prune: true,
         wait: true,
-        enabled: true,
-        substitutions: [{ name: 'replicas', default: '3' }],
-      };
+        substitutions: [{ name: 'replicas', default: '3' }]};
       const template = create_template_with_versions(
         [{ name: 'nginx_version', default: '1.25.0', registry: { image: 'nginx' } }],
         kustomization,
@@ -547,8 +506,7 @@ describe('Substitution Engine', () => {
       // Assert
       expect(result).toEqual({
         nginx_version: '1.25.0',
-        replicas: '3',
-      });
+        replicas: '3'});
     });
 
     it('should give kustomization substitutions precedence over template versions', () => {
@@ -558,9 +516,7 @@ describe('Substitution Engine', () => {
         path: './app',
         prune: true,
         wait: true,
-        enabled: true,
-        substitutions: [{ name: 'shared_name', default: 'from_kustomization' }],
-      };
+        substitutions: [{ name: 'shared_name', default: 'from_kustomization' }]};
       const template = create_template_with_versions(
         [{ name: 'shared_name', default: 'from_template', registry: { image: 'test' } }],
         kustomization,
@@ -580,9 +536,7 @@ describe('Substitution Engine', () => {
         path: './app',
         prune: true,
         wait: true,
-        enabled: true,
-        substitutions: [{ name: 'version', default: 'from_kustomization' }],
-      };
+        substitutions: [{ name: 'version', default: 'from_kustomization' }]};
       const template = create_template_with_versions(
         [{ name: 'version', default: 'from_template', registry: { image: 'test' } }],
         kustomization,
