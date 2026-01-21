@@ -56,15 +56,15 @@ describe('E2E: CLI Commands', () => {
         // Verify all expected files were created
         expect(fs.existsSync(path.join(project_path, 'kustodian.yaml'))).toBe(true);
         expect(
-          fs.existsSync(path.join(project_path, 'templates', 'example', 'template.yaml')),
+          fs.existsSync(path.join(project_path, 'templates', 'nginx', 'template.yaml')),
         ).toBe(true);
         expect(
           fs.existsSync(
-            path.join(project_path, 'templates', 'example', 'app', 'kustomization.yaml'),
+            path.join(project_path, 'templates', 'nginx', 'web', 'kustomization.yaml'),
           ),
         ).toBe(true);
         expect(
-          fs.existsSync(path.join(project_path, 'templates', 'example', 'app', 'deployment.yaml')),
+          fs.existsSync(path.join(project_path, 'templates', 'nginx', 'web', 'deployment.yaml')),
         ).toBe(true);
         expect(fs.existsSync(path.join(project_path, 'clusters', 'local', 'cluster.yaml'))).toBe(
           true,

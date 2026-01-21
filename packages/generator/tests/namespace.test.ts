@@ -10,8 +10,7 @@ import {
   generate_namespace_resources,
   get_kustomization_namespace,
   get_template_namespaces,
-  is_system_namespace,
-} from '../src/namespace.js';
+  is_system_namespace} from '../src/namespace.js';
 import type { ResolvedTemplateType } from '../src/types.js';
 
 describe('Namespace Module', () => {
@@ -19,14 +18,12 @@ describe('Namespace Module', () => {
     apiVersion: 'kustodian.io/v1',
     kind: 'Template',
     metadata: { name },
-    spec: { kustomizations },
-  });
+    spec: { kustomizations }});
 
   const create_resolved = (template: TemplateType, enabled = true): ResolvedTemplateType => ({
     template,
     values: {},
-    enabled,
-  });
+    enabled});
 
   describe('SYSTEM_NAMESPACES', () => {
     it('should include common system namespaces', () => {
@@ -46,9 +43,7 @@ describe('Namespace Module', () => {
         path: './test',
         namespace: { default: 'my-namespace', create: true },
         prune: true,
-        wait: true,
-        enabled: true,
-      };
+        wait: true};
 
       // Act
       const result = get_kustomization_namespace(kustomization);
@@ -63,9 +58,7 @@ describe('Namespace Module', () => {
         name: 'test',
         path: './test',
         prune: true,
-        wait: true,
-        enabled: true,
-      };
+        wait: true};
 
       // Act
       const result = get_kustomization_namespace(kustomization);
@@ -84,18 +77,14 @@ describe('Namespace Module', () => {
           path: './k1',
           namespace: { default: 'ns1', create: true },
           prune: true,
-          wait: true,
-          enabled: true,
-        },
+          wait: true},
         {
           name: 'k2',
           path: './k2',
           namespace: { default: 'ns2', create: true },
           prune: true,
-          wait: true,
-          enabled: true,
-        },
-        { name: 'k3', path: './k3', prune: true, wait: true, enabled: true },
+          wait: true},
+        { name: 'k3', path: './k3', prune: true, wait: true},
       ]);
 
       // Act
@@ -115,17 +104,13 @@ describe('Namespace Module', () => {
           path: './k1',
           namespace: { default: 'same', create: true },
           prune: true,
-          wait: true,
-          enabled: true,
-        },
+          wait: true},
         {
           name: 'k2',
           path: './k2',
           namespace: { default: 'same', create: true },
           prune: true,
-          wait: true,
-          enabled: true,
-        },
+          wait: true},
       ]);
 
       // Act
@@ -145,9 +130,7 @@ describe('Namespace Module', () => {
           path: './k1',
           namespace: { default: 'ns1', create: true },
           prune: true,
-          wait: true,
-          enabled: true,
-        },
+          wait: true},
       ]);
       const t2 = create_template('t2', [
         {
@@ -155,9 +138,7 @@ describe('Namespace Module', () => {
           path: './k2',
           namespace: { default: 'ns2', create: true },
           prune: true,
-          wait: true,
-          enabled: true,
-        },
+          wait: true},
       ]);
       const templates = [create_resolved(t1), create_resolved(t2)];
 
@@ -177,9 +158,7 @@ describe('Namespace Module', () => {
           path: './k1',
           namespace: { default: 'enabled', create: true },
           prune: true,
-          wait: true,
-          enabled: true,
-        },
+          wait: true},
       ]);
       const t2 = create_template('t2', [
         {
@@ -187,9 +166,7 @@ describe('Namespace Module', () => {
           path: './k2',
           namespace: { default: 'disabled', create: true },
           prune: true,
-          wait: true,
-          enabled: true,
-        },
+          wait: true},
       ]);
       const templates = [create_resolved(t1, true), create_resolved(t2, false)];
 
@@ -209,25 +186,19 @@ describe('Namespace Module', () => {
           path: './k1',
           namespace: { default: 'zebra', create: true },
           prune: true,
-          wait: true,
-          enabled: true,
-        },
+          wait: true},
         {
           name: 'k2',
           path: './k2',
           namespace: { default: 'alpha', create: true },
           prune: true,
-          wait: true,
-          enabled: true,
-        },
+          wait: true},
         {
           name: 'k3',
           path: './k3',
           namespace: { default: 'middle', create: true },
           prune: true,
-          wait: true,
-          enabled: true,
-        },
+          wait: true},
       ]);
       const templates = [create_resolved(t1)];
 
@@ -279,8 +250,7 @@ describe('Namespace Module', () => {
       expect(result).toEqual({
         apiVersion: 'v1',
         kind: 'Namespace',
-        metadata: { name: 'my-namespace' },
-      });
+        metadata: { name: 'my-namespace' }});
     });
 
     it('should create namespace with labels', () => {
@@ -304,25 +274,19 @@ describe('Namespace Module', () => {
           path: './k1',
           namespace: { default: 'production', create: true },
           prune: true,
-          wait: true,
-          enabled: true,
-        },
+          wait: true},
         {
           name: 'k2',
           path: './k2',
           namespace: { default: 'default', create: true },
           prune: true,
-          wait: true,
-          enabled: true,
-        },
+          wait: true},
         {
           name: 'k3',
           path: './k3',
           namespace: { default: 'nginx', create: true },
           prune: true,
-          wait: true,
-          enabled: true,
-        },
+          wait: true},
       ]);
       const templates = [create_resolved(template)];
 
@@ -344,9 +308,7 @@ describe('Namespace Module', () => {
           path: './k1',
           namespace: { default: 'ns1', create: true },
           prune: true,
-          wait: true,
-          enabled: true,
-        },
+          wait: true},
       ]);
       const templates = [create_resolved(template)];
       const labels = { managed: 'true' };

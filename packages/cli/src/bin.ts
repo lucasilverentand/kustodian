@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { apply_command } from './commands/apply.js';
 import { init_command } from './commands/init.js';
 import { sources_command } from './commands/sources.js';
@@ -8,7 +11,9 @@ import { validate_command } from './commands/validate.js';
 import { create_container } from './container.js';
 import { create_cli } from './runner.js';
 
-const VERSION = '0.1.0';
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf-8'));
+const VERSION = pkg.version;
 
 async function main() {
   const args = process.argv.slice(2);

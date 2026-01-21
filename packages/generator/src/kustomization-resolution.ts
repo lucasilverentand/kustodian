@@ -6,50 +6,11 @@ import type {
 } from '@kustodian/schema';
 
 /**
- * Resolved kustomization enablement and preservation state.
+ * Resolved kustomization state (preservation only).
+ * Enablement is now determined at the template level - templates listed in cluster.yaml are deployed.
  */
 export interface ResolvedKustomizationStateType {
-  enabled: boolean;
   preservation: PreservationPolicyType;
-}
-
-/**
- * Resolves kustomization enablement state from template defaults and cluster overrides.
- *
- * Resolution order (last wins):
- * 1. Template kustomization default (enabled field, defaults to true)
- * 2. Cluster kustomization override (if specified)
- *
- * @param kustomization - Template kustomization definition
- * @param template_config - Cluster template configuration (may be undefined)
- * @param kustomization_name - Name of the kustomization to resolve
- * @returns Resolved enablement state
- */
-export function resolve_kustomization_enabled(
-  kustomization: KustomizationType,
-  template_config: TemplateConfigType | undefined,
-  kustomization_name: string,
-): boolean {
-  // Start with template default (defaults to true via schema)
-  const template_default = kustomization.enabled ?? true;
-
-  // Check for cluster override
-  if (!template_config?.kustomizations) {
-    return template_default;
-  }
-
-  const override = template_config.kustomizations[kustomization_name];
-  if (override === undefined) {
-    return template_default;
-  }
-
-  // Handle simple boolean override
-  if (typeof override === 'boolean') {
-    return override;
-  }
-
-  // Handle complex override object
-  return override.enabled;
 }
 
 /**
@@ -80,7 +41,7 @@ export function resolve_kustomization_preservation(
   }
 
   const override = template_config.kustomizations[kustomization_name];
-  if (override === undefined || typeof override === 'boolean') {
+  if (override === undefined) {
     return template_default;
   }
 
@@ -96,7 +57,8 @@ export function resolve_kustomization_preservation(
 }
 
 /**
- * Resolves complete kustomization state (enabled + preservation).
+ * Resolves complete kustomization state (preservation only).
+ * Template enablement is now determined by whether the template is listed in cluster.yaml.
  *
  * @param kustomization - Template kustomization definition
  * @param template_config - Cluster template configuration (may be undefined)
@@ -109,7 +71,6 @@ export function resolve_kustomization_state(
   kustomization_name: string,
 ): ResolvedKustomizationStateType {
   return {
-    enabled: resolve_kustomization_enabled(kustomization, template_config, kustomization_name),
     preservation: resolve_kustomization_preservation(
       kustomization,
       template_config,

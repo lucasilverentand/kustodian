@@ -20,12 +20,10 @@ describe('E2E: Generator', () => {
     const templates = project.templates.map((t) => t.template);
 
     const generator = create_generator({
-      flux_namespace: 'flux-system',
-    });
+      flux_namespace: 'flux-system'});
 
     const result = await generator.generate(cluster.cluster, templates, {
-      output_dir: '/tmp/e2e-output',
-    });
+      output_dir: '/tmp/e2e-output'});
 
     expect(result.success).toBe(true);
     if (result.success) {
@@ -59,8 +57,7 @@ describe('E2E: Generator', () => {
     const templates = project.templates.map((t) => t.template);
 
     const generator = create_generator({
-      flux_namespace: 'flux-system',
-    });
+      flux_namespace: 'flux-system'});
 
     const result = await generator.generate(cluster.cluster, templates);
 
@@ -94,12 +91,12 @@ describe('E2E: Generator', () => {
     const first_resolved = resolved[0];
     expect(first_resolved).toBeDefined();
     if (first_resolved) {
-      expect(first_resolved.enabled).toBe(true);
+      expect(first_resolved.enabled).toBe(true); // Listed in cluster = enabled
       expect(first_resolved.values['replicas']).toBe('3'); // From cluster config
     }
   });
 
-  it('should skip disabled templates', async () => {
+  it('should skip templates not listed in cluster.yaml', async () => {
     const project_result = await load_project(VALID_PROJECT);
     expect(project_result.success).toBe(true);
     if (!project_result.success) return;
@@ -111,21 +108,19 @@ describe('E2E: Generator', () => {
     expect(first_cluster).toBeDefined();
     if (!first_cluster) return;
 
-    // Create a cluster config with disabled template
-    const cluster_with_disabled = {
+    // Create a cluster config with no templates listed (opt-in model)
+    const cluster_with_no_templates = {
       ...first_cluster.cluster,
       spec: {
         ...first_cluster.cluster.spec,
-        templates: [{ name: 'example', enabled: false }],
-      },
-    };
+        templates: []}}; // Empty = no templates enabled
 
     const generator = create_generator();
-    const result = await generator.generate(cluster_with_disabled, templates);
+    const result = await generator.generate(cluster_with_no_templates, templates);
 
     expect(result.success).toBe(true);
     if (result.success) {
-      // No kustomizations should be generated for disabled templates
+      // No kustomizations should be generated for templates not listed
       expect(result.value.kustomizations.length).toBe(0);
     }
   });

@@ -59,13 +59,12 @@ export function generate_preservation_patches(preserved_types: string[]): Array<
   }
 
   return preserved_types.map((kind) => ({
-    patch: `
-apiVersion: v1
+    patch: `apiVersion: v1
 kind: ${kind}
 metadata:
+  name: preserved-resource
   labels:
-    kustodian.io/preserve: "true"
-`,
+    kustodian.io/preserve: "true"`,
     target: {
       kind,
     },

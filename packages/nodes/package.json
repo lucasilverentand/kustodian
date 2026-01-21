@@ -3,21 +3,29 @@
   "version": "1.1.1",
   "description": "Node definitions, roles, and labeling for Kustodian",
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
   },
-  "files": ["src"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "test": "bun test",
     "test:watch": "bun test --watch",
-    "typecheck": "bun run tsc --noEmit"
+    "typecheck": "bun run tsc --noEmit",
+    "build": "bun build src/index.ts --outdir dist --target node --format esm && tsc --emitDeclarationOnly --outDir dist",
+    "prepublishOnly": "bun run build"
   },
-  "keywords": ["kustodian", "nodes", "kubernetes"],
+  "keywords": [
+    "kustodian",
+    "nodes",
+    "kubernetes"
+  ],
   "author": "Luca Silverentand <luca@onezero.company>",
   "license": "MIT",
   "repository": {
@@ -26,7 +34,8 @@
     "directory": "packages/nodes"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
   },
   "dependencies": {
     "@kustodian/core": "workspace:*",

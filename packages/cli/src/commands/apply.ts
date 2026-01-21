@@ -1,4 +1,6 @@
 import { exec } from 'node:child_process';
+import * as path from 'node:path';
+import { createInterface } from 'node:readline';
 import { promisify } from 'node:util';
 import { is_success, success } from '@kustodian/core';
 import { validate_template_requirements } from '@kustodian/generator';
@@ -9,6 +11,9 @@ import type { ClusterType } from '@kustodian/schema';
 import { define_command } from '../command.js';
 
 const execAsync = promisify(exec);
+
+const OCI_REGISTRY_SECRET_NAME = 'kustodian-oci-registry';
+const FLUX_NAMESPACE = 'flux-system';
 
 /**
  * Apply command - orchestrates full cluster setup:
@@ -296,8 +301,8 @@ export const apply_command = define_command({
 
       // Validate template requirements
       console.log('  → Validating template requirements...');
-      const enabled_template_refs =
-        loaded_cluster.cluster.spec.templates?.filter((t) => t.enabled !== false) || [];
+      // All templates listed in cluster.yaml are deployed (opt-in model)
+      const enabled_template_refs = loaded_cluster.cluster.spec.templates || [];
 
       if (enabled_template_refs.length > 0) {
         const enabled_templates = project.templates
@@ -333,9 +338,20 @@ export const apply_command = define_command({
 
         const { create_generator, serialize_resource } = await import('@kustodian/generator');
         const oci_repository_name = 'kustodian-oci';
+
+        // Build template paths map - maps template name to relative path from templates/
+        const templates_dir = path.join(project_root, 'templates');
+        const template_paths = new Map<string, string>();
+        for (const t of project.templates) {
+          // Get relative path from templates directory
+          const relative_path = path.relative(templates_dir, t.path);
+          template_paths.set(t.template.metadata.name, relative_path);
+        }
+
         const generator = create_generator({
           flux_namespace: 'flux-system',
           git_repository_name: oci_repository_name,
+          template_paths,
         });
 
         const gen_result = await generator.generate(
@@ -352,8 +368,16 @@ export const apply_command = define_command({
         const gen_data = gen_result.value;
         console.log(`  ✓ Generated ${gen_data.kustomizations.length} Flux Kustomizations`);
 
+        // Ensure OCI registry authentication
+        const oci_config = loaded_cluster.cluster.spec.oci;
+        console.log('  → Checking OCI registry authentication...');
+        const auth_result = await ensure_oci_registry_secret(oci_config.registry, dry_run);
+
         if (dry_run) {
           console.log('\n  [dry-run] Would push to OCI and apply Flux resources');
+          if (auth_result.has_auth) {
+            console.log(`  → Secret: ${OCI_REGISTRY_SECRET_NAME} (registry auth)`);
+          }
           if (gen_data.oci_repository) {
             console.log(`  → OCIRepository: ${gen_data.oci_repository.metadata.name}`);
           }
@@ -389,10 +413,19 @@ export const apply_command = define_command({
             // Build combined YAML for all resources
             const resources: object[] = [];
 
-            // Add OCIRepository with correct tag
+            // Add OCIRepository with correct tag and auth
             if (gen_data.oci_repository) {
               const oci_repo = { ...gen_data.oci_repository };
               oci_repo.spec = { ...oci_repo.spec, ref: { tag } };
+
+              // Add secretRef if auth is configured
+              if (auth_result.has_auth) {
+                oci_repo.spec = {
+                  ...oci_repo.spec,
+                  secretRef: { name: OCI_REGISTRY_SECRET_NAME },
+                };
+              }
+
               resources.push(oci_repo);
             }
 
@@ -517,5 +550,177 @@ async function get_git_revision(project_root: string): Promise<string> {
     return `sha1:${stdout.trim()}`;
   } catch {
     return 'unknown';
+  }
+}
+
+/**
+ * Prompts for user input with hidden option for sensitive data.
+ */
+async function prompt_for_input(message: string, hidden = false): Promise<string> {
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    if (hidden && process.stdin.isTTY) {
+      process.stdout.write(message);
+      const stdin = process.stdin;
+      stdin.setRawMode?.(true);
+      stdin.resume();
+
+      let input = '';
+      const onData = (char: Buffer): void => {
+        const c = char.toString();
+        if (c === '\n' || c === '\r') {
+          stdin.setRawMode?.(false);
+          stdin.removeListener('data', onData);
+          process.stdout.write('\n');
+          rl.close();
+          resolve(input);
+        } else if (c === '\u0003') {
+          process.exit(1);
+        } else if (c === '\u007F') {
+          if (input.length > 0) input = input.slice(0, -1);
+        } else {
+          input += c;
+        }
+      };
+      stdin.on('data', onData);
+    } else {
+      rl.question(message, (answer) => {
+        rl.close();
+        resolve(answer);
+      });
+    }
+  });
+}
+
+/**
+ * Gets the OCI registry token from environment or prompts user.
+ */
+async function get_oci_registry_token(registry: string): Promise<string | undefined> {
+  if (registry === 'ghcr.io') {
+    // Check environment variables
+    const env_token = process.env['GITHUB_TOKEN'] || process.env['GH_TOKEN'];
+    if (env_token) {
+      console.log('    → Using GITHUB_TOKEN from environment');
+      return env_token;
+    }
+
+    // Try gh CLI
+    try {
+      const { stdout } = await execAsync('gh auth token', { timeout: 5000 });
+      const gh_token = stdout.trim();
+      if (gh_token) {
+        console.log('    → Using token from gh CLI');
+        return gh_token;
+      }
+    } catch {
+      // gh CLI not available
+    }
+
+    // Prompt user
+    console.log('    → No GHCR token found (checked: GITHUB_TOKEN, GH_TOKEN, gh CLI)');
+    console.log('    → Create a token at: https://github.com/settings/tokens');
+    console.log('    → Required scope: read:packages');
+    const input = await prompt_for_input('    Enter GitHub token (or Enter to skip): ', true);
+    return input || undefined;
+  }
+
+  // Generic registry
+  const username = process.env['REGISTRY_USERNAME'];
+  const password = process.env['REGISTRY_PASSWORD'];
+  if (username && password) {
+    return `${username}:${password}`;
+  }
+
+  return undefined;
+}
+
+/**
+ * Creates a dockerconfigjson Secret manifest for OCI registry auth.
+ */
+function create_registry_secret_manifest(registry: string, token: string): object {
+  const authString = token.includes(':')
+    ? Buffer.from(token).toString('base64')
+    : Buffer.from(`_:${token}`).toString('base64');
+
+  return {
+    apiVersion: 'v1',
+    kind: 'Secret',
+    metadata: {
+      name: OCI_REGISTRY_SECRET_NAME,
+      namespace: FLUX_NAMESPACE,
+    },
+    type: 'kubernetes.io/dockerconfigjson',
+    data: {
+      '.dockerconfigjson': Buffer.from(
+        JSON.stringify({ auths: { [registry]: { auth: authString } } }),
+      ).toString('base64'),
+    },
+  };
+}
+
+/**
+ * Ensures OCI registry secret exists, creating if needed.
+ */
+async function ensure_oci_registry_secret(
+  registry: string,
+  dry_run: boolean,
+): Promise<{ has_auth: boolean; secret?: object }> {
+  // Check if secret exists
+  try {
+    await execAsync(`kubectl get secret ${OCI_REGISTRY_SECRET_NAME} -n ${FLUX_NAMESPACE}`, {
+      timeout: 5000,
+    });
+    console.log('    ✓ OCI registry secret exists');
+    return { has_auth: true };
+  } catch {
+    // Need to create
+  }
+
+  const token = await get_oci_registry_token(registry);
+  if (!token) {
+    console.log('    → No credentials provided, OCI will be unauthenticated');
+    return { has_auth: false };
+  }
+
+  const secret = create_registry_secret_manifest(registry, token);
+
+  if (dry_run) {
+    console.log(`    [dry-run] Would create secret: ${OCI_REGISTRY_SECRET_NAME}`);
+    return { has_auth: true, secret };
+  }
+
+  // Apply secret
+  try {
+    const { spawn } = await import('node:child_process');
+    const { serialize_resource } = await import('@kustodian/generator');
+
+    await new Promise<void>((resolve, reject) => {
+      const kubectl = spawn('kubectl', ['apply', '-f', '-'], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+
+      let stderr = '';
+      kubectl.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString();
+      });
+      kubectl.on('close', (code: number) => {
+        if (code === 0) resolve();
+        else reject(new Error(stderr || `kubectl exited with code ${code}`));
+      });
+
+      kubectl.stdin.write(serialize_resource(secret));
+      kubectl.stdin.end();
+    });
+
+    console.log(`    ✓ Created secret: ${OCI_REGISTRY_SECRET_NAME}`);
+    return { has_auth: true, secret };
+  } catch (error) {
+    const err = error as Error;
+    console.error(`    ✗ Failed to create secret: ${err.message}`);
+    return { has_auth: false };
   }
 }

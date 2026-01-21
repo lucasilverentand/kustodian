@@ -76,8 +76,7 @@ export const validate_command = define_command({
       console.log(`  ✓ ${c.cluster.metadata.name}`);
       if (c.cluster.spec.templates) {
         for (const t of c.cluster.spec.templates) {
-          const status = t.enabled === false ? '(disabled)' : '';
-          console.log(`      - ${t.name} ${status}`);
+          console.log(`      - ${t.name}`);
         }
       }
     }
@@ -88,8 +87,8 @@ export const validate_command = define_command({
 
     for (const cluster_data of clusters) {
       const cluster_name = cluster_data.cluster.metadata.name;
-      const enabled_template_refs =
-        cluster_data.cluster.spec.templates?.filter((t) => t.enabled !== false) || [];
+      // All templates listed in cluster.yaml are deployed (opt-in model)
+      const enabled_template_refs = cluster_data.cluster.spec.templates || [];
 
       if (enabled_template_refs.length === 0) {
         continue;

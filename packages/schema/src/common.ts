@@ -153,6 +153,7 @@ export type GenericSubstitutionType = z.infer<typeof generic_substitution_schema
 
 /**
  * Version substitution for tracking container image versions.
+ * Registry is optional for simple version substitutions that just use default values.
  */
 export const version_substitution_schema = z.object({
   type: z.literal('version'),
@@ -160,8 +161,8 @@ export const version_substitution_schema = z.object({
   default: z.string().optional(),
   /** Semver constraint: ^1.0.0, ~2.3.0, >=1.0.0 <2.0.0 */
   constraint: z.string().optional(),
-  /** Registry configuration for fetching available versions */
-  registry: registry_config_schema,
+  /** Registry configuration for fetching available versions (optional for simple substitutions) */
+  registry: registry_config_schema.optional(),
   /** Regex pattern for filtering valid tags (default: semver-like) */
   tag_pattern: z.string().optional(),
   /** Exclude pre-release versions (default: true) */
@@ -172,6 +173,7 @@ export type VersionSubstitutionType = z.infer<typeof version_substitution_schema
 
 /**
  * Helm chart version substitution for tracking Helm chart versions.
+ * Helm config is optional for simple substitutions that just use default values.
  */
 export const helm_substitution_schema = z.object({
   type: z.literal('helm'),
@@ -179,8 +181,8 @@ export const helm_substitution_schema = z.object({
   default: z.string().optional(),
   /** Semver constraint: ^1.0.0, ~2.3.0, >=1.0.0 <2.0.0 */
   constraint: z.string().optional(),
-  /** Helm repository configuration for fetching available chart versions */
-  helm: helm_config_schema,
+  /** Helm repository configuration for fetching available chart versions (optional for simple substitutions) */
+  helm: helm_config_schema.optional(),
   /** Regex pattern for filtering valid tags (default: semver-like) */
   tag_pattern: z.string().optional(),
   /** Exclude pre-release versions (default: true) */

@@ -127,8 +127,8 @@ export const update_command = define_command({
         (t) => t.name === template.metadata.name,
       );
 
-      // Skip disabled templates
-      if (template_config?.enabled === false) {
+      // Skip templates not listed in cluster.yaml (only listed templates are deployed)
+      if (!template_config) {
         continue;
       }
 
@@ -228,12 +228,26 @@ export const update_command = define_command({
 
       if (type === 'version') {
         const version_sub = substitution as VersionSubstitutionType;
+        // Skip version substitutions without registry config (simple defaults only)
+        if (!version_sub.registry) {
+          if (!json_output) {
+            console.log(`Skipping ${substitution.name} (no registry configured)`);
+          }
+          continue;
+        }
         const image_ref = parse_image_reference(version_sub.registry.image);
         source_name = version_sub.registry.image;
         client = create_client_for_image(image_ref);
       } else {
         // helm type
         const helm_sub = substitution as HelmSubstitutionType;
+        // Skip helm substitutions without helm config (simple defaults only)
+        if (!helm_sub.helm) {
+          if (!json_output) {
+            console.log(`Skipping ${substitution.name} (no helm config configured)`);
+          }
+          continue;
+        }
         source_name = helm_sub.helm.oci || helm_sub.helm.repository || '';
         source_name = `${source_name}/${helm_sub.helm.chart}`;
         // Create helm config object to satisfy exactOptionalPropertyTypes

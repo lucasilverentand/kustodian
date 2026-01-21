@@ -223,7 +223,7 @@ export async function load_cluster(
   }
 
   // Load nodes from specified paths or default nodes/ directory
-  const node_file_paths = validation.data.spec.nodes;
+  const node_file_paths = validation.data.spec?.nodes;
   const nodes_result = await load_cluster_nodes(cluster_dir, node_file_paths);
   if (!is_success(nodes_result)) {
     return nodes_result;
@@ -237,31 +237,58 @@ export async function load_cluster(
 }
 
 /**
+ * Recursively finds all directories containing template.yaml files.
+ */
+async function find_template_directories(dir: string): Promise<string[]> {
+  const template_path = path.join(dir, StandardFiles.TEMPLATE);
+
+  // If this directory has a template.yaml, return it
+  if (await file_exists(template_path)) {
+    return [dir];
+  }
+
+  // Otherwise, recursively check subdirectories
+  const subdirs_result = await list_directories(dir);
+  if (!is_success(subdirs_result)) {
+    return [];
+  }
+
+  const template_dirs: string[] = [];
+  for (const subdir of subdirs_result.value) {
+    const found = await find_template_directories(subdir);
+    template_dirs.push(...found);
+  }
+
+  return template_dirs;
+}
+
+/**
  * Loads all templates from the templates directory.
+ * Supports both flat and nested directory structures.
  */
 export async function load_all_templates(
   project_root: string,
 ): Promise<ResultType<LoadedTemplateType[], KustodianErrorType>> {
   const templates_dir = path.join(project_root, StandardDirs.TEMPLATES);
-  const dirs_result = await list_directories(templates_dir);
 
-  if (!is_success(dirs_result)) {
-    // Return empty array if templates directory doesn't exist
-    if (dirs_result.error.code === 'NOT_FOUND') {
-      return success([]);
-    }
-    return dirs_result;
+  // Check if templates directory exists
+  if (!(await file_exists(templates_dir))) {
+    return success([]);
   }
+
+  // Find all directories containing template.yaml (recursively)
+  const template_dirs = await find_template_directories(templates_dir);
 
   const templates: LoadedTemplateType[] = [];
   const errors: string[] = [];
 
-  for (const dir of dirs_result.value) {
+  for (const dir of template_dirs) {
     const result = await load_template(dir);
     if (is_success(result)) {
       templates.push(result.value);
     } else {
-      errors.push(`${path.basename(dir)}: ${result.error.message}`);
+      const relative_path = path.relative(templates_dir, dir);
+      errors.push(`${relative_path}: ${result.error.message}`);
     }
   }
 

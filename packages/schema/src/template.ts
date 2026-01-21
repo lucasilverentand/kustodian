@@ -73,7 +73,6 @@ export const kustomization_schema = z.object({
   wait: z.boolean().optional().default(true),
   timeout: z.string().optional(),
   retry_interval: z.string().optional(),
-  enabled: z.boolean().optional().default(true),
   preservation: preservation_policy_schema.optional(),
   /** Auth configuration for SSO integration (processed by auth plugins) */
   auth: auth_config_schema.optional(),

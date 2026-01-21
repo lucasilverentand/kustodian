@@ -8,7 +8,7 @@ import { build_dependency_graph } from './graph.js';
 import type { GraphValidationResultType } from './types.js';
 
 export { detect_cycles, has_cycles } from './cycle-detection.js';
-export type { DisabledDependencyErrorType } from './enablement.js';
+export type { MissingDependencyErrorType } from './enablement.js';
 export { validate_enablement_dependencies } from './enablement.js';
 
 // Re-export functions
