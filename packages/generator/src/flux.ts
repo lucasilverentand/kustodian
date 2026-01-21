@@ -298,6 +298,9 @@ export function resolve_kustomization(
   // Determine namespace
   const namespace = kustomization.namespace?.default ?? 'default';
 
+  // Add namespace to substitution values so ${namespace} works in templates
+  values['namespace'] = namespace;
+
   return {
     template,
     kustomization,
