@@ -14,7 +14,10 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist", "package.json"],
+  "files": [
+    "dist",
+    "package.json"
+  ],
   "scripts": {
     "build": "bun build src/index.ts --outdir dist --target node --format esm && bun build src/bin.ts --outdir dist --target node --format esm && tsc --emitDeclarationOnly --outDir dist",
     "prepublishOnly": "bun run build",
@@ -22,7 +25,10 @@
     "test:watch": "bun test --watch",
     "typecheck": "bun run tsc --noEmit"
   },
-  "keywords": ["kustodian", "cli"],
+  "keywords": [
+    "kustodian",
+    "cli"
+  ],
   "author": "Luca Silverentand <luca@onezero.company>",
   "license": "MIT",
   "repository": {
@@ -31,7 +37,8 @@
     "directory": "packages/cli"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
   },
   "dependencies": {
     "@kustodian/core": "workspace:*",

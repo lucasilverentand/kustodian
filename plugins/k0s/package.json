@@ -36,7 +36,8 @@
     "directory": "plugins/k0s"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
   },
   "dependencies": {
     "@kustodian/core": "workspace:*",

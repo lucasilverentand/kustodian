@@ -39,7 +39,8 @@
     "directory": "plugins/authentik"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
   },
   "dependencies": {
     "@kustodian/core": "^1.1.0",
