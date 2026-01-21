@@ -1,25 +1,25 @@
 import type { ClusterType, TemplateType } from '@kustodian/schema';
 
-import { get_template_config, resolve_kustomization_state } from '../kustomization-resolution.js';
+import { get_template_config } from '../kustomization-resolution.js';
 import { create_node_id } from './reference.js';
 
 /**
- * Disabled dependency error - an enabled kustomization depends on a disabled one.
+ * Missing dependency error - a deployed kustomization depends on one from a template not listed in cluster.yaml.
  */
-export interface DisabledDependencyErrorType {
-  readonly type: 'disabled_dependency';
-  /** Node ID of the enabled kustomization */
+export interface MissingDependencyErrorType {
+  readonly type: 'missing_dependency';
+  /** Node ID of the deployed kustomization */
   readonly source: string;
-  /** Node ID of the disabled dependency */
+  /** Node ID of the missing dependency */
   readonly target: string;
   readonly message: string;
 }
 
 /**
- * Validates that no enabled kustomizations depend on disabled ones.
+ * Validates that all kustomization dependencies are satisfied by templates listed in cluster.yaml.
  *
- * This implements the "block by default" policy: you cannot disable a kustomization
- * if other enabled kustomizations depend on it.
+ * Templates are only deployed if they are explicitly listed in cluster.yaml.
+ * This validates that all dependency references point to kustomizations from listed templates.
  *
  * @param cluster - Cluster configuration
  * @param templates - Array of templates
@@ -28,53 +28,40 @@ export interface DisabledDependencyErrorType {
 export function validate_enablement_dependencies(
   cluster: ClusterType,
   templates: TemplateType[],
-): DisabledDependencyErrorType[] {
-  const errors: DisabledDependencyErrorType[] = [];
+): MissingDependencyErrorType[] {
+  const errors: MissingDependencyErrorType[] = [];
 
-  // Build a map of kustomization ID to enabled state
-  const enablement_map = new Map<string, boolean>();
+  // Build a set of kustomization IDs that will be deployed
+  const deployed_kustomizations = new Set<string>();
 
   for (const template of templates) {
     const template_config = get_template_config(cluster, template.metadata.name);
 
-    // Check if template itself is enabled
-    const template_enabled = template_config?.enabled ?? true;
-    if (!template_enabled) {
-      // All kustomizations in disabled templates are disabled
-      for (const kustomization of template.spec.kustomizations) {
-        const node_id = create_node_id(template.metadata.name, kustomization.name);
-        enablement_map.set(node_id, false);
-      }
+    // Template is only deployed if listed in cluster.yaml
+    if (!template_config) {
       continue;
     }
 
-    // Template is enabled, check individual kustomizations
+    // All kustomizations in a listed template are deployed
     for (const kustomization of template.spec.kustomizations) {
       const node_id = create_node_id(template.metadata.name, kustomization.name);
-      const state = resolve_kustomization_state(kustomization, template_config, kustomization.name);
-      enablement_map.set(node_id, state.enabled);
+      deployed_kustomizations.add(node_id);
     }
   }
 
-  // Check each enabled kustomization's dependencies
+  // Check each deployed kustomization's dependencies
   for (const template of templates) {
     const template_config = get_template_config(cluster, template.metadata.name);
-    const template_enabled = template_config?.enabled ?? true;
 
-    if (!template_enabled) {
+    // Skip templates not listed in cluster.yaml
+    if (!template_config) {
       continue;
     }
 
     for (const kustomization of template.spec.kustomizations) {
       const node_id = create_node_id(template.metadata.name, kustomization.name);
-      const state = resolve_kustomization_state(kustomization, template_config, kustomization.name);
 
-      // Skip if this kustomization is disabled
-      if (!state.enabled) {
-        continue;
-      }
-
-      // This kustomization is enabled - check its dependencies
+      // Check dependencies
       for (const dep of kustomization.depends_on ?? []) {
         // Skip raw dependencies - they're external to kustodian
         if (typeof dep !== 'string') {
@@ -93,14 +80,13 @@ export function validate_enablement_dependencies(
           target_node_id = create_node_id(template.metadata.name, dep);
         }
 
-        // Check if the dependency is disabled
-        const dep_enabled = enablement_map.get(target_node_id);
-        if (dep_enabled === false) {
+        // Check if the dependency is deployed
+        if (!deployed_kustomizations.has(target_node_id)) {
           errors.push({
-            type: 'disabled_dependency',
+            type: 'missing_dependency',
             source: node_id,
             target: target_node_id,
-            message: `Enabled kustomization '${node_id}' depends on disabled kustomization '${target_node_id}'. Either enable '${target_node_id}' or disable '${node_id}'.`,
+            message: `Kustomization '${node_id}' depends on '${target_node_id}' which is not deployed. Add the template to cluster.yaml.`,
           });
         }
       }

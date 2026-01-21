@@ -37,6 +37,8 @@ export interface GeneratorOptionsType {
   flux_namespace?: string;
   git_repository_name?: string;
   base_path?: string;
+  /** Map of template names to their source paths (relative to project root) */
+  template_paths?: Map<string, string>;
 }
 
 /**
@@ -116,6 +118,7 @@ export function create_generator(
   // base_path is available for future template path customization
   const _base_path = options.base_path ?? './templates';
   void _base_path; // Suppress unused variable warning
+  const template_paths = options.template_paths;
 
   const hooks: GeneratorHookHandlerType[] = [];
 
@@ -139,11 +142,12 @@ export function create_generator(
   }
 
   function is_template_enabled(cluster: ClusterType, template_name: string): boolean {
+    // Templates are only enabled if explicitly listed in cluster.yaml
+    // Templates not listed are NOT deployed (opt-in model)
     const template_config = cluster.spec.templates?.find(
       (t: TemplateConfigType) => t.name === template_name,
     );
-    // Default to enabled if not specified
-    return template_config?.enabled ?? true;
+    return template_config !== undefined;
   }
 
   return {
@@ -206,17 +210,12 @@ export function create_generator(
         const template_config = get_template_config(cluster, resolved.template.metadata.name);
 
         for (const kustomization of resolved.template.spec.kustomizations) {
-          // Resolve kustomization state (enabled + preservation)
+          // Resolve kustomization state (preservation policy)
           const kustomization_state = resolve_kustomization_state(
             kustomization,
             template_config,
             kustomization.name,
           );
-
-          // Skip disabled kustomizations
-          if (!kustomization_state.enabled) {
-            continue;
-          }
 
           const resolved_kustomization = resolve_kustomization(
             resolved.template,
@@ -225,11 +224,14 @@ export function create_generator(
           );
 
           // Generate Flux resource with configurable namespace
+          // Look up the template source path if available
+          const template_source_path = template_paths?.get(resolved.template.metadata.name);
           const flux_kustomization = generate_flux_kustomization(
             resolved_kustomization,
             source_repository_name,
             source_kind,
             kustomization_state.preservation,
+            template_source_path,
           );
 
           // Override namespace to configured value

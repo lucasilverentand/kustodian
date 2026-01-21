@@ -34,10 +34,9 @@ export type OciConfigType = z.infer<typeof oci_config_schema>;
 /**
  * Kustomization override configuration within a cluster.
  *
- * Allows overriding kustomization enablement and preservation from template defaults.
+ * Allows overriding kustomization preservation from template defaults.
  */
 export const kustomization_override_schema = z.object({
-  enabled: z.boolean(),
   preservation: z
     .object({
       mode: preservation_mode_schema,
@@ -49,19 +48,16 @@ export const kustomization_override_schema = z.object({
 export type KustomizationOverrideType = z.infer<typeof kustomization_override_schema>;
 
 /**
- * Template enablement configuration within a cluster.
+ * Template configuration within a cluster.
+ * Templates listed here will be deployed. Templates not listed will be skipped.
  */
 export const template_config_schema = z.object({
   name: z.string().min(1),
-  enabled: z.boolean().optional().default(true),
   values: values_schema.optional(),
   kustomizations: z
     .record(
       z.string(), // kustomization name
-      z.union([
-        z.boolean(), // Simple: just enabled/disabled
-        kustomization_override_schema, // Advanced: with preservation
-      ]),
+      kustomization_override_schema, // Override preservation settings
     )
     .optional(),
 });

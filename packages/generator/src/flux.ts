@@ -36,15 +36,22 @@ export function generate_flux_name(template_name: string, kustomization_name: st
 
 /**
  * Generates the path for a Flux Kustomization.
+ * @param template_name - The template name (used if template_source_path not provided)
+ * @param kustomization_path - The kustomization's relative path
+ * @param base_path - Base path prefix (default: './templates')
+ * @param template_source_path - Optional actual source path relative to templates dir
  */
 export function generate_flux_path(
   template_name: string,
   kustomization_path: string,
   base_path = './templates',
+  template_source_path?: string,
 ): string {
   // Normalize the path
   const normalized = kustomization_path.replace(/^\.\//, '');
-  return `${base_path}/${template_name}/${normalized}`;
+  // Use actual source path if provided, otherwise fall back to template name
+  const template_dir = template_source_path ?? template_name;
+  return `${base_path}/${template_dir}/${normalized}`;
 }
 
 /**
@@ -201,10 +208,11 @@ export function generate_flux_kustomization(
   source_repository_name = 'flux-system',
   source_kind: 'GitRepository' | 'OCIRepository' = 'GitRepository',
   preservation?: PreservationPolicyType,
+  template_source_path?: string,
 ): FluxKustomizationType {
   const { template, kustomization, values, namespace } = resolved;
   const name = generate_flux_name(template.metadata.name, kustomization.name);
-  const path = generate_flux_path(template.metadata.name, kustomization.path);
+  const path = generate_flux_path(template.metadata.name, kustomization.path, './templates', template_source_path);
 
   const spec: FluxKustomizationType['spec'] = {
     interval: DEFAULT_INTERVAL,

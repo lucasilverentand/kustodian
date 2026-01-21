@@ -51,12 +51,13 @@ export function get_template_namespaces(template: TemplateType): string[] {
 
 /**
  * Extracts all namespaces from resolved templates.
- * Filters out disabled templates.
+ * Only includes templates that are listed in cluster.yaml (enabled = true).
  */
 export function collect_namespaces(templates: ResolvedTemplateType[]): string[] {
   const namespaces = new Set<string>();
 
   for (const resolved of templates) {
+    // Only include templates that are listed in cluster.yaml
     if (!resolved.enabled) {
       continue;
     }
