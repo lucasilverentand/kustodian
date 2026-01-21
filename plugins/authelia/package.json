@@ -1,6 +1,6 @@
 {
   "name": "@kustodian/plugin-authelia",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Authelia authentication provider plugin for Kustodian",
   "type": "module",
   "main": "./dist/index.js",

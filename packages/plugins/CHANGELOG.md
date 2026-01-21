@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/lucasilverentand/kustodian/compare/plugins-v1.0.1...plugins-v2.0.0) (2026-01-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* The `enabled` field has been removed from template configuration. Templates are now deployed using an opt-in model: only templates explicitly listed in cluster.yaml will be deployed.
+
+### Features
+
+* remove deprecated enabled field from templates ([#124](https://github.com/lucasilverentand/kustodian/issues/124)) ([ba1f60f](https://github.com/lucasilverentand/kustodian/commit/ba1f60f1c8c8e19ba20fbbf6af1301547a93f7f0))
+
 ## [1.0.1](https://github.com/lucasilverentand/kustodian/compare/plugins-v1.0.0...plugins-v1.0.1) (2026-01-15)
 
 
