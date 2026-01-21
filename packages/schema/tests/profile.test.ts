@@ -72,6 +72,7 @@ describe('NodeProfile Schema', () => {
           name: 'mixed-labels'},
         spec: {
           labels: {
+            active: true,
             disabled: false,
             count: 5,
             ratio: 1.5}}};
@@ -82,7 +83,7 @@ describe('NodeProfile Schema', () => {
       // Assert
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.spec.labels?.['enabled']).toBe(true);
+        expect(result.data.spec.labels?.['active']).toBe(true);
         expect(result.data.spec.labels?.['disabled']).toBe(false);
         expect(result.data.spec.labels?.['count']).toBe(5);
         expect(result.data.spec.labels?.['ratio']).toBe(1.5);

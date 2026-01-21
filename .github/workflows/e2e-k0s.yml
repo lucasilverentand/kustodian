@@ -22,6 +22,16 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
+      - name: Cache Turbo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+
+      - run: bun run build
+
       - name: Install k0sctl
         run: |
           # Download k0sctl from GitHub releases
