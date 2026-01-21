@@ -1,7 +1,0 @@
-apiVersion: kustodian.io/v1
-kind: Project
-metadata:
-  name: silverswarm-features-test
-spec:
-  flux_namespace: flux-system
-  oci_repository: flux-system

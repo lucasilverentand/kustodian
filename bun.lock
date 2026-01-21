@@ -14,7 +14,7 @@
     },
     "packages/cli": {
       "name": "@kustodian/cli",
-      "version": "1.2.1",
+      "version": "2.0.0",
       "bin": {
         "kustodian": "./src/bin.ts",
       },
@@ -34,11 +34,11 @@
     },
     "packages/core": {
       "name": "@kustodian/core",
-      "version": "1.1.0",
+      "version": "2.0.0",
     },
     "packages/generator": {
       "name": "@kustodian/generator",
-      "version": "1.3.0",
+      "version": "2.0.0",
       "dependencies": {
         "@kustodian/core": "workspace:*",
         "@kustodian/loader": "workspace:*",
@@ -49,14 +49,14 @@
     },
     "packages/k8s": {
       "name": "@kustodian/k8s",
-      "version": "1.0.1",
+      "version": "2.0.0",
       "dependencies": {
         "@kustodian/core": "workspace:*",
       },
     },
     "packages/loader": {
       "name": "@kustodian/loader",
-      "version": "1.1.1",
+      "version": "2.0.0",
       "dependencies": {
         "@kustodian/core": "workspace:*",
         "@kustodian/schema": "workspace:*",
@@ -65,7 +65,7 @@
     },
     "packages/nodes": {
       "name": "@kustodian/nodes",
-      "version": "1.1.1",
+      "version": "2.0.0",
       "dependencies": {
         "@kustodian/core": "workspace:*",
         "@kustodian/k8s": "workspace:*",
@@ -74,7 +74,7 @@
     },
     "packages/plugins": {
       "name": "@kustodian/plugins",
-      "version": "1.0.1",
+      "version": "2.0.0",
       "dependencies": {
         "@kustodian/core": "workspace:*",
         "@kustodian/nodes": "workspace:*",
@@ -84,7 +84,7 @@
     },
     "packages/registry": {
       "name": "@kustodian/registry",
-      "version": "1.1.1",
+      "version": "2.0.0",
       "dependencies": {
         "@kustodian/core": "workspace:*",
         "semver": "^7.6.0",
@@ -96,7 +96,7 @@
     },
     "packages/schema": {
       "name": "@kustodian/schema",
-      "version": "1.4.0",
+      "version": "2.0.0",
       "dependencies": {
         "zod": "^3.25.30",
       },
@@ -106,7 +106,7 @@
     },
     "packages/sources": {
       "name": "@kustodian/sources",
-      "version": "1.3.1",
+      "version": "2.0.0",
       "dependencies": {
         "@kustodian/core": "workspace:*",
         "@kustodian/loader": "workspace:*",
@@ -116,7 +116,7 @@
     },
     "plugins/1password": {
       "name": "@kustodian/plugin-1password",
-      "version": "1.1.1",
+      "version": "2.0.0",
       "dependencies": {
         "@kustodian/core": "workspace:*",
         "@kustodian/plugins": "workspace:*",
@@ -125,13 +125,13 @@
     },
     "plugins/authelia": {
       "name": "@kustodian/plugin-authelia",
-      "version": "1.0.0",
+      "version": "2.0.0",
       "dependencies": {
-        "@kustodian/core": "^1.1.0",
-        "@kustodian/plugins": "^1.0.1",
-        "@kustodian/schema": "^1.2.0",
-        "js-yaml": "^4.1.1",
-        "zod": "^4.3.5",
+        "@kustodian/core": "workspace:*",
+        "@kustodian/plugins": "workspace:*",
+        "@kustodian/schema": "workspace:*",
+        "js-yaml": "^4.1.0",
+        "zod": "^3.25.30",
       },
       "devDependencies": {
         "@types/js-yaml": "^4.0.9",
@@ -139,13 +139,13 @@
     },
     "plugins/authentik": {
       "name": "@kustodian/plugin-authentik",
-      "version": "1.0.0",
+      "version": "2.0.0",
       "dependencies": {
-        "@kustodian/core": "^1.1.0",
-        "@kustodian/plugins": "^1.0.1",
-        "@kustodian/schema": "^1.2.0",
-        "js-yaml": "^4.1.1",
-        "zod": "^4.3.5",
+        "@kustodian/core": "workspace:*",
+        "@kustodian/plugins": "workspace:*",
+        "@kustodian/schema": "workspace:*",
+        "js-yaml": "^4.1.0",
+        "zod": "^3.25.30",
       },
       "devDependencies": {
         "@types/js-yaml": "^4.0.9",
@@ -153,7 +153,7 @@
     },
     "plugins/doppler": {
       "name": "@kustodian/plugin-doppler",
-      "version": "1.1.1",
+      "version": "2.0.0",
       "dependencies": {
         "@kustodian/core": "workspace:*",
         "@kustodian/plugins": "workspace:*",
@@ -162,7 +162,7 @@
     },
     "plugins/k0s": {
       "name": "@kustodian/plugin-k0s",
-      "version": "1.1.1",
+      "version": "2.0.0",
       "dependencies": {
         "@kustodian/core": "workspace:*",
         "@kustodian/k8s": "workspace:*",
@@ -313,14 +313,8 @@
 
     "yoctocolors": ["yoctocolors@2.1.2", "", {}, "sha512-CzhO+pFNo8ajLM2d2IW/R93ipy99LWjtwblvC1RsoSUMZgyLbYFr221TnSNT7GjGdYui6P459mw9JH/g/zW2ug=="],
 
-    "zod": ["zod@4.3.5", "", {}, "sha512-k7Nwx6vuWx1IJ9Bjuf4Zt1PEllcwe7cls3VNzm4CQ1/hgtFUK2bRNG3rvnpPUhFjmqJKAKtjV576KnUkHocg/g=="],
+    "zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
 
     "zod-to-json-schema": ["zod-to-json-schema@3.25.1", "", { "peerDependencies": { "zod": "^3.25 || ^4" } }, "sha512-pM/SU9d3YAggzi6MtR4h7ruuQlqKtad8e9S0fmxcMi+ueAK5Korys/aWcV9LIIHTVbj01NdzxcnXSN+O74ZIVA=="],
-
-    "@kustodian/plugins/zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
-
-    "@kustodian/schema/zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
-
-    "@kustodian/sources/zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
   }
 }
