@@ -53,6 +53,14 @@
     "plugins/doppler": {
       "package-name": "@kustodian/plugin-doppler",
       "changelog-path": "CHANGELOG.md"
+    },
+    "plugins/authelia": {
+      "package-name": "@kustodian/plugin-authelia",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "plugins/authentik": {
+      "package-name": "@kustodian/plugin-authentik",
+      "changelog-path": "CHANGELOG.md"
     }
   },
   "bump-minor-pre-major": true,

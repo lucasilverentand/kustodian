@@ -11,5 +11,7 @@
   "packages/sources": "1.3.1",
   "plugins/k0s": "1.1.1",
   "plugins/1password": "1.1.1",
-  "plugins/doppler": "1.1.1"
+  "plugins/doppler": "1.1.1",
+  "plugins/authelia": "1.0.0",
+  "plugins/authentik": "1.0.0"
 }
