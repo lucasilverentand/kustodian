@@ -319,5 +319,68 @@ describe('Namespace Module', () => {
       // Assert
       expect(result[0]?.metadata.labels).toEqual(labels);
     });
+
+    it('should filter custom flux namespace when provided', () => {
+      // Arrange
+      const template = create_template('app', [
+        {
+          name: 'k1',
+          path: './k1',
+          namespace: { default: 'production', create: true },
+          prune: true,
+          wait: true},
+        {
+          name: 'k2',
+          path: './k2',
+          namespace: { default: 'custom-flux', create: true },
+          prune: true,
+          wait: true},
+      ]);
+      const templates = [create_resolved(template)];
+
+      // Act
+      const result = generate_namespace_resources(templates, undefined, 'custom-flux');
+
+      // Assert
+      expect(result).toHaveLength(1);
+      expect(result[0]?.metadata.name).toBe('production');
+      expect(result.map((r) => r.metadata.name)).not.toContain('custom-flux');
+    });
+  });
+
+  describe('Dynamic System Namespaces', () => {
+    it('get_system_namespaces should include custom flux namespace', () => {
+      // Act
+      const { get_system_namespaces } = require('../src/namespace.js');
+      const result = get_system_namespaces('gitops-system');
+
+      // Assert
+      expect(result.has('gitops-system')).toBe(true);
+      expect(result.has('flux-system')).toBe(false);
+      expect(result.has('default')).toBe(true);
+      expect(result.has('kube-system')).toBe(true);
+    });
+
+    it('is_system_namespace should recognize custom flux namespace', () => {
+      // Act & Assert
+      expect(is_system_namespace('gitops-system', 'gitops-system')).toBe(true);
+      expect(is_system_namespace('flux-system', 'gitops-system')).toBe(false);
+      expect(is_system_namespace('production', 'gitops-system')).toBe(false);
+    });
+
+    it('filter_system_namespaces should filter custom flux namespace', () => {
+      // Arrange
+      const namespaces = ['production', 'custom-flux', 'kube-system', 'staging'];
+
+      // Act
+      const result = filter_system_namespaces(namespaces, 'custom-flux');
+
+      // Assert
+      expect(result).toHaveLength(2);
+      expect(result).toContain('production');
+      expect(result).toContain('staging');
+      expect(result).not.toContain('custom-flux');
+      expect(result).not.toContain('kube-system');
+    });
   });
 });

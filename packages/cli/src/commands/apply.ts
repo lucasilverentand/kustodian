@@ -9,11 +9,9 @@ import type { NodeListType } from '@kustodian/nodes';
 import type { ClusterType } from '@kustodian/schema';
 
 import { define_command } from '../command.js';
+import { resolve_defaults } from '../utils/defaults.js';
 
 const execAsync = promisify(exec);
-
-const OCI_REGISTRY_SECRET_NAME = 'kustodian-oci-registry';
-const FLUX_NAMESPACE = 'flux-system';
 
 // Default Doppler configuration (can be overridden in cluster.yaml)
 const DOPPLER_DEFAULTS = {
@@ -134,6 +132,11 @@ export const apply_command = define_command({
     console.log('  ✓ Loaded cluster configuration');
     console.log(`  ✓ Loaded ${project.templates.length} templates`);
     console.log(`  ✓ Loaded ${loaded_cluster.nodes.length} nodes`);
+
+    // Resolve cluster defaults (Flux namespace, OCI secret names, etc.)
+    const defaults = resolve_defaults(loaded_cluster.cluster);
+    const FLUX_NAMESPACE = defaults.flux_namespace;
+    const OCI_REGISTRY_SECRET_NAME = defaults.oci_registry_secret_name;
 
     // ===== PHASE 2: Bootstrap Cluster =====
     if (!skip_bootstrap) {
@@ -370,7 +373,7 @@ export const apply_command = define_command({
         }
 
         const generator = create_generator({
-          flux_namespace: 'flux-system',
+          flux_namespace: defaults.flux_namespace,
           git_repository_name: oci_repository_name,
           template_paths,
         });
@@ -392,7 +395,12 @@ export const apply_command = define_command({
         // Ensure OCI registry authentication
         const oci_config = loaded_cluster.cluster.spec.oci;
         console.log('  → Checking OCI registry authentication...');
-        const auth_result = await ensure_oci_registry_secret(oci_config.registry, dry_run);
+        const auth_result = await ensure_oci_registry_secret(
+          oci_config.registry,
+          dry_run,
+          OCI_REGISTRY_SECRET_NAME,
+          FLUX_NAMESPACE,
+        );
 
         if (dry_run) {
           console.log('\n  [dry-run] Would push to OCI and apply Flux resources');
@@ -443,7 +451,7 @@ export const apply_command = define_command({
               if (auth_result.has_auth) {
                 oci_repo.spec = {
                   ...oci_repo.spec,
-                  secretRef: { name: OCI_REGISTRY_SECRET_NAME },
+                  secretRef: { name: defaults.oci_registry_secret_name },
                 };
               }
 
@@ -663,7 +671,12 @@ async function get_oci_registry_token(registry: string): Promise<string | undefi
 /**
  * Creates a dockerconfigjson Secret manifest for OCI registry auth.
  */
-function create_registry_secret_manifest(registry: string, token: string): object {
+function create_registry_secret_manifest(
+  registry: string,
+  token: string,
+  secret_name: string,
+  namespace: string,
+): object {
   const authString = token.includes(':')
     ? Buffer.from(token).toString('base64')
     : Buffer.from(`_:${token}`).toString('base64');
@@ -672,8 +685,8 @@ function create_registry_secret_manifest(registry: string, token: string): objec
     apiVersion: 'v1',
     kind: 'Secret',
     metadata: {
-      name: OCI_REGISTRY_SECRET_NAME,
-      namespace: FLUX_NAMESPACE,
+      name: secret_name,
+      namespace: namespace,
     },
     type: 'kubernetes.io/dockerconfigjson',
     data: {
@@ -690,10 +703,12 @@ function create_registry_secret_manifest(registry: string, token: string): objec
 async function ensure_oci_registry_secret(
   registry: string,
   dry_run: boolean,
+  secret_name: string,
+  namespace: string,
 ): Promise<{ has_auth: boolean; secret?: object }> {
   // Check if secret exists
   try {
-    await execAsync(`kubectl get secret ${OCI_REGISTRY_SECRET_NAME} -n ${FLUX_NAMESPACE}`, {
+    await execAsync(`kubectl get secret ${secret_name} -n ${namespace}`, {
       timeout: 5000,
     });
     console.log('    ✓ OCI registry secret exists');
@@ -708,10 +723,10 @@ async function ensure_oci_registry_secret(
     return { has_auth: false };
   }
 
-  const secret = create_registry_secret_manifest(registry, token);
+  const secret = create_registry_secret_manifest(registry, token, secret_name, namespace);
 
   if (dry_run) {
-    console.log(`    [dry-run] Would create secret: ${OCI_REGISTRY_SECRET_NAME}`);
+    console.log(`    [dry-run] Would create secret: ${secret_name}`);
     return { has_auth: true, secret };
   }
 
@@ -738,7 +753,7 @@ async function ensure_oci_registry_secret(
       kubectl.stdin.end();
     });
 
-    console.log(`    ✓ Created secret: ${OCI_REGISTRY_SECRET_NAME}`);
+    console.log(`    ✓ Created secret: ${secret_name}`);
     return { has_auth: true, secret };
   } catch (error) {
     const err = error as Error;
