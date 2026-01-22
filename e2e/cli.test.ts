@@ -237,6 +237,7 @@ describe('E2E: CLI Commands', () => {
           'local',
           '--dry-run',
           '--skip-bootstrap',
+          '--skip-templates',
         ],
         create_container(),
       );

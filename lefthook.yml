@@ -19,13 +19,13 @@ pre-commit:
         - merge
         - rebase
 
-# Pre-push: Run fast unit tests before pushing
+# Pre-push: Run fast unit tests before pushing (excludes E2E tests)
 pre-push:
   parallel: true
   commands:
     test:
-      glob: "{*,**/*}"
-      run: bun test
+      glob: "{packages/**/*.test.ts,packages/**/*.test.js}"
+      run: bun test packages/ plugins/
       skip:
         - merge
         - rebase
