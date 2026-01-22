@@ -481,5 +481,117 @@ describe('Cluster Schema', () => {
       // Assert
       expect(result.success).toBe(false);
     });
+
+    it('should validate a cluster with flux controllers configuration', () => {
+      // Arrange
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'production' },
+        spec: {
+          domain: 'example.com',
+          git: { owner: 'org', repository: 'repo' },
+          flux: {
+            controllers: {
+              concurrent: 20,
+              requeue_dependency: '5s'}}}};
+
+      // Act
+      const result = validate_cluster(cluster);
+
+      // Assert
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.spec.flux?.controllers?.concurrent).toBe(20);
+        expect(result.data.spec.flux?.controllers?.requeue_dependency).toBe('5s');
+      }
+    });
+
+    it('should validate a cluster with per-controller flux settings', () => {
+      // Arrange
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'production' },
+        spec: {
+          domain: 'example.com',
+          git: { owner: 'org', repository: 'repo' },
+          flux: {
+            controllers: {
+              concurrent: 10,
+              kustomize_controller: {
+                concurrent: 30},
+              helm_controller: {
+                requeue_dependency: '3s'}}}}};
+
+      // Act
+      const result = validate_cluster(cluster);
+
+      // Assert
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.spec.flux?.controllers?.concurrent).toBe(10);
+        expect(result.data.spec.flux?.controllers?.kustomize_controller?.concurrent).toBe(30);
+        expect(result.data.spec.flux?.controllers?.helm_controller?.requeue_dependency).toBe('3s');
+      }
+    });
+
+    it('should reject non-positive concurrent value', () => {
+      // Arrange
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'test' },
+        spec: {
+          domain: 'test.com',
+          git: { owner: 'org', repository: 'repo' },
+          flux: {
+            controllers: {
+              concurrent: 0}}}};
+
+      // Act
+      const result = validate_cluster(cluster);
+
+      // Assert
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject negative concurrent value', () => {
+      // Arrange
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'test' },
+        spec: {
+          domain: 'test.com',
+          git: { owner: 'org', repository: 'repo' },
+          flux: {
+            controllers: {
+              concurrent: -5}}}};
+
+      // Act
+      const result = validate_cluster(cluster);
+
+      // Assert
+      expect(result.success).toBe(false);
+    });
+
+    it('should validate empty flux configuration', () => {
+      // Arrange
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'production' },
+        spec: {
+          domain: 'example.com',
+          git: { owner: 'org', repository: 'repo' },
+          flux: {}}};
+
+      // Act
+      const result = validate_cluster(cluster);
+
+      // Assert
+      expect(result.success).toBe(true);
+    });
   });
 });

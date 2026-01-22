@@ -146,6 +146,39 @@ export const secrets_config_schema = z.object({
 export type SecretsConfigType = z.infer<typeof secrets_config_schema>;
 
 /**
+ * Flux controller settings that can be applied to individual controllers.
+ */
+export const flux_controller_settings_schema = z.object({
+  concurrent: z.number().int().positive().optional(),
+  requeue_dependency: z.string().optional(),
+});
+
+export type FluxControllerSettingsType = z.infer<typeof flux_controller_settings_schema>;
+
+/**
+ * Flux controllers configuration.
+ * Settings can be applied globally or per-controller.
+ */
+export const flux_controllers_config_schema = z.object({
+  concurrent: z.number().int().positive().optional(),
+  requeue_dependency: z.string().optional(),
+  kustomize_controller: flux_controller_settings_schema.optional(),
+  helm_controller: flux_controller_settings_schema.optional(),
+  source_controller: flux_controller_settings_schema.optional(),
+});
+
+export type FluxControllersConfigType = z.infer<typeof flux_controllers_config_schema>;
+
+/**
+ * Flux system configuration at cluster level.
+ */
+export const flux_config_schema = z.object({
+  controllers: flux_controllers_config_schema.optional(),
+});
+
+export type FluxConfigType = z.infer<typeof flux_config_schema>;
+
+/**
  * Cluster specification.
  */
 export const cluster_spec_schema = z
@@ -155,6 +188,7 @@ export const cluster_spec_schema = z
     git: git_config_schema.optional(),
     oci: oci_config_schema.optional(),
     github: github_config_schema.optional(),
+    flux: flux_config_schema.optional(),
     templates: z.array(template_config_schema).optional(),
     plugins: z.array(plugin_config_schema).optional(),
     node_defaults: node_defaults_schema.optional(),

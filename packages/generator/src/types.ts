@@ -48,6 +48,26 @@ export interface GeneratedKustomizationType {
 }
 
 /**
+ * Kustomize JSON patch operation.
+ */
+export interface KustomizePatchOpType {
+  op: 'add' | 'remove' | 'replace';
+  path: string;
+  value?: unknown;
+}
+
+/**
+ * Kustomize patch with target selector.
+ */
+export interface KustomizePatchType {
+  patch: string;
+  target: {
+    kind: string;
+    name?: string;
+  };
+}
+
+/**
  * Result of the full generation process.
  */
 export interface GenerationResultType {
@@ -55,6 +75,7 @@ export interface GenerationResultType {
   output_dir: string;
   kustomizations: GeneratedKustomizationType[];
   oci_repository?: FluxOCIRepositoryType;
+  controller_patches?: KustomizePatchType[];
 }
 
 /**

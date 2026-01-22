@@ -115,7 +115,8 @@ export async function write_flux_kustomization(
  * {output_dir}/
  * ├── flux-system/
  * │   ├── kustomization.yaml    # Root kustomization referencing all templates
- * │   └── oci-repository.yaml   # OCI source (if configured)
+ * │   ├── oci-repository.yaml   # OCI source (if configured)
+ * │   └── gotk-patches.yaml     # Controller patches (if flux.controllers configured)
  * └── templates/
  *     ├── {template-name}/
  *     │   └── {kustomization-name}.yaml
@@ -144,6 +145,19 @@ export async function write_generation_result(
     }
 
     written_files.push(oci_path);
+  }
+
+  // Write controller patches to flux-system directory if present
+  if (result.controller_patches && result.controller_patches.length > 0) {
+    const patches_path = path.join(flux_system_dir, 'gotk-patches.yaml');
+    const patches_content = serialize_resource(result.controller_patches, format);
+    const patches_result = await write_file(patches_path, patches_content, options);
+
+    if (!patches_result.success) {
+      return patches_result;
+    }
+
+    written_files.push(patches_path);
   }
 
   // Write each kustomization to templates/{template-name}/{kustomization-name}.yaml
@@ -183,14 +197,32 @@ export async function write_generation_result(
   // Sort resources for deterministic output
   resources.sort();
 
-  const kustomization_content = serialize_resource(
-    {
-      apiVersion: 'kustomize.config.k8s.io/v1beta1',
-      kind: 'Kustomization',
-      resources,
-    },
-    'yaml',
-  );
+  // Build kustomization object
+  const kustomization_obj: {
+    apiVersion: string;
+    kind: string;
+    resources: string[];
+    patches?: Array<{ path: string; target: { kind: string; name: string } }>;
+  } = {
+    apiVersion: 'kustomize.config.k8s.io/v1beta1',
+    kind: 'Kustomization',
+    resources,
+  };
+
+  // Add patches reference if controller patches are present
+  if (result.controller_patches && result.controller_patches.length > 0) {
+    kustomization_obj.patches = [
+      {
+        path: 'gotk-patches.yaml',
+        target: {
+          kind: 'Deployment',
+          name: '(kustomize-controller|helm-controller|source-controller)',
+        },
+      },
+    ];
+  }
+
+  const kustomization_content = serialize_resource(kustomization_obj, 'yaml');
 
   const kustomization_result = await write_file(kustomization_path, kustomization_content, options);
   if (!kustomization_result.success) {

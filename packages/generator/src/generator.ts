@@ -11,6 +11,7 @@ import {
   DEFAULT_INTERVAL,
   DEFAULT_TIMEOUT,
   generate_depends_on,
+  generate_flux_controller_patches,
   generate_flux_kustomization,
   generate_flux_name,
   generate_flux_oci_repository,
@@ -267,6 +268,14 @@ export function create_generator(
           source_repository_name,
           flux_namespace,
         );
+      }
+
+      // Generate controller patches if flux config is present
+      if (cluster.spec.flux) {
+        const patches = generate_flux_controller_patches(cluster.spec.flux);
+        if (patches) {
+          result.controller_patches = patches;
+        }
       }
 
       // Run after_generate hook

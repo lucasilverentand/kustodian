@@ -1,5 +1,7 @@
 import type {
   ClusterType,
+  FluxConfigType,
+  FluxControllerSettingsType,
   KustomizationType,
   OciConfigType,
   PreservationPolicyType,
@@ -12,6 +14,8 @@ import { collect_all_substitution_values } from './substitution.js';
 import type {
   FluxKustomizationType,
   FluxOCIRepositoryType,
+  KustomizePatchOpType,
+  KustomizePatchType,
   ResolvedKustomizationType,
 } from './types.js';
 import { is_parse_error, parse_dependency_ref } from './validation/reference.js';
@@ -307,4 +311,96 @@ export function resolve_kustomization(
     values,
     namespace,
   };
+}
+
+/**
+ * Controller names that can be patched.
+ */
+type ControllerNameType = 'kustomize-controller' | 'helm-controller' | 'source-controller';
+
+/**
+ * Gets effective settings for a controller by merging global and controller-specific settings.
+ */
+function get_effective_controller_settings(
+  flux_config: FluxConfigType,
+  controller_key: 'kustomize_controller' | 'helm_controller' | 'source_controller',
+): FluxControllerSettingsType {
+  const controllers = flux_config.controllers;
+  if (!controllers) {
+    return {};
+  }
+
+  const global_concurrent = controllers.concurrent;
+  const global_requeue = controllers.requeue_dependency;
+  const controller_settings = controllers[controller_key];
+
+  return {
+    concurrent: controller_settings?.concurrent ?? global_concurrent,
+    requeue_dependency: controller_settings?.requeue_dependency ?? global_requeue,
+  };
+}
+
+/**
+ * Builds JSON patch operations for a controller based on its settings.
+ */
+function build_controller_patch_ops(settings: FluxControllerSettingsType): KustomizePatchOpType[] {
+  const ops: KustomizePatchOpType[] = [];
+
+  if (settings.concurrent !== undefined) {
+    ops.push({
+      op: 'add',
+      path: '/spec/template/spec/containers/0/args/-',
+      value: `--concurrent=${settings.concurrent}`,
+    });
+  }
+
+  if (settings.requeue_dependency !== undefined) {
+    ops.push({
+      op: 'add',
+      path: '/spec/template/spec/containers/0/args/-',
+      value: `--requeue-dependency=${settings.requeue_dependency}`,
+    });
+  }
+
+  return ops;
+}
+
+/**
+ * Generates Kustomize patches for Flux controllers based on cluster configuration.
+ * These patches are applied to the gotk-components during Flux bootstrap/install.
+ */
+export function generate_flux_controller_patches(
+  flux_config: FluxConfigType,
+): KustomizePatchType[] | undefined {
+  if (!flux_config.controllers) {
+    return undefined;
+  }
+
+  const controller_mapping: Array<{
+    key: 'kustomize_controller' | 'helm_controller' | 'source_controller';
+    name: ControllerNameType;
+  }> = [
+    { key: 'kustomize_controller', name: 'kustomize-controller' },
+    { key: 'helm_controller', name: 'helm-controller' },
+    { key: 'source_controller', name: 'source-controller' },
+  ];
+
+  const patches: KustomizePatchType[] = [];
+
+  for (const { key, name } of controller_mapping) {
+    const settings = get_effective_controller_settings(flux_config, key);
+    const ops = build_controller_patch_ops(settings);
+
+    if (ops.length > 0) {
+      patches.push({
+        patch: JSON.stringify(ops),
+        target: {
+          kind: 'Deployment',
+          name,
+        },
+      });
+    }
+  }
+
+  return patches.length > 0 ? patches : undefined;
 }
