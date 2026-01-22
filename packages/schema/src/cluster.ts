@@ -193,7 +193,33 @@ export const flux_config_schema = z.object({
 export type FluxConfigType = z.infer<typeof flux_config_schema>;
 
 /**
+ * Default configuration for cluster-level constants.
+ *
+ * These defaults can be overridden per-cluster for custom deployments.
+ * All values have sensible defaults matching Kustodian's conventions.
+ */
+export const defaults_config_schema = z.object({
+  /** Flux system namespace where Flux controllers run */
+  flux_namespace: z.string().min(1).optional().default('flux-system'),
+  /** Secret name for OCI registry authentication */
+  oci_registry_secret_name: z.string().min(1).optional().default('kustodian-oci-registry'),
+});
+
+export type DefaultsConfigType = z.infer<typeof defaults_config_schema>;
+
+/**
  * Cluster specification.
+ *
+ * IMPORTANT: Understanding git vs oci configuration:
+ * - `git`: Source metadata only (which repo/commit artifacts came from)
+ * - `oci`: Deployment mechanism (where Flux watches for artifacts)
+ *
+ * Deployment flow:
+ * 1. You commit changes to git and merge to main
+ * 2. Run `kustodian apply` to push artifacts to OCI with git metadata
+ * 3. Flux watches the OCI registry and deploys the artifacts
+ *
+ * The git branch is NOT watched by Flux - only the OCI registry is.
  */
 export const cluster_spec_schema = z
   .object({
@@ -203,6 +229,7 @@ export const cluster_spec_schema = z
     oci: oci_config_schema.optional(),
     github: github_config_schema.optional(),
     flux: flux_config_schema.optional(),
+    defaults: defaults_config_schema.optional(),
     templates: z.array(template_config_schema).optional(),
     plugins: z.array(plugin_config_schema).optional(),
     node_defaults: node_defaults_schema.optional(),
