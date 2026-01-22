@@ -6,6 +6,17 @@ import { preservation_mode_schema } from './template.js';
 
 /**
  * Git repository configuration for a cluster.
+ *
+ * This configuration is used for SOURCE METADATA ONLY - to track which git repository
+ * and commit the deployment artifacts came from. Flux does NOT watch this git repository.
+ *
+ * When you run `kustodian apply`, it:
+ * 1. Reads this git config to determine the source repository
+ * 2. Gets the current git commit SHA
+ * 3. Pushes an OCI artifact with this metadata attached
+ *
+ * For actual deployment, Flux watches the OCI registry (spec.oci), not the git branch.
+ * Changes must be pushed via `kustodian apply` to trigger deployments.
  */
 export const git_config_schema = z.object({
   owner: z.string().min(1),
@@ -18,6 +29,17 @@ export type GitConfigType = z.infer<typeof git_config_schema>;
 
 /**
  * OCI repository configuration for a cluster.
+ *
+ * This is the DEPLOYMENT MECHANISM - Flux watches this OCI registry for artifacts.
+ *
+ * When you run `kustodian apply`, it:
+ * 1. Generates Flux manifests locally
+ * 2. Pushes them as an OCI artifact to this registry (with git metadata attached)
+ * 3. Creates/updates Flux OCIRepository and Kustomization resources in the cluster
+ * 4. Flux polls this OCI registry and deploys when new artifacts appear
+ *
+ * Changes pushed to the git branch do NOT automatically trigger deployments.
+ * You must run `kustodian apply` to push artifacts to OCI and trigger reconciliation.
  */
 export const oci_config_schema = z.object({
   registry: z.string().min(1),
@@ -194,6 +216,17 @@ export type FluxConfigType = z.infer<typeof flux_config_schema>;
 
 /**
  * Cluster specification.
+ *
+ * IMPORTANT: Understanding git vs oci configuration:
+ * - `git`: Source metadata only (which repo/commit artifacts came from)
+ * - `oci`: Deployment mechanism (where Flux watches for artifacts)
+ *
+ * Deployment flow:
+ * 1. You commit changes to git and merge to main
+ * 2. Run `kustodian apply` to push artifacts to OCI with git metadata
+ * 3. Flux watches the OCI registry and deploys the artifacts
+ *
+ * The git branch is NOT watched by Flux - only the OCI registry is.
  */
 export const cluster_spec_schema = z
   .object({
