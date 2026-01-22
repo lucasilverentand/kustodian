@@ -15,6 +15,13 @@ const execAsync = promisify(exec);
 const OCI_REGISTRY_SECRET_NAME = 'kustodian-oci-registry';
 const FLUX_NAMESPACE = 'flux-system';
 
+// Default Doppler configuration (can be overridden in cluster.yaml)
+const DOPPLER_DEFAULTS = {
+  namespace: 'doppler-operator-system',
+  name: 'doppler-token',
+  key: 'serviceToken',
+};
+
 /**
  * Apply command - orchestrates full cluster setup:
  * 1. Bootstrap nodes with k0s
@@ -295,9 +302,23 @@ export const apply_command = define_command({
       console.log('\n[3/3] Skipping Flux CD installation');
     }
 
-    // ===== PHASE 4: Deploy Templates =====
+    // ===== PHASE 4: Configure Secrets =====
     if (!skip_templates) {
-      console.log('\n[4/4] Deploying templates...');
+      console.log('\n[4/5] Configuring cluster secrets...');
+
+      // Check if Doppler is configured for this cluster
+      const doppler_config = loaded_cluster.cluster.spec.secrets?.doppler;
+      if (doppler_config?.cluster_secret?.enabled !== false) {
+        console.log('  → Checking Doppler token...');
+        await ensure_doppler_token_secret(dry_run, doppler_config?.cluster_secret);
+      } else {
+        console.log('  → Doppler cluster secret disabled, skipping');
+      }
+    }
+
+    // ===== PHASE 5: Deploy Templates =====
+    if (!skip_templates) {
+      console.log('\n[5/5] Deploying templates...');
 
       // Validate template requirements
       console.log('  → Validating template requirements...');
@@ -487,7 +508,8 @@ export const apply_command = define_command({
         };
       }
     } else {
-      console.log('\n[4/4] Skipping template deployment');
+      console.log('\n[4/5] Skipping secrets configuration');
+      console.log('\n[5/5] Skipping template deployment');
     }
 
     console.log('\n━━━ Apply Complete ━━━\n');
@@ -722,5 +744,154 @@ async function ensure_oci_registry_secret(
     const err = error as Error;
     console.error(`    ✗ Failed to create secret: ${err.message}`);
     return { has_auth: false };
+  }
+}
+
+/**
+ * Gets the Doppler service token from environment or prompts user.
+ */
+async function get_doppler_token(): Promise<string | undefined> {
+  // Check environment variable
+  const env_token = process.env['DOPPLER_TOKEN'];
+  if (env_token) {
+    console.log('    → Using DOPPLER_TOKEN from environment');
+    return env_token;
+  }
+
+  // Prompt user
+  console.log('    → No Doppler token found (checked: DOPPLER_TOKEN env var)');
+  console.log('    → Create a service token at: https://dashboard.doppler.com');
+  const input = await prompt_for_input(
+    '    Enter Doppler service token (or Enter to skip): ',
+    true,
+  );
+  return input || undefined;
+}
+
+interface DopplerSecretConfig {
+  namespace: string;
+  name: string;
+  key: string;
+}
+
+/**
+ * Creates an Opaque Secret manifest for Doppler token.
+ */
+function create_doppler_secret_manifest(token: string, config: DopplerSecretConfig): object {
+  return {
+    apiVersion: 'v1',
+    kind: 'Secret',
+    metadata: {
+      name: config.name,
+      namespace: config.namespace,
+    },
+    type: 'Opaque',
+    stringData: {
+      [config.key]: token,
+    },
+  };
+}
+
+/**
+ * Ensures the Doppler namespace exists.
+ */
+async function ensure_doppler_namespace(namespace: string, dry_run: boolean): Promise<boolean> {
+  try {
+    await execAsync(`kubectl get namespace ${namespace}`, { timeout: 5000 });
+    return true;
+  } catch {
+    // Need to create
+  }
+
+  if (dry_run) {
+    console.log(`    [dry-run] Would create namespace: ${namespace}`);
+    return true;
+  }
+
+  try {
+    await execAsync(`kubectl create namespace ${namespace}`, { timeout: 10000 });
+    console.log(`    ✓ Created namespace: ${namespace}`);
+    return true;
+  } catch (error) {
+    const err = error as Error;
+    console.error(`    ✗ Failed to create namespace: ${err.message}`);
+    return false;
+  }
+}
+
+/**
+ * Ensures Doppler token secret exists, creating if needed.
+ */
+async function ensure_doppler_token_secret(
+  dry_run: boolean,
+  cluster_config?: { namespace?: string; name?: string; key?: string },
+): Promise<boolean> {
+  // Merge cluster config with defaults
+  const config: DopplerSecretConfig = {
+    namespace: cluster_config?.namespace ?? DOPPLER_DEFAULTS.namespace,
+    name: cluster_config?.name ?? DOPPLER_DEFAULTS.name,
+    key: cluster_config?.key ?? DOPPLER_DEFAULTS.key,
+  };
+
+  // Check if secret exists
+  try {
+    await execAsync(`kubectl get secret ${config.name} -n ${config.namespace}`, {
+      timeout: 5000,
+    });
+    console.log('    ✓ Doppler token secret exists');
+    return true;
+  } catch {
+    // Need to create
+  }
+
+  const token = await get_doppler_token();
+  if (!token) {
+    console.log('    → No Doppler token provided, skipping secret creation');
+    console.log('    ⚠ ExternalSecrets using Doppler will fail until this is configured');
+    return false;
+  }
+
+  // Ensure namespace exists
+  const ns_ok = await ensure_doppler_namespace(config.namespace, dry_run);
+  if (!ns_ok) {
+    return false;
+  }
+
+  const secret = create_doppler_secret_manifest(token, config);
+
+  if (dry_run) {
+    console.log(`    [dry-run] Would create secret: ${config.name}`);
+    return true;
+  }
+
+  // Apply secret
+  try {
+    const { spawn } = await import('node:child_process');
+    const { serialize_resource } = await import('@kustodian/generator');
+
+    await new Promise<void>((resolve, reject) => {
+      const kubectl = spawn('kubectl', ['apply', '-f', '-'], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+
+      let stderr = '';
+      kubectl.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString();
+      });
+      kubectl.on('close', (code: number) => {
+        if (code === 0) resolve();
+        else reject(new Error(stderr || `kubectl exited with code ${code}`));
+      });
+
+      kubectl.stdin.write(serialize_resource(secret));
+      kubectl.stdin.end();
+    });
+
+    console.log(`    ✓ Created secret: ${config.name} in ${config.namespace}`);
+    return true;
+  } catch (error) {
+    const err = error as Error;
+    console.error(`    ✗ Failed to create Doppler secret: ${err.message}`);
+    return false;
   }
 }

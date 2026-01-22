@@ -115,12 +115,26 @@ export const bootstrap_credential_schema = z.discriminatedUnion('type', [
 export type BootstrapCredentialType = z.infer<typeof bootstrap_credential_schema>;
 
 /**
+ * Cluster secret configuration for bootstrapping secrets into the cluster.
+ * Used by external-secrets operator to access secret providers.
+ */
+export const cluster_secret_config_schema = z.object({
+  enabled: z.boolean().optional().default(true),
+  namespace: z.string().min(1).optional().default('doppler-operator-system'),
+  name: z.string().min(1).optional().default('doppler-token'),
+  key: z.string().min(1).optional().default('serviceToken'),
+});
+
+export type ClusterSecretConfigType = z.infer<typeof cluster_secret_config_schema>;
+
+/**
  * Doppler secret provider configuration at cluster level.
  */
 export const doppler_config_schema = z.object({
-  project: z.string().min(1),
-  config: z.string().min(1),
+  project: z.string().min(1).optional(),
+  config: z.string().min(1).optional(),
   service_token: bootstrap_credential_schema.optional(),
+  cluster_secret: cluster_secret_config_schema.optional(),
 });
 
 export type DopplerConfigType = z.infer<typeof doppler_config_schema>;
