@@ -5,6 +5,7 @@ import type { ClusterType, TemplateType } from '@kustodian/schema';
 import type { PluginGeneratorType } from './generators.js';
 import type { PluginHookContributionType } from './hooks.js';
 import type { PluginObjectTypeType } from './object-types.js';
+import type { SubstitutionProviderType } from './substitution-providers.js';
 
 // ============================================================
 // Cluster Provider Types
@@ -205,6 +206,13 @@ export interface KustodianPluginType {
    * Returns object types contributed by this plugin.
    */
   get_object_types?(): PluginObjectTypeType[];
+
+  /**
+   * Returns substitution providers contributed by this plugin.
+   * Substitution providers allow plugins to define custom substitution types
+   * (e.g., 'sops', 'vault', 'aws-secrets') that can resolve values during generation.
+   */
+  get_substitution_providers?(): SubstitutionProviderType[];
 }
 
 /**

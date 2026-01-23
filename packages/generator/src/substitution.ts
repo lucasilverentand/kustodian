@@ -1,4 +1,15 @@
-import type { KustomizationType, TemplateType } from '@kustodian/schema';
+import type { KustodianErrorType, ResultType } from '@kustodian/core';
+import { Errors, failure, is_success, success } from '@kustodian/core';
+import type { PluginRegistryType } from '@kustodian/plugins';
+import type {
+  ClusterType,
+  KustomizationType,
+  SubstitutionType,
+  TemplateType,
+} from '@kustodian/schema';
+import { is_plugin_substitution } from '@kustodian/schema';
+
+import type { ResolvedTemplateType } from './types.js';
 
 /**
  * Pattern for matching substitution variables: ${variable_name}
@@ -75,7 +86,7 @@ export function collect_substitution_values(
   for (const sub of kustomization.substitutions ?? []) {
     // Cluster value takes precedence over default
     const value = cluster_values[sub.name] ?? sub.default;
-    if (value !== undefined) {
+    if (value !== undefined && typeof value === 'string') {
       values[sub.name] = value;
     }
   }
@@ -96,7 +107,7 @@ export function collect_template_versions(
   for (const version of template.spec.versions ?? []) {
     // Cluster value takes precedence over default
     const value = cluster_values[version.name] ?? version.default;
-    if (value !== undefined) {
+    if (value !== undefined && typeof value === 'string') {
       values[version.name] = value;
     }
   }
@@ -180,4 +191,103 @@ export function generate_flux_substitutions(
   }
 
   return Object.fromEntries(entries);
+}
+
+/**
+ * Extracts all substitutions from resolved templates.
+ * Returns a flat list of all substitution objects from all kustomizations.
+ */
+export function extract_all_substitutions(templates: ResolvedTemplateType[]): SubstitutionType[] {
+  const substitutions: SubstitutionType[] = [];
+
+  for (const resolved of templates) {
+    if (!resolved.enabled) {
+      continue;
+    }
+
+    for (const kustomization of resolved.template.spec.kustomizations) {
+      if (kustomization.substitutions) {
+        substitutions.push(...kustomization.substitutions);
+      }
+    }
+  }
+
+  return substitutions;
+}
+
+/**
+ * Resolves external substitutions using registered providers.
+ * Only resolves plugin-provided substitution types (e.g., 'sops', 'vault').
+ * Core types (version, helm, namespace, generic) are handled elsewhere.
+ * Legacy types (doppler, 1password) are handled by their respective plugins.
+ *
+ * @param templates - All resolved templates
+ * @param cluster - Cluster configuration
+ * @param registry - Plugin registry with registered substitution providers
+ * @returns Result containing a map of substitution names to their resolved values
+ */
+export async function resolve_external_substitutions(
+  templates: ResolvedTemplateType[],
+  cluster: ClusterType,
+  registry: PluginRegistryType,
+): Promise<ResultType<Record<string, string>, KustodianErrorType>> {
+  const values: Record<string, string> = {};
+
+  // Extract all substitutions
+  const all_substitutions = extract_all_substitutions(templates);
+
+  // Filter to only external (plugin-provided) substitutions
+  const external_substitutions = all_substitutions.filter((sub) => is_plugin_substitution(sub));
+
+  if (external_substitutions.length === 0) {
+    return success(values);
+  }
+
+  // Group substitutions by type
+  const by_type = new Map<string, SubstitutionType[]>();
+  for (const sub of external_substitutions) {
+    if (!('type' in sub) || !sub.type) {
+      continue; // Should not happen after filtering, but be safe
+    }
+
+    const type = sub.type;
+    if (!by_type.has(type)) {
+      by_type.set(type, []);
+    }
+    by_type.get(type)?.push(sub);
+  }
+
+  // Resolve each type using its provider
+  for (const [type, subs] of by_type) {
+    const provider = registry.get_substitution_provider(type);
+
+    if (!provider) {
+      // No provider registered for this type - skip with warning
+      // In the future, we could make this an error or collect warnings
+      continue;
+    }
+
+    // Resolve this batch of substitutions
+    // Find plugin config for this provider
+    const plugin_config = cluster.spec.plugins?.find((p) => p.name === provider.type)?.config;
+
+    const result = await provider.resolve(subs, {
+      cluster,
+      templates: templates.map((t) => t.template),
+      config: plugin_config ?? undefined,
+    });
+
+    if (!is_success(result)) {
+      return failure(
+        Errors.validation_error(
+          `Failed to resolve ${type} substitutions: ${result.error.message}`,
+        ),
+      );
+    }
+
+    // Merge resolved values
+    Object.assign(values, result.value);
+  }
+
+  return success(values);
 }

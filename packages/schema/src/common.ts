@@ -253,16 +253,40 @@ export const doppler_substitution_schema = z.object({
 export type DopplerSubstitutionType = z.infer<typeof doppler_substitution_schema>;
 
 /**
- * Union of all substitution types.
- * Supports backward compatibility: substitutions without 'type' are treated as generic.
+ * Core substitution types provided by Kustodian.
+ * These are always validated by the schema.
  */
-export const substitution_schema = z.union([
+export const core_substitution_schema = z.union([
   version_substitution_schema,
   helm_substitution_schema,
   namespace_substitution_schema,
-  onepassword_substitution_schema,
-  doppler_substitution_schema,
   generic_substitution_schema, // Must be last due to optional 'type' field
+]);
+
+/**
+ * Plugin-provided substitution types.
+ * Plugins can register custom types (e.g., 'sops', 'vault', 'aws-secrets').
+ * Schema validation is delegated to the plugin's substitution provider.
+ */
+export const plugin_substitution_schema = z
+  .object({
+    type: z.string().min(1),
+    name: z.string().min(1),
+  })
+  .passthrough(); // Allow additional fields defined by plugins
+
+/**
+ * Union of all substitution types.
+ * Includes core types (version, helm, namespace, generic) plus plugin-provided types.
+ * Also includes Doppler and 1Password for backward compatibility (will be migrated to plugins).
+ *
+ * Supports backward compatibility: substitutions without 'type' are treated as generic.
+ */
+export const substitution_schema = z.union([
+  core_substitution_schema,
+  onepassword_substitution_schema, // Temporary: will move to plugin
+  doppler_substitution_schema, // Temporary: will move to plugin
+  plugin_substitution_schema, // Must be last to not shadow specific types
 ]);
 
 export type SubstitutionType = z.infer<typeof substitution_schema>;
@@ -309,6 +333,22 @@ export function is_onepassword_substitution(
  */
 export function is_doppler_substitution(sub: SubstitutionType): sub is DopplerSubstitutionType {
   return 'type' in sub && sub.type === 'doppler';
+}
+
+/**
+ * Type guard for plugin-provided substitutions.
+ * Returns true if the substitution type is not a core type (version, helm, namespace, generic)
+ * and not a legacy type (1password, doppler).
+ */
+export function is_plugin_substitution(sub: SubstitutionType): boolean {
+  if (!('type' in sub) || !sub.type) {
+    return false; // No type = generic (core type)
+  }
+
+  const core_types = ['version', 'helm', 'namespace', 'generic'];
+  const legacy_types = ['1password', 'doppler'];
+
+  return !core_types.includes(sub.type) && !legacy_types.includes(sub.type);
 }
 
 /**

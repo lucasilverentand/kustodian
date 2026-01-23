@@ -12,4 +12,6 @@ export * from './loader.js';
 export * from './object-types.js';
 // Plugin registry
 export * from './registry.js';
+// Substitution providers
+export * from './substitution-providers.js';
 export * from './types.js';

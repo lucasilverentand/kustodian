@@ -4,6 +4,7 @@ import { Errors, type ResultType, failure, is_success, success } from '@kustodia
 import type { PluginGeneratorType } from './generators.js';
 import { type HookDispatcherType, create_hook_dispatcher } from './hooks.js';
 import { type ObjectTypeRegistryType, create_object_type_registry } from './object-types.js';
+import type { SubstitutionProviderType } from './substitution-providers.js';
 import type {
   KustodianPluginType,
   LoadedPluginType,
@@ -70,6 +71,16 @@ export interface PluginRegistryType {
    * Gets a generator that handles a specific object type.
    */
   get_generator_for_type(api_version: string, kind: string): PluginGeneratorType | undefined;
+
+  /**
+   * Gets all substitution providers from plugins.
+   */
+  get_substitution_providers(): SubstitutionProviderType[];
+
+  /**
+   * Gets a substitution provider for a specific type.
+   */
+  get_substitution_provider(type: string): SubstitutionProviderType | undefined;
 }
 
 /**
@@ -82,6 +93,7 @@ export function create_plugin_registry(): PluginRegistryType {
   // Contribution collections
   const commands: PluginCommandContributionType[] = [];
   const generators: PluginGeneratorType[] = [];
+  const substitution_providers: SubstitutionProviderType[] = [];
   const hook_dispatcher = create_hook_dispatcher();
   const object_type_registry = create_object_type_registry();
 
@@ -122,6 +134,12 @@ export function create_plugin_registry(): PluginRegistryType {
         for (const object_type of plugin_object_types) {
           object_type_registry.register(object_type);
         }
+      }
+
+      // Collect substitution provider contributions
+      if (plugin.get_substitution_providers) {
+        const plugin_substitution_providers = plugin.get_substitution_providers();
+        substitution_providers.push(...plugin_substitution_providers);
       }
 
       return success(undefined);
@@ -201,6 +219,14 @@ export function create_plugin_registry(): PluginRegistryType {
       return generators.find((g) =>
         g.handles.some((h) => h.api_version === api_version && h.kind === kind),
       );
+    },
+
+    get_substitution_providers() {
+      return [...substitution_providers];
+    },
+
+    get_substitution_provider(type) {
+      return substitution_providers.find((p) => p.type === type);
     },
   };
 }

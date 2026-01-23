@@ -1,9 +1,10 @@
 import type { KustodianErrorType } from '@kustodian/core';
-import { type ResultType, success } from '@kustodian/core';
+import { type ResultType, is_success, success } from '@kustodian/core';
 import type {
   GeneratedResourceType,
   LegacyPluginRegistryType,
   PluginContextType,
+  PluginRegistryType,
 } from '@kustodian/plugins';
 import type { ClusterType, TemplateConfigType, TemplateType } from '@kustodian/schema';
 
@@ -21,6 +22,7 @@ import {
 import { get_template_config, resolve_kustomization_state } from './kustomization-resolution.js';
 import { generate_namespace_resources } from './namespace.js';
 import { serialize_resource, serialize_resources, write_generation_result } from './output.js';
+import { resolve_external_substitutions } from './substitution.js';
 import type {
   FluxKustomizationType,
   GenerateOptionsType,
@@ -109,10 +111,15 @@ export interface GeneratorType {
 
 /**
  * Creates a new Generator instance.
+ *
+ * @param options - Generator configuration options
+ * @param legacy_registry - Legacy plugin registry (deprecated, for backward compatibility)
+ * @param registry - New plugin registry with substitution provider support
  */
 export function create_generator(
   options: GeneratorOptionsType = {},
-  registry?: LegacyPluginRegistryType,
+  legacy_registry?: LegacyPluginRegistryType,
+  registry?: PluginRegistryType,
 ): GeneratorType {
   const flux_namespace = options.flux_namespace ?? 'flux-system';
   const git_repository_name = options.git_repository_name ?? 'flux-system';
@@ -199,6 +206,20 @@ export function create_generator(
         });
       }
 
+      // Resolve external substitutions via plugins (if registry provided)
+      const external_values: Record<string, string> = {};
+      if (registry) {
+        const external_result = await resolve_external_substitutions(
+          resolved_templates,
+          cluster,
+          registry,
+        );
+        if (!is_success(external_result)) {
+          return external_result;
+        }
+        Object.assign(external_values, external_result.value);
+      }
+
       // Generate kustomizations
       const generated_kustomizations: GeneratedKustomizationType[] = [];
 
@@ -218,10 +239,17 @@ export function create_generator(
             kustomization.name,
           );
 
+          // Merge external (plugin-provided) values with template values
+          // External values have lower precedence than template-specific values
+          const merged_values = {
+            ...external_values,
+            ...resolved.values,
+          };
+
           const resolved_kustomization = resolve_kustomization(
             resolved.template,
             kustomization,
-            resolved.values,
+            merged_values,
           );
 
           // Generate Flux resource with configurable namespace
@@ -289,14 +317,14 @@ export function create_generator(
     },
 
     generate_plugin_resources(cluster, templates) {
-      if (!registry) {
+      if (!legacy_registry) {
         return success([]);
       }
 
       const all_resources: GeneratedResourceType[] = [];
 
-      // Generate resources from plugins
-      for (const generator of registry.get_resource_generators()) {
+      // Generate resources from legacy plugins
+      for (const generator of legacy_registry.get_resource_generators()) {
         for (const resolved of templates) {
           if (!resolved.enabled) {
             continue;
