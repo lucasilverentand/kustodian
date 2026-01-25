@@ -1,0 +1,67 @@
+name: Kustodian Validate
+description: Validate kustodian configuration (templates, clusters, dependencies)
+
+branding:
+  icon: check-circle
+  color: green
+
+inputs:
+  working-directory:
+    description: Project root path
+    required: false
+    default: '.'
+  cluster:
+    description: Validate specific cluster only
+    required: false
+    default: ''
+  kustodian-version:
+    description: Kustodian CLI version
+    required: false
+    default: 'latest'
+  bun-version:
+    description: Bun version
+    required: false
+    default: '1.3.5'
+
+outputs:
+  valid:
+    description: Whether validation passed (true/false)
+    value: ${{ steps.validate.outputs.valid }}
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: ${{ inputs.bun-version }}
+
+    - name: Validate configuration
+      id: validate
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        # Build CLI command
+        CLI_VERSION="${{ inputs.kustodian-version }}"
+        if [ "$CLI_VERSION" = "latest" ]; then
+          CLI_PACKAGE="@kustodian/cli"
+        else
+          CLI_PACKAGE="@kustodian/cli@${CLI_VERSION}"
+        fi
+
+        # Build validate command with optional cluster flag
+        VALIDATE_CMD="bunx ${CLI_PACKAGE} validate"
+        if [ -n "${{ inputs.cluster }}" ]; then
+          VALIDATE_CMD="${VALIDATE_CMD} --cluster ${{ inputs.cluster }}"
+        fi
+
+        # Run validation
+        echo "Running: ${VALIDATE_CMD}"
+        if ${VALIDATE_CMD}; then
+          echo "valid=true" >> "$GITHUB_OUTPUT"
+          echo "✓ Validation passed"
+        else
+          echo "valid=false" >> "$GITHUB_OUTPUT"
+          echo "✗ Validation failed"
+          exit 1
+        fi
