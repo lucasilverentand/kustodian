@@ -1,17 +1,17 @@
 {
   "packages/core": "2.0.0",
-  "packages/schema": "2.0.0",
-  "packages/loader": "2.0.0",
-  "packages/cli": "2.0.0",
+  "packages/schema": "2.1.0",
+  "packages/loader": "2.1.0",
+  "packages/cli": "2.1.0",
   "packages/nodes": "2.0.0",
-  "packages/plugins": "2.0.0",
-  "packages/generator": "2.0.0",
+  "packages/plugins": "2.1.0",
+  "packages/generator": "2.1.0",
   "packages/k8s": "2.0.0",
   "packages/registry": "2.0.0",
   "packages/sources": "2.0.0",
   "plugins/k0s": "2.0.0",
   "plugins/1password": "2.0.0",
   "plugins/doppler": "2.0.0",
-  "plugins/authelia": "2.0.0",
-  "plugins/authentik": "2.0.0"
+  "plugins/authelia": "2.0.1",
+  "plugins/authentik": "2.0.1"
 }
