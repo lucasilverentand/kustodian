@@ -264,6 +264,12 @@ export const core_substitution_schema = z.union([
 ]);
 
 /**
+ * Built-in substitution types that should not be caught by the plugin schema.
+ * These types have their own specific schemas with validation rules.
+ */
+const builtin_substitution_types = ['version', 'helm', 'namespace', 'generic', '1password', 'doppler'];
+
+/**
  * Plugin-provided substitution types.
  * Plugins can register custom types (e.g., 'sops', 'vault', 'aws-secrets').
  * Schema validation is delegated to the plugin's substitution provider.
@@ -273,7 +279,13 @@ export const plugin_substitution_schema = z
     type: z.string().min(1),
     name: z.string().min(1),
   })
-  .passthrough(); // Allow additional fields defined by plugins
+  .passthrough() // Allow additional fields defined by plugins
+  .refine(
+    (data) => !builtin_substitution_types.includes(data.type),
+    {
+      message: 'Built-in substitution types must use their specific schema',
+    },
+  );
 
 /**
  * Union of all substitution types.

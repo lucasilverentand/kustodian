@@ -1,112 +1,117 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import type { ClusterType } from '@kustodian/schema';
-
+import type { ProjectType as ProjectConfigType } from '@kustodian/schema';
 import { resolve_defaults } from '../../src/utils/defaults.js';
 
-describe('Defaults Resolution', () => {
-  describe('resolve_defaults', () => {
-    test('should use default values when no defaults are specified', () => {
-      const cluster: ClusterType = {
-        apiVersion: 'kustodian.io/v1',
-        kind: 'Cluster',
-        metadata: { name: 'test-cluster' },
-        spec: {
-          domain: 'example.com',
-          oci: {
-            registry: 'ghcr.io',
-            repository: 'test/repo',
-            tag_strategy: 'git-sha',
-            provider: 'generic',
-            insecure: false,
-          },
+describe('resolve_defaults', () => {
+  it('should use schema defaults when no config provided', () => {
+    const cluster: ClusterType = {
+      apiVersion: 'kustodian.io/v1',
+      kind: 'Cluster',
+      metadata: { name: 'test' },
+      spec: { domain: 'example.com', git: { owner: 'org', repository: 'repo', branch: 'main' } },
+    };
+
+    const defaults = resolve_defaults(cluster);
+
+    expect(defaults.flux_namespace).toBe('flux-system');
+    expect(defaults.oci_repository_name).toBe('kustodian-oci');
+    expect(defaults.oci_registry_secret_name).toBe('kustodian-oci-registry');
+    expect(defaults.flux_reconciliation_interval).toBe('10m');
+    expect(defaults.flux_reconciliation_timeout).toBe('5m');
+  });
+
+  it('should use project defaults when provided', () => {
+    const cluster: ClusterType = {
+      apiVersion: 'kustodian.io/v1',
+      kind: 'Cluster',
+      metadata: { name: 'test' },
+      spec: { domain: 'example.com', git: { owner: 'org', repository: 'repo', branch: 'main' } },
+    };
+
+    const project: ProjectConfigType = {
+      apiVersion: 'kustodian.io/v1',
+      kind: 'Project',
+      metadata: { name: 'my-project' },
+      spec: {
+        defaults: {
+          flux_namespace: 'gitops-system',
+          oci_repository_name: 'my-oci-repo',
         },
-      };
+      },
+    };
 
-      const result = resolve_defaults(cluster);
+    const defaults = resolve_defaults(cluster, project);
 
-      expect(result.flux_namespace).toBe('flux-system');
-      expect(result.oci_registry_secret_name).toBe('kustodian-oci-registry');
-    });
+    expect(defaults.flux_namespace).toBe('gitops-system');
+    expect(defaults.oci_repository_name).toBe('my-oci-repo');
+    expect(defaults.oci_registry_secret_name).toBe('kustodian-oci-registry'); // Schema default
+  });
 
-    test('should use custom flux_namespace when specified', () => {
-      const cluster: ClusterType = {
-        apiVersion: 'kustodian.io/v1',
-        kind: 'Cluster',
-        metadata: { name: 'test-cluster' },
-        spec: {
-          domain: 'example.com',
-          defaults: {
-            flux_namespace: 'custom-flux',
-            oci_registry_secret_name: 'kustodian-oci-registry',
-          },
-          oci: {
-            registry: 'ghcr.io',
-            repository: 'test/repo',
-            tag_strategy: 'git-sha',
-            provider: 'generic',
-            insecure: false,
-          },
+  it('should use cluster defaults over project defaults', () => {
+    const cluster: ClusterType = {
+      apiVersion: 'kustodian.io/v1',
+      kind: 'Cluster',
+      metadata: { name: 'test' },
+      spec: {
+        domain: 'example.com',
+        git: { owner: 'org', repository: 'repo', branch: 'main' },
+        defaults: {
+          flux_namespace: 'flux-cluster-override',
+          flux_reconciliation_interval: '5m',
         },
-      };
+      },
+    };
 
-      const result = resolve_defaults(cluster);
-
-      expect(result.flux_namespace).toBe('custom-flux');
-      expect(result.oci_registry_secret_name).toBe('kustodian-oci-registry');
-    });
-
-    test('should use custom oci_registry_secret_name when specified', () => {
-      const cluster: ClusterType = {
-        apiVersion: 'kustodian.io/v1',
-        kind: 'Cluster',
-        metadata: { name: 'test-cluster' },
-        spec: {
-          domain: 'example.com',
-          defaults: {
-            flux_namespace: 'flux-system',
-            oci_registry_secret_name: 'custom-oci-secret',
-          },
-          oci: {
-            registry: 'ghcr.io',
-            repository: 'test/repo',
-            tag_strategy: 'git-sha',
-            provider: 'generic',
-            insecure: false,
-          },
+    const project: ProjectConfigType = {
+      apiVersion: 'kustodian.io/v1',
+      kind: 'Project',
+      metadata: { name: 'my-project' },
+      spec: {
+        defaults: {
+          flux_namespace: 'gitops-system',
+          oci_repository_name: 'my-oci-repo',
         },
-      };
+      },
+    };
 
-      const result = resolve_defaults(cluster);
+    const defaults = resolve_defaults(cluster, project);
 
-      expect(result.flux_namespace).toBe('flux-system');
-      expect(result.oci_registry_secret_name).toBe('custom-oci-secret');
-    });
+    expect(defaults.flux_namespace).toBe('flux-cluster-override');
+    expect(defaults.oci_repository_name).toBe('my-oci-repo'); // Project default
+    expect(defaults.flux_reconciliation_interval).toBe('5m'); // Cluster override
+    expect(defaults.flux_reconciliation_timeout).toBe('5m'); // Schema default
+  });
 
-    test('should use all custom defaults when all are specified', () => {
-      const cluster: ClusterType = {
-        apiVersion: 'kustodian.io/v1',
-        kind: 'Cluster',
-        metadata: { name: 'test-cluster' },
-        spec: {
-          domain: 'example.com',
-          defaults: {
-            flux_namespace: 'gitops-system',
-            oci_registry_secret_name: 'my-registry-auth',
-          },
-          oci: {
-            registry: 'ghcr.io',
-            repository: 'test/repo',
-            tag_strategy: 'git-sha',
-            provider: 'generic',
-            insecure: false,
-          },
+  it('should handle partial overrides correctly', () => {
+    const cluster: ClusterType = {
+      apiVersion: 'kustodian.io/v1',
+      kind: 'Cluster',
+      metadata: { name: 'test' },
+      spec: {
+        domain: 'example.com',
+        git: { owner: 'org', repository: 'repo', branch: 'main' },
+        defaults: {
+          oci_repository_name: 'cluster-oci',
         },
-      };
+      },
+    };
 
-      const result = resolve_defaults(cluster);
+    const project: ProjectConfigType = {
+      apiVersion: 'kustodian.io/v1',
+      kind: 'Project',
+      metadata: { name: 'my-project' },
+      spec: {
+        defaults: {
+          flux_namespace: 'gitops-system',
+        },
+      },
+    };
 
-      expect(result.flux_namespace).toBe('gitops-system');
-      expect(result.oci_registry_secret_name).toBe('my-registry-auth');
-    });
+    const defaults = resolve_defaults(cluster, project);
+
+    expect(defaults.flux_namespace).toBe('gitops-system'); // From project
+    expect(defaults.oci_repository_name).toBe('cluster-oci'); // From cluster
+    expect(defaults.oci_registry_secret_name).toBe('kustodian-oci-registry'); // Schema
   });
 });

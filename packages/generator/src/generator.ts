@@ -42,6 +42,10 @@ export interface GeneratorOptionsType {
   base_path?: string;
   /** Map of template names to their source paths (relative to project root) */
   template_paths?: Map<string, string>;
+  /** Reconciliation interval for Flux resources */
+  flux_reconciliation_interval?: string;
+  /** Timeout for Flux reconciliation */
+  flux_reconciliation_timeout?: string;
 }
 
 /**
@@ -127,6 +131,8 @@ export function create_generator(
   const _base_path = options.base_path ?? './templates';
   void _base_path; // Suppress unused variable warning
   const template_paths = options.template_paths;
+  const flux_reconciliation_interval = options.flux_reconciliation_interval ?? '10m';
+  const flux_reconciliation_timeout = options.flux_reconciliation_timeout ?? '5m';
 
   const hooks: GeneratorHookHandlerType[] = [];
 
@@ -261,6 +267,8 @@ export function create_generator(
             source_kind,
             kustomization_state.preservation,
             template_source_path,
+            flux_reconciliation_interval,
+            flux_reconciliation_timeout,
           );
 
           // Override namespace to configured value
@@ -295,6 +303,7 @@ export function create_generator(
           cluster.spec.oci,
           source_repository_name,
           flux_namespace,
+          flux_reconciliation_interval,
         );
       }
 

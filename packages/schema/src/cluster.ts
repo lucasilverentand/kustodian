@@ -215,16 +215,20 @@ export const flux_config_schema = z.object({
 export type FluxConfigType = z.infer<typeof flux_config_schema>;
 
 /**
- * Default configuration for cluster-level constants.
- *
- * These defaults can be overridden per-cluster for custom deployments.
- * All values have sensible defaults matching Kustodian's conventions.
+ * Cluster-level defaults that override project defaults.
+ * All values are optional - fallback to project defaults, then schema defaults.
  */
 export const defaults_config_schema = z.object({
   /** Flux system namespace where Flux controllers run */
-  flux_namespace: z.string().min(1).optional().default('flux-system'),
+  flux_namespace: z.string().min(1).optional(),
+  /** Flux OCIRepository resource name */
+  oci_repository_name: z.string().min(1).optional(),
   /** Secret name for OCI registry authentication */
-  oci_registry_secret_name: z.string().min(1).optional().default('kustodian-oci-registry'),
+  oci_registry_secret_name: z.string().min(1).optional(),
+  /** Reconciliation interval for Flux resources */
+  flux_reconciliation_interval: z.string().min(1).optional(),
+  /** Timeout for Flux reconciliation */
+  flux_reconciliation_timeout: z.string().min(1).optional(),
 });
 
 export type DefaultsConfigType = z.infer<typeof defaults_config_schema>;

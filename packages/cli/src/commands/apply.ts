@@ -13,12 +13,6 @@ import { resolve_defaults } from '../utils/defaults.js';
 
 const execAsync = promisify(exec);
 
-// Default Doppler configuration (can be overridden in cluster.yaml)
-const DOPPLER_DEFAULTS = {
-  namespace: 'doppler-operator-system',
-  name: 'doppler-token',
-  key: 'serviceToken',
-};
 
 /**
  * Apply command - orchestrates full cluster setup:
@@ -134,7 +128,7 @@ export const apply_command = define_command({
     console.log(`  ✓ Loaded ${loaded_cluster.nodes.length} nodes`);
 
     // Resolve cluster defaults (Flux namespace, OCI secret names, etc.)
-    const defaults = resolve_defaults(loaded_cluster.cluster);
+    const defaults = resolve_defaults(loaded_cluster.cluster, project.config);
     const FLUX_NAMESPACE = defaults.flux_namespace;
     const OCI_REGISTRY_SECRET_NAME = defaults.oci_registry_secret_name;
 
@@ -361,7 +355,7 @@ export const apply_command = define_command({
         console.log('  → Generating Flux resources...');
 
         const { create_generator, serialize_resource } = await import('@kustodian/generator');
-        const oci_repository_name = 'kustodian-oci';
+        const oci_repository_name = defaults.oci_repository_name;
 
         // Build template paths map - maps template name to relative path from templates/
         const templates_dir = path.join(project_root, 'templates');
@@ -376,6 +370,8 @@ export const apply_command = define_command({
           flux_namespace: defaults.flux_namespace,
           git_repository_name: oci_repository_name,
           template_paths,
+          flux_reconciliation_interval: defaults.flux_reconciliation_interval,
+          flux_reconciliation_timeout: defaults.flux_reconciliation_timeout,
         });
 
         const gen_result = await generator.generate(
@@ -843,9 +839,9 @@ async function ensure_doppler_token_secret(
 ): Promise<boolean> {
   // Merge cluster config with defaults
   const config: DopplerSecretConfig = {
-    namespace: cluster_config?.namespace ?? DOPPLER_DEFAULTS.namespace,
-    name: cluster_config?.name ?? DOPPLER_DEFAULTS.name,
-    key: cluster_config?.key ?? DOPPLER_DEFAULTS.key,
+    namespace: cluster_config?.namespace || 'doppler-operator-system',
+    name: cluster_config?.name || 'doppler-token',
+    key: cluster_config?.key || 'serviceToken',
   };
 
   // Check if secret exists

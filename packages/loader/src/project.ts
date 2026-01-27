@@ -5,10 +5,12 @@ import {
   type ClusterType,
   type NodeProfileType,
   type NodeSchemaType,
+  type ProjectType as ProjectConfigType,
   type TemplateType,
   node_resource_to_node,
   validate_cluster,
   validate_node_resource,
+  validate_project,
   validate_template,
 } from '@kustodian/schema';
 
@@ -57,6 +59,7 @@ export interface LoadedClusterType {
  */
 export interface ProjectType {
   root: string;
+  config?: ProjectConfigType;
   templates: LoadedTemplateType[];
   clusters: LoadedClusterType[];
   profiles: Map<string, NodeProfileType>;
@@ -347,6 +350,17 @@ export async function load_project(
     return failure(Errors.config_not_found('Project', project_file));
   }
 
+  // Load project config if kustodian.yaml exists
+  let project_config: ProjectConfigType | undefined;
+  const yaml_result = await read_yaml_file<unknown>(project_file);
+  if (is_success(yaml_result)) {
+    const validation = validate_project(yaml_result.value);
+    if (validation.success) {
+      project_config = validation.data;
+    }
+    // Note: Validation errors are non-fatal for backward compatibility
+  }
+
   // Load profiles first (they may be referenced by nodes)
   const profiles_result = await load_all_profiles(project_root);
   if (!is_success(profiles_result)) {
@@ -365,10 +379,16 @@ export async function load_project(
     return clusters_result;
   }
 
-  return success({
+  const result: ProjectType = {
     root: project_root,
     templates: templates_result.value,
     clusters: clusters_result.value,
     profiles: profiles_result.value,
-  });
+  };
+
+  if (project_config) {
+    result.config = project_config;
+  }
+
+  return success(result);
 }

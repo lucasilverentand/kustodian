@@ -59,8 +59,13 @@ export const init_command = define_command({
         name: project_name,
       },
       spec: {
-        flux_namespace: 'flux-system',
-        oci_repository: 'flux-system',
+        defaults: {
+          flux_namespace: 'flux-system',
+          oci_repository_name: 'kustodian-oci',
+          oci_registry_secret_name: 'kustodian-oci-registry',
+          flux_reconciliation_interval: '10m',
+          flux_reconciliation_timeout: '5m',
+        },
       },
     };
 

@@ -163,6 +163,7 @@ export function generate_flux_oci_repository(
   oci_config: OciConfigType,
   repository_name: string,
   flux_namespace: string,
+  interval: string = DEFAULT_INTERVAL,
 ): FluxOCIRepositoryType {
   const url = `oci://${oci_config.registry}/${oci_config.repository}`;
 
@@ -179,7 +180,7 @@ export function generate_flux_oci_repository(
   }
 
   const spec: FluxOCIRepositoryType['spec'] = {
-    interval: DEFAULT_INTERVAL,
+    interval,
     url,
     ref,
     provider: oci_config.provider || 'generic',
@@ -213,13 +214,15 @@ export function generate_flux_kustomization(
   source_kind: 'GitRepository' | 'OCIRepository' = 'GitRepository',
   preservation?: PreservationPolicyType,
   template_source_path?: string,
+  interval: string = DEFAULT_INTERVAL,
+  timeout: string = DEFAULT_TIMEOUT,
 ): FluxKustomizationType {
   const { template, kustomization, values, namespace } = resolved;
   const name = generate_flux_name(template.metadata.name, kustomization.name);
   const path = generate_flux_path(template.metadata.name, kustomization.path, './templates', template_source_path);
 
   const spec: FluxKustomizationType['spec'] = {
-    interval: DEFAULT_INTERVAL,
+    interval,
     targetNamespace: namespace,
     path,
     prune: kustomization.prune ?? true,
@@ -243,7 +246,7 @@ export function generate_flux_kustomization(
   if (kustomization.timeout) {
     spec.timeout = kustomization.timeout;
   } else {
-    spec.timeout = DEFAULT_TIMEOUT;
+    spec.timeout = timeout;
   }
 
   // Add retry interval if specified

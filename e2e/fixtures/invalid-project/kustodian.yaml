@@ -3,4 +3,5 @@ kind: Project
 metadata:
   name: invalid-project
 spec:
-  flux_namespace: flux-system
+  defaults:
+    flux_namespace: flux-system

@@ -3,5 +3,6 @@ kind: Project
 metadata:
   name: e2e-test-project
 spec:
-  flux_namespace: flux-system
-  oci_repository: flux-system
+  defaults:
+    flux_namespace: flux-system
+    oci_repository_name: kustodian-oci
