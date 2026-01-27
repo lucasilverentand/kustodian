@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/lucasilverentand/kustodian/compare/loader-v2.0.0...loader-v2.1.0) (2026-01-27)
+
+
+### Features
+
+* **schema, cli, generator, loader:** implement three-tier cascading defaults system ([1eaa017](https://github.com/lucasilverentand/kustodian/commit/1eaa01786930b8093ada349910eda46998fb54bb))
+
 ## [2.0.0](https://github.com/lucasilverentand/kustodian/compare/loader-v1.1.1...loader-v2.0.0) (2026-01-21)
 
 
