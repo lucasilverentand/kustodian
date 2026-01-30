@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.1.0](https://github.com/lucasilverentand/kustodian/compare/generator-v2.0.0...generator-v2.1.0) (2026-01-30)
+
+
+### Features
+
+* **generator:** add flux controller parallelization config ([bb1406a](https://github.com/lucasilverentand/kustodian/commit/bb1406ab19bf653db59a2bb17991916a3cb39562))
+* **plugins, generator, schema:** add substitution provider plugin system ([1440de4](https://github.com/lucasilverentand/kustodian/commit/1440de41a2b0b426bd8bb19911924757dbd744f9))
+* **schema, cli, generator, loader:** implement three-tier cascading defaults system ([1eaa017](https://github.com/lucasilverentand/kustodian/commit/1eaa01786930b8093ada349910eda46998fb54bb))
+* **schema, cli, generator:** add configurable defaults for Flux namespace and OCI secret name ([#129](https://github.com/lucasilverentand/kustodian/issues/129)) ([cb0a58a](https://github.com/lucasilverentand/kustodian/commit/cb0a58a10814ceaba5c1c3e499d3d42fadbf4dd7)), closes [#127](https://github.com/lucasilverentand/kustodian/issues/127)
+
+
+### Bug Fixes
+
+* **generator:** add namespace to substitution values ([ba304f3](https://github.com/lucasilverentand/kustodian/commit/ba304f32947de924d698e49c993050d5701219ef))
+
 ## [2.0.0](https://github.com/lucasilverentand/kustodian/compare/generator-v1.3.0...generator-v2.0.0) (2026-01-21)
 
 

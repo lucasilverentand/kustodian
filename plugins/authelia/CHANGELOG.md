@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/lucasilverentand/kustodian/compare/plugin-authelia-v2.0.0...plugin-authelia-v2.0.1) (2026-01-30)
+
+
+### Bug Fixes
+
+* CI fixes and remove silverswarm test fixtures ([67b57e9](https://github.com/lucasilverentand/kustodian/commit/67b57e9af9d57c754eceb784d1af52eadd8cba7c))
+
 ## [2.0.0](https://github.com/lucasilverentand/kustodian/compare/plugin-authelia-v1.0.0...plugin-authelia-v2.0.0) (2026-01-21)
 
 

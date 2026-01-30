@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/lucasilverentand/kustodian/compare/plugins-v2.0.0...plugins-v2.1.0) (2026-01-30)
+
+
+### Features
+
+* **plugins, generator, schema:** add substitution provider plugin system ([1440de4](https://github.com/lucasilverentand/kustodian/commit/1440de41a2b0b426bd8bb19911924757dbd744f9))
+
 ## [2.0.0](https://github.com/lucasilverentand/kustodian/compare/plugins-v1.0.1...plugins-v2.0.0) (2026-01-21)
 
 
