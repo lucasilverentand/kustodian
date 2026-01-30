@@ -169,7 +169,6 @@ kind: Cluster
 metadata:
   name: production
 spec:
-  domain: example.com
   git:
     owner: my-org
     repository: my-repo
@@ -184,7 +183,6 @@ spec:
       if (result.success) {
         expect(result.value.path).toBe(cluster_dir);
         expect(result.value.cluster.metadata.name).toBe('production');
-        expect(result.value.cluster.spec.domain).toBe('example.com');
       }
     });
 
@@ -213,8 +211,7 @@ spec:
 kind: Cluster
 metadata:
   name: invalid
-spec:
-  domain: ""
+spec: {}
 `,
       );
 
@@ -321,7 +318,6 @@ kind: Cluster
 metadata:
   name: ${name}
 spec:
-  domain: ${name}.example.com
   git:
     owner: my-org
     repository: my-repo
@@ -364,8 +360,7 @@ spec:
 kind: Cluster
 metadata:
   name: invalid
-spec:
-  domain: ""
+spec: {}
 `,
       );
 
@@ -411,7 +406,6 @@ kind: Cluster
 metadata:
   name: production
 spec:
-  domain: example.com
   git:
     owner: my-org
     repository: my-repo
@@ -482,8 +476,7 @@ spec:
 kind: Cluster
 metadata:
   name: invalid
-spec:
-  domain: ""
+spec: {}
 `,
       );
 

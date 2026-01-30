@@ -12,7 +12,6 @@ describe('Cluster Schema', () => {
         metadata: {
           name: 'production'},
         spec: {
-          domain: 'example.com',
           git: {
             owner: 'my-org',
             repository: 'my-repo'}}};
@@ -24,7 +23,6 @@ describe('Cluster Schema', () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.metadata.name).toBe('production');
-        expect(result.data.spec.domain).toBe('example.com');
         expect(result.data.spec.git?.owner).toBe('my-org');
         expect(result.data.spec.git?.branch).toBe('main');
       }
@@ -38,7 +36,6 @@ describe('Cluster Schema', () => {
         metadata: {
           name: 'full-cluster'},
         spec: {
-          domain: 'production.example.com',
           git: {
             owner: 'my-org',
             repository: 'gitops-repo',
@@ -78,7 +75,6 @@ describe('Cluster Schema', () => {
         metadata: {
           name: 'test'},
         spec: {
-          domain: 'test.com',
           git: {
             owner: 'org',
             repository: 'repo'},
@@ -103,7 +99,6 @@ describe('Cluster Schema', () => {
         kind: 'Cluster',
         metadata: { name: 'test' },
         spec: {
-          domain: 'test.com',
           git: { owner: 'org', repository: 'repo' }}};
 
       // Act
@@ -118,23 +113,6 @@ describe('Cluster Schema', () => {
       const cluster = {
         apiVersion: 'kustodian.io/v1',
         kind: 'Template',
-        metadata: { name: 'test' },
-        spec: {
-          domain: 'test.com',
-          git: { owner: 'org', repository: 'repo' }}};
-
-      // Act
-      const result = validate_cluster(cluster);
-
-      // Assert
-      expect(result.success).toBe(false);
-    });
-
-    it('should reject missing domain', () => {
-      // Arrange
-      const cluster = {
-        apiVersion: 'kustodian.io/v1',
-        kind: 'Cluster',
         metadata: { name: 'test' },
         spec: {
           git: { owner: 'org', repository: 'repo' }}};
@@ -152,8 +130,7 @@ describe('Cluster Schema', () => {
         apiVersion: 'kustodian.io/v1',
         kind: 'Cluster',
         metadata: { name: 'test' },
-        spec: {
-          domain: 'test.com'}};
+        spec: {}};
 
       // Act
       const result = validate_cluster(cluster);
@@ -169,7 +146,6 @@ describe('Cluster Schema', () => {
         kind: 'Cluster',
         metadata: { name: 'test' },
         spec: {
-          domain: 'test.com',
           git: { owner: '', repository: 'repo' }}};
 
       // Act
@@ -186,7 +162,6 @@ describe('Cluster Schema', () => {
         kind: 'Cluster',
         metadata: { name: 'test' },
         spec: {
-          domain: 'test.com',
           git: { owner: 'org', repository: '' }}};
 
       // Act
@@ -203,7 +178,6 @@ describe('Cluster Schema', () => {
         kind: 'Cluster',
         metadata: { name: 'test' },
         spec: {
-          domain: 'test.com',
           git: { owner: 'org', repository: 'repo' },
           templates: [{ name: '' }]}};
 
@@ -221,7 +195,6 @@ describe('Cluster Schema', () => {
         kind: 'Cluster',
         metadata: { name: 'test' },
         spec: {
-          domain: 'test.com',
           git: { owner: 'org', repository: 'repo' },
           plugins: [{ name: '' }]}};
 
@@ -240,7 +213,6 @@ describe('Cluster Schema', () => {
         metadata: { name: 'production' },
         spec: {
           code: 'prod',
-          domain: 'example.com',
           git: { owner: 'org', repository: 'repo' }}};
 
       // Act
@@ -260,7 +232,6 @@ describe('Cluster Schema', () => {
         kind: 'Cluster',
         metadata: { name: 'production' },
         spec: {
-          domain: 'example.com',
           git: { owner: 'org', repository: 'repo' },
           github: {
             organization: 'acme-corp',
@@ -285,7 +256,6 @@ describe('Cluster Schema', () => {
         kind: 'Cluster',
         metadata: { name: 'production' },
         spec: {
-          domain: 'example.com',
           git: { owner: 'org', repository: 'repo' },
           github: {
             organization: 'acme-corp',
@@ -310,7 +280,6 @@ describe('Cluster Schema', () => {
         metadata: { name: 'production' },
         spec: {
           code: 'prod',
-          domain: 'example.com',
           git: { owner: 'org', repository: 'repo' },
           github: {
             organization: 'acme-corp',
@@ -336,7 +305,6 @@ describe('Cluster Schema', () => {
         metadata: { name: 'test' },
         spec: {
           code: '',
-          domain: 'test.com',
           git: { owner: 'org', repository: 'repo' }}};
 
       // Act
@@ -353,7 +321,6 @@ describe('Cluster Schema', () => {
         kind: 'Cluster',
         metadata: { name: 'test' },
         spec: {
-          domain: 'test.com',
           git: { owner: 'org', repository: 'repo' },
           github: { organization: '', repository: 'infra' }}};
 
@@ -371,7 +338,6 @@ describe('Cluster Schema', () => {
         kind: 'Cluster',
         metadata: { name: 'test' },
         spec: {
-          domain: 'test.com',
           git: { owner: 'org', repository: 'repo' },
           github: { organization: 'acme', repository: '' }}};
 
@@ -389,7 +355,6 @@ describe('Cluster Schema', () => {
         kind: 'Cluster',
         metadata: { name: 'production' },
         spec: {
-          domain: 'example.com',
           git: { owner: 'org', repository: 'repo' },
           secrets: {
             doppler: {
@@ -417,7 +382,6 @@ describe('Cluster Schema', () => {
         kind: 'Cluster',
         metadata: { name: 'production' },
         spec: {
-          domain: 'example.com',
           git: { owner: 'org', repository: 'repo' },
           secrets: {
             doppler: {
@@ -448,7 +412,6 @@ describe('Cluster Schema', () => {
         kind: 'Cluster',
         metadata: { name: 'test' },
         spec: {
-          domain: 'test.com',
           git: { owner: 'org', repository: 'repo' },
           secrets: {
             doppler: {
@@ -469,7 +432,6 @@ describe('Cluster Schema', () => {
         kind: 'Cluster',
         metadata: { name: 'test' },
         spec: {
-          domain: 'test.com',
           git: { owner: 'org', repository: 'repo' },
           secrets: {
             onepassword: {
@@ -489,7 +451,6 @@ describe('Cluster Schema', () => {
         kind: 'Cluster',
         metadata: { name: 'production' },
         spec: {
-          domain: 'example.com',
           git: { owner: 'org', repository: 'repo' },
           flux: {
             controllers: {
@@ -514,7 +475,6 @@ describe('Cluster Schema', () => {
         kind: 'Cluster',
         metadata: { name: 'production' },
         spec: {
-          domain: 'example.com',
           git: { owner: 'org', repository: 'repo' },
           flux: {
             controllers: {
@@ -543,7 +503,6 @@ describe('Cluster Schema', () => {
         kind: 'Cluster',
         metadata: { name: 'test' },
         spec: {
-          domain: 'test.com',
           git: { owner: 'org', repository: 'repo' },
           flux: {
             controllers: {
@@ -563,7 +522,6 @@ describe('Cluster Schema', () => {
         kind: 'Cluster',
         metadata: { name: 'test' },
         spec: {
-          domain: 'test.com',
           git: { owner: 'org', repository: 'repo' },
           flux: {
             controllers: {
@@ -583,7 +541,6 @@ describe('Cluster Schema', () => {
         kind: 'Cluster',
         metadata: { name: 'production' },
         spec: {
-          domain: 'example.com',
           git: { owner: 'org', repository: 'repo' },
           flux: {}}};
 

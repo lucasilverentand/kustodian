@@ -26,12 +26,10 @@ describe('E2E: Multi-Cluster', () => {
 
         // Verify cluster-specific configuration
         if (staging) {
-          expect(staging.cluster.spec.domain).toBe('staging.example.com');
           expect(staging.cluster.spec.code).toBe('stg');
         }
 
         if (production) {
-          expect(production.cluster.spec.domain).toBe('prod.example.com');
           expect(production.cluster.spec.code).toBe('prod');
         }
       }

@@ -63,7 +63,6 @@ kind: Cluster
 metadata:
   name: production
 spec:
-  domain: example.com
   templates:
     - name: my-app
       enabled: true

@@ -4,7 +4,6 @@ metadata:
   name: staging
 spec:
   code: stg
-  domain: staging.example.com
   oci:
     registry: ghcr.io
     repository: test/multi-cluster

@@ -10,7 +10,6 @@ describe('E2E: Schema Validation', () => {
         metadata: {
           name: 'production'},
         spec: {
-          domain: 'prod.example.com',
           oci: {
             registry: 'ghcr.io',
             repository: 'org/repo',
@@ -27,7 +26,7 @@ describe('E2E: Schema Validation', () => {
       expect(result.success).toBe(true);
     });
 
-    it('should reject cluster without domain', () => {
+    it('should reject cluster without git or oci', () => {
       const invalid_cluster = {
         apiVersion: 'kustodian.io/v1',
         kind: 'Cluster',
@@ -47,7 +46,6 @@ describe('E2E: Schema Validation', () => {
         metadata: {
           name: 'oci-cluster'},
         spec: {
-          domain: 'oci.example.com',
           oci: {
             registry: 'ghcr.io',
             repository: 'org/repo',
@@ -68,7 +66,6 @@ describe('E2E: Schema Validation', () => {
         metadata: {
           name: 'with-nodes'},
         spec: {
-          domain: 'nodes.example.com',
           oci: {
             registry: 'ghcr.io',
             repository: 'org/repo',

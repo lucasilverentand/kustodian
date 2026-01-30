@@ -320,7 +320,6 @@ spec:
         name: 'local',
       },
       spec: {
-        domain: 'local.cluster',
         oci: {
           registry: 'ghcr.io',
           repository: `your-org/${project_name}`,

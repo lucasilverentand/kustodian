@@ -250,7 +250,6 @@ export type DefaultsConfigType = z.infer<typeof defaults_config_schema>;
 export const cluster_spec_schema = z
   .object({
     code: z.string().min(1).optional(),
-    domain: z.string().min(1),
     git: git_config_schema.optional(),
     oci: oci_config_schema.optional(),
     github: github_config_schema.optional(),

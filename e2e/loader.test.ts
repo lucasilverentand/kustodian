@@ -62,7 +62,6 @@ describe('E2E: Project Loader', () => {
         expect(cluster).toBeDefined();
         if (cluster) {
           expect(cluster.cluster.metadata.name).toBe('local');
-          expect(cluster.cluster.spec.domain).toBe('local.example.com');
           expect(cluster.cluster.spec.oci).toBeDefined();
         }
       }

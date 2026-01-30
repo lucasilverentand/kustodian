@@ -26,7 +26,10 @@
               "minLength": 1
             }
           },
-          "required": ["name", "cluster"],
+          "required": [
+            "name",
+            "cluster"
+          ],
           "additionalProperties": false
         },
         "spec": {
@@ -34,7 +37,11 @@
           "properties": {
             "role": {
               "type": "string",
-              "enum": ["controller", "worker", "controller+worker"]
+              "enum": [
+                "controller",
+                "worker",
+                "controller+worker"
+              ]
             },
             "address": {
               "type": "string",
@@ -66,7 +73,11 @@
             "labels": {
               "type": "object",
               "additionalProperties": {
-                "type": ["string", "boolean", "number"]
+                "type": [
+                  "string",
+                  "boolean",
+                  "number"
+                ]
               }
             },
             "taints": {
@@ -83,10 +94,17 @@
                   },
                   "effect": {
                     "type": "string",
-                    "enum": ["NoSchedule", "PreferNoSchedule", "NoExecute"]
+                    "enum": [
+                      "NoSchedule",
+                      "PreferNoSchedule",
+                      "NoExecute"
+                    ]
                   }
                 },
-                "required": ["key", "effect"],
+                "required": [
+                  "key",
+                  "effect"
+                ],
                 "additionalProperties": false
               }
             },
@@ -97,11 +115,19 @@
               }
             }
           },
-          "required": ["role", "address"],
+          "required": [
+            "role",
+            "address"
+          ],
           "additionalProperties": false
         }
       },
-      "required": ["apiVersion", "kind", "metadata", "spec"],
+      "required": [
+        "apiVersion",
+        "kind",
+        "metadata",
+        "spec"
+      ],
       "additionalProperties": false
     }
   },

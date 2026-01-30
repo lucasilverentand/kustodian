@@ -4,7 +4,6 @@ metadata:
   name: production
 spec:
   code: prod
-  domain: prod.example.com
   oci:
     registry: ghcr.io
     repository: test/multi-cluster

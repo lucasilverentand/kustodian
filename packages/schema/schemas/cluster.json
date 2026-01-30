@@ -22,17 +22,15 @@
               "minLength": 1
             }
           },
-          "required": ["name"],
+          "required": [
+            "name"
+          ],
           "additionalProperties": false
         },
         "spec": {
           "type": "object",
           "properties": {
             "code": {
-              "type": "string",
-              "minLength": 1
-            },
-            "domain": {
               "type": "string",
               "minLength": 1
             },
@@ -56,7 +54,10 @@
                   "type": "string"
                 }
               },
-              "required": ["owner", "repository"],
+              "required": [
+                "owner",
+                "repository"
+              ],
               "additionalProperties": false
             },
             "oci": {
@@ -72,7 +73,12 @@
                 },
                 "tag_strategy": {
                   "type": "string",
-                  "enum": ["cluster", "git-sha", "version", "manual"],
+                  "enum": [
+                    "cluster",
+                    "git-sha",
+                    "version",
+                    "manual"
+                  ],
                   "default": "git-sha"
                 },
                 "tag": {
@@ -83,7 +89,12 @@
                 },
                 "provider": {
                   "type": "string",
-                  "enum": ["aws", "azure", "gcp", "generic"],
+                  "enum": [
+                    "aws",
+                    "azure",
+                    "gcp",
+                    "generic"
+                  ],
                   "default": "generic"
                 },
                 "insecure": {
@@ -91,7 +102,10 @@
                   "default": false
                 }
               },
-              "required": ["registry", "repository"],
+              "required": [
+                "registry",
+                "repository"
+              ],
               "additionalProperties": false
             },
             "github": {
@@ -111,7 +125,94 @@
                   "default": "main"
                 }
               },
-              "required": ["organization", "repository"],
+              "required": [
+                "organization",
+                "repository"
+              ],
+              "additionalProperties": false
+            },
+            "flux": {
+              "type": "object",
+              "properties": {
+                "controllers": {
+                  "type": "object",
+                  "properties": {
+                    "concurrent": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    },
+                    "requeue_dependency": {
+                      "type": "string"
+                    },
+                    "kustomize_controller": {
+                      "type": "object",
+                      "properties": {
+                        "concurrent": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "requeue_dependency": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "helm_controller": {
+                      "type": "object",
+                      "properties": {
+                        "concurrent": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "requeue_dependency": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "source_controller": {
+                      "type": "object",
+                      "properties": {
+                        "concurrent": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "requeue_dependency": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "defaults": {
+              "type": "object",
+              "properties": {
+                "flux_namespace": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "oci_repository_name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "oci_registry_secret_name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "flux_reconciliation_interval": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "flux_reconciliation_timeout": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
               "additionalProperties": false
             },
             "templates": {
@@ -123,10 +224,6 @@
                     "type": "string",
                     "minLength": 1
                   },
-                  "enabled": {
-                    "type": "boolean",
-                    "default": true
-                  },
                   "values": {
                     "type": "object",
                     "additionalProperties": {
@@ -136,42 +233,39 @@
                   "kustomizations": {
                     "type": "object",
                     "additionalProperties": {
-                      "anyOf": [
-                        {
-                          "type": "boolean"
-                        },
-                        {
+                      "type": "object",
+                      "properties": {
+                        "preservation": {
                           "type": "object",
                           "properties": {
-                            "enabled": {
-                              "type": "boolean"
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "none",
+                                "stateful",
+                                "custom"
+                              ]
                             },
-                            "preservation": {
-                              "type": "object",
-                              "properties": {
-                                "mode": {
-                                  "type": "string",
-                                  "enum": ["none", "stateful", "custom"]
-                                },
-                                "keep_resources": {
-                                  "type": "array",
-                                  "items": {
-                                    "type": "string"
-                                  }
-                                }
-                              },
-                              "required": ["mode"],
-                              "additionalProperties": false
+                            "keep_resources": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
                             }
                           },
-                          "required": ["enabled"],
+                          "required": [
+                            "mode"
+                          ],
                           "additionalProperties": false
                         }
-                      ]
+                      },
+                      "additionalProperties": false
                     }
                   }
                 },
-                "required": ["name"],
+                "required": [
+                  "name"
+                ],
                 "additionalProperties": false
               }
             },
@@ -189,7 +283,9 @@
                     "additionalProperties": {}
                   }
                 },
-                "required": ["name"],
+                "required": [
+                  "name"
+                ],
                 "additionalProperties": false
               }
             },
@@ -255,7 +351,10 @@
                               "minLength": 1
                             }
                           },
-                          "required": ["type", "ref"],
+                          "required": [
+                            "type",
+                            "ref"
+                          ],
                           "additionalProperties": false
                         },
                         {
@@ -278,13 +377,42 @@
                               "minLength": 1
                             }
                           },
-                          "required": ["type", "project", "config", "secret"],
+                          "required": [
+                            "type",
+                            "project",
+                            "config",
+                            "secret"
+                          ],
                           "additionalProperties": false
                         }
                       ]
+                    },
+                    "cluster_secret": {
+                      "type": "object",
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean",
+                          "default": true
+                        },
+                        "namespace": {
+                          "type": "string",
+                          "minLength": 1,
+                          "default": "doppler-operator-system"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "default": "doppler-token"
+                        },
+                        "key": {
+                          "type": "string",
+                          "minLength": 1,
+                          "default": "serviceToken"
+                        }
+                      },
+                      "additionalProperties": false
                     }
                   },
-                  "required": ["project", "config"],
                   "additionalProperties": false
                 },
                 "onepassword": {
@@ -308,7 +436,10 @@
                               "minLength": 1
                             }
                           },
-                          "required": ["type", "ref"],
+                          "required": [
+                            "type",
+                            "ref"
+                          ],
                           "additionalProperties": false
                         },
                         {
@@ -331,24 +462,35 @@
                               "minLength": 1
                             }
                           },
-                          "required": ["type", "project", "config", "secret"],
+                          "required": [
+                            "type",
+                            "project",
+                            "config",
+                            "secret"
+                          ],
                           "additionalProperties": false
                         }
                       ]
                     }
                   },
-                  "required": ["vault"],
+                  "required": [
+                    "vault"
+                  ],
                   "additionalProperties": false
                 }
               },
               "additionalProperties": false
             }
           },
-          "required": ["domain"],
           "additionalProperties": false
         }
       },
-      "required": ["apiVersion", "kind", "metadata", "spec"],
+      "required": [
+        "apiVersion",
+        "kind",
+        "metadata",
+        "spec"
+      ],
       "additionalProperties": false
     }
   },

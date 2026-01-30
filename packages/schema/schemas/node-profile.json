@@ -22,7 +22,9 @@
               "minLength": 1
             }
           },
-          "required": ["name"],
+          "required": [
+            "name"
+          ],
           "additionalProperties": false
         },
         "spec": {
@@ -38,7 +40,11 @@
             "labels": {
               "type": "object",
               "additionalProperties": {
-                "type": ["string", "boolean", "number"]
+                "type": [
+                  "string",
+                  "boolean",
+                  "number"
+                ]
               }
             },
             "taints": {
@@ -55,10 +61,17 @@
                   },
                   "effect": {
                     "type": "string",
-                    "enum": ["NoSchedule", "PreferNoSchedule", "NoExecute"]
+                    "enum": [
+                      "NoSchedule",
+                      "PreferNoSchedule",
+                      "NoExecute"
+                    ]
                   }
                 },
-                "required": ["key", "effect"],
+                "required": [
+                  "key",
+                  "effect"
+                ],
                 "additionalProperties": false
               }
             },
@@ -72,7 +85,12 @@
           "additionalProperties": false
         }
       },
-      "required": ["apiVersion", "kind", "metadata", "spec"],
+      "required": [
+        "apiVersion",
+        "kind",
+        "metadata",
+        "spec"
+      ],
       "additionalProperties": false
     }
   },
