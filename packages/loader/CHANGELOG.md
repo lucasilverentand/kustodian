@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.1.0](https://github.com/lucasilverentand/kustodian/compare/loader-v2.0.0...loader-v2.1.0) (2026-01-30)
+
+
+### Features
+
+* **schema, cli, generator, loader:** implement three-tier cascading defaults system ([1eaa017](https://github.com/lucasilverentand/kustodian/commit/1eaa01786930b8093ada349910eda46998fb54bb))
+* **schema:** remove unused domain field from cluster specification ([67ae970](https://github.com/lucasilverentand/kustodian/commit/67ae97035bab570735cf305c4a47564cca97edf4))
+
 ## [2.0.0](https://github.com/lucasilverentand/kustodian/compare/loader-v1.1.1...loader-v2.0.0) (2026-01-21)
 
 

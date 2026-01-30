@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.1.0](https://github.com/lucasilverentand/kustodian/compare/cli-v2.0.0...cli-v2.1.0) (2026-01-30)
+
+
+### Features
+
+* **cli:** add Doppler token bootstrap to apply command ([a4b61e7](https://github.com/lucasilverentand/kustodian/commit/a4b61e7318d1a8eed4882a723d716c26a5144e32))
+* **schema, cli, generator, loader:** implement three-tier cascading defaults system ([1eaa017](https://github.com/lucasilverentand/kustodian/commit/1eaa01786930b8093ada349910eda46998fb54bb))
+* **schema, cli, generator:** add configurable defaults for Flux namespace and OCI secret name ([#129](https://github.com/lucasilverentand/kustodian/issues/129)) ([cb0a58a](https://github.com/lucasilverentand/kustodian/commit/cb0a58a10814ceaba5c1c3e499d3d42fadbf4dd7)), closes [#127](https://github.com/lucasilverentand/kustodian/issues/127)
+* **schema:** remove unused domain field from cluster specification ([67ae970](https://github.com/lucasilverentand/kustodian/commit/67ae97035bab570735cf305c4a47564cca97edf4))
+
 ## [2.0.0](https://github.com/lucasilverentand/kustodian/compare/cli-v1.2.1...cli-v2.0.0) (2026-01-21)
 
 

@@ -1,6 +1,6 @@
 {
   "name": "@kustodian/loader",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "YAML file loading and validation for Kustodian",
   "type": "module",
   "main": "./dist/index.js",
