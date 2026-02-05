@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.0](https://github.com/lucasilverentand/kustodian/compare/cli-v2.1.0...cli-v2.2.0) (2026-02-05)
+
+
+### Features
+
+* **schema, cli:** support annotations on cluster secret ([3334094](https://github.com/lucasilverentand/kustodian/commit/3334094ebf7b0bb8b8eed48839f52181ef7f837f))
+
 ## [2.1.0](https://github.com/lucasilverentand/kustodian/compare/cli-v2.0.0...cli-v2.1.0) (2026-01-30)
 
 
