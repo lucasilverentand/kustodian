@@ -45,15 +45,37 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Build all packages
+        run: bun run build
+
       - name: Publish packages to npm
         env:
           NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          failed=""
           for pkg in packages/* plugins/*; do
             if [ -f "$pkg/package.json" ]; then
+              name=$(jq -r .name "$pkg/package.json")
+              version=$(jq -r .version "$pkg/package.json")
+              echo "::group::Publishing $name@$version"
               cd "$pkg"
-              bun publish --access public --registry https://registry.npmjs.org || true
+              if output=$(bun publish --access public --registry https://registry.npmjs.org 2>&1); then
+                echo "✅ Published $name@$version"
+              else
+                if echo "$output" | grep -q "cannot publish over the previously published"; then
+                  echo "⏭️ Skipped $name@$version (already published)"
+                else
+                  echo "❌ Failed to publish $name@$version"
+                  echo "$output"
+                  failed="$failed $name"
+                fi
+              fi
               cd ../..
+              echo "::endgroup::"
             fi
           done
+          if [ -n "$failed" ]; then
+            echo "::error::Failed to publish:$failed"
+            exit 1
+          fi
 

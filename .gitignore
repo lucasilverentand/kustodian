@@ -72,6 +72,9 @@ pnpm-debug.log*
 CHANGELOG.md
 !packages/*/CHANGELOG.md
 
+# Local scripts
+scripts/backfill-npm.sh
+
 # Temporary files
 tmp/
 temp/
