@@ -91,3 +91,8 @@ temp/
 test-repo/
 test-kustodian-oci/
 /pnpm-lock.yaml
+
+# Devenv
+.devenv/
+devenv.lock
+.devenv.flake.nix
