@@ -145,6 +145,7 @@ export const cluster_secret_config_schema = z.object({
   namespace: z.string().min(1).optional().default('doppler-operator-system'),
   name: z.string().min(1).optional().default('doppler-token'),
   key: z.string().min(1).optional().default('serviceToken'),
+  annotations: z.record(z.string()).optional(),
 });
 
 export type ClusterSecretConfigType = z.infer<typeof cluster_secret_config_schema>;

@@ -783,6 +783,7 @@ interface DopplerSecretConfig {
   namespace: string;
   name: string;
   key: string;
+  annotations?: Record<string, string>;
 }
 
 /**
@@ -795,6 +796,7 @@ function create_doppler_secret_manifest(token: string, config: DopplerSecretConf
     metadata: {
       name: config.name,
       namespace: config.namespace,
+      ...(config.annotations && { annotations: config.annotations }),
     },
     type: 'Opaque',
     stringData: {
@@ -835,13 +837,14 @@ async function ensure_doppler_namespace(namespace: string, dry_run: boolean): Pr
  */
 async function ensure_doppler_token_secret(
   dry_run: boolean,
-  cluster_config?: { namespace?: string; name?: string; key?: string },
+  cluster_config?: { namespace?: string; name?: string; key?: string; annotations?: Record<string, string> | undefined },
 ): Promise<boolean> {
   // Merge cluster config with defaults
   const config: DopplerSecretConfig = {
     namespace: cluster_config?.namespace || 'doppler-operator-system',
     name: cluster_config?.name || 'doppler-token',
     key: cluster_config?.key || 'serviceToken',
+    ...(cluster_config?.annotations && { annotations: cluster_config.annotations }),
   };
 
   // Check if secret exists
