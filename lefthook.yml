@@ -24,8 +24,8 @@ pre-push:
   parallel: true
   commands:
     test:
-      glob: "{packages/**/*.test.ts,packages/**/*.test.js}"
-      run: bun test packages/ plugins/
+      glob: "{tests/**/*.test.ts,plugins/**/*.test.ts}"
+      run: bun test src/ tests/ plugins/
       skip:
         - merge
         - rebase

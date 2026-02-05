@@ -1,4 +1,4 @@
-import { success } from '@kustodian/core';
+import { success } from 'kustodian/core';
 import type {
   CommandType,
   HookContextType,
@@ -7,7 +7,7 @@ import type {
   PluginCommandContributionType,
   PluginHookContributionType,
   PluginManifestType,
-} from '@kustodian/plugins';
+} from 'kustodian/plugins';
 
 import { create_k0s_provider } from './provider.js';
 import type { K0sProviderOptionsType } from './types.js';

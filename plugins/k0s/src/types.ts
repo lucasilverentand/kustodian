@@ -1,4 +1,4 @@
-import type { SshConfigType } from '@kustodian/nodes';
+import type { SshConfigType } from 'kustodian/nodes';
 
 /**
  * k0s version configuration.

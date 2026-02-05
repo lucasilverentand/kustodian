@@ -1,5 +1,5 @@
-import type { NodeListType, NodeType, SshConfigType } from '@kustodian/nodes';
-import { get_node_ssh_config, get_primary_controller } from '@kustodian/nodes';
+import type { NodeListType, NodeType, SshConfigType } from 'kustodian/nodes';
+import { get_node_ssh_config, get_primary_controller } from 'kustodian/nodes';
 
 import {
   type K0sProviderOptionsType,

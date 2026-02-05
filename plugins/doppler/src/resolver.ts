@@ -1,6 +1,6 @@
-import type { KustodianErrorType } from '@kustodian/core';
-import { type ResultType, failure, success } from '@kustodian/core';
-import type { DopplerSubstitutionType } from '@kustodian/schema';
+import type { KustodianErrorType } from 'kustodian/core';
+import { type ResultType, failure, success } from 'kustodian/core';
+import type { DopplerSubstitutionType } from 'kustodian/schema';
 
 import { doppler_secrets_download } from './executor.js';
 import {

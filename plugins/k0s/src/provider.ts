@@ -1,15 +1,15 @@
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { KustodianErrorType } from '@kustodian/core';
-import { Errors, type ResultType, failure, is_success, success } from '@kustodian/core';
-import type { NodeListType } from '@kustodian/nodes';
-import { get_controllers } from '@kustodian/nodes';
+import type { KustodianErrorType } from 'kustodian/core';
+import { Errors, type ResultType, failure, is_success, success } from 'kustodian/core';
+import type { NodeListType } from 'kustodian/nodes';
+import { get_controllers } from 'kustodian/nodes';
 import type {
   BootstrapOptionsType,
   ClusterProviderType,
   ResetOptionsType,
-} from '@kustodian/plugins';
+} from 'kustodian/plugins';
 import YAML from 'yaml';
 
 import { generate_k0sctl_config, serialize_k0sctl_config } from './config.js';
@@ -126,8 +126,8 @@ export function create_k0s_provider(options: K0sProviderOptionsType = {}): Clust
         }
 
         // Create kubectl client and labeler
-        const { create_kubectl_client } = await import('@kustodian/k8s');
-        const { create_kubectl_labeler } = await import('@kustodian/nodes');
+        const { create_kubectl_client } = await import('kustodian/k8s');
+        const { create_kubectl_labeler } = await import('kustodian/nodes');
 
         const kubectl = create_kubectl_client({
           kubeconfig: kubeconfig_result.value,

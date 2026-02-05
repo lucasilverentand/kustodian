@@ -44,9 +44,9 @@ runs:
         # Build CLI command
         CLI_VERSION="${{ inputs.kustodian-version }}"
         if [ "$CLI_VERSION" = "latest" ]; then
-          CLI_PACKAGE="@kustodian/cli"
+          CLI_PACKAGE="kustodian"
         else
-          CLI_PACKAGE="@kustodian/cli@${CLI_VERSION}"
+          CLI_PACKAGE="kustodian@${CLI_VERSION}"
         fi
 
         # Build validate command with optional cluster flag

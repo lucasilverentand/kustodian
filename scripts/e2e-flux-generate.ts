@@ -14,8 +14,8 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { create_generator, serialize_resource } from '../packages/generator/src/index.js';
-import { load_project } from '../packages/loader/src/index.js';
+import { create_generator, serialize_resource } from '../src/generator/index.js';
+import { load_project } from '../src/loader/index.js';
 
 const FIXTURES_DIR = path.join(import.meta.dir, '..', 'e2e', 'fixtures');
 const VALID_PROJECT = path.join(FIXTURES_DIR, 'valid-project');

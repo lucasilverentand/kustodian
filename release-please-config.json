@@ -2,64 +2,28 @@
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "release-type": "node",
   "packages": {
-    "packages/core": {
-      "package-name": "@kustodian/core",
-      "changelog-path": "CHANGELOG.md"
-    },
-    "packages/schema": {
-      "package-name": "@kustodian/schema",
-      "changelog-path": "CHANGELOG.md"
-    },
-    "packages/loader": {
-      "package-name": "@kustodian/loader",
-      "changelog-path": "CHANGELOG.md"
-    },
-    "packages/cli": {
-      "package-name": "@kustodian/cli",
-      "changelog-path": "CHANGELOG.md"
-    },
-    "packages/nodes": {
-      "package-name": "@kustodian/nodes",
-      "changelog-path": "CHANGELOG.md"
-    },
-    "packages/plugins": {
-      "package-name": "@kustodian/plugins",
-      "changelog-path": "CHANGELOG.md"
-    },
-    "packages/generator": {
-      "package-name": "@kustodian/generator",
-      "changelog-path": "CHANGELOG.md"
-    },
-    "packages/k8s": {
-      "package-name": "@kustodian/k8s",
-      "changelog-path": "CHANGELOG.md"
-    },
-    "packages/registry": {
-      "package-name": "@kustodian/registry",
-      "changelog-path": "CHANGELOG.md"
-    },
-    "packages/sources": {
-      "package-name": "@kustodian/sources",
+    ".": {
+      "package-name": "kustodian",
       "changelog-path": "CHANGELOG.md"
     },
     "plugins/k0s": {
-      "package-name": "@kustodian/plugin-k0s",
+      "package-name": "kustodian-k0s",
       "changelog-path": "CHANGELOG.md"
     },
     "plugins/1password": {
-      "package-name": "@kustodian/plugin-1password",
+      "package-name": "kustodian-1password",
       "changelog-path": "CHANGELOG.md"
     },
     "plugins/doppler": {
-      "package-name": "@kustodian/plugin-doppler",
+      "package-name": "kustodian-doppler",
       "changelog-path": "CHANGELOG.md"
     },
     "plugins/authelia": {
-      "package-name": "@kustodian/plugin-authelia",
+      "package-name": "kustodian-authelia",
       "changelog-path": "CHANGELOG.md"
     },
     "plugins/authentik": {
-      "package-name": "@kustodian/plugin-authentik",
+      "package-name": "kustodian-authentik",
       "changelog-path": "CHANGELOG.md"
     }
   },

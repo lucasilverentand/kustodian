@@ -43,7 +43,7 @@ jobs:
           CLUSTER_NAME: ${{ inputs.cluster }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          UPDATES=$(bun run packages/cli/src/bin.ts update --cluster "$CLUSTER_NAME" --dry-run --json 2>/dev/null || echo "[]")
+          UPDATES=$(bun run src/cli/bin.ts update --cluster "$CLUSTER_NAME" --dry-run --json 2>/dev/null || echo "[]")
 
           # Filter to only updates that have changes
           UPDATES_WITH_CHANGES=$(echo "$UPDATES" | jq -c '[.[] | select(.current != .latest)]')
@@ -93,7 +93,7 @@ jobs:
           git checkout -b "$BRANCH"
 
           # Apply the update
-          bun run packages/cli/src/bin.ts update \
+          bun run src/cli/bin.ts update \
             --cluster "$UPDATE_CLUSTER" \
             --substitution "$UPDATE_SUBSTITUTION"
 

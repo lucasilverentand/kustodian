@@ -1,5 +1,5 @@
 {
-  "extends": "../../tsconfig.json",
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
@@ -9,11 +9,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "references": [
-    { "path": "../../packages/core" },
-    { "path": "../../packages/nodes" },
-    { "path": "../../packages/plugins" }
-  ],
   "include": ["src/**/*", "yaml-types.d.ts"],
   "exclude": ["node_modules", "dist", "tests"]
 }

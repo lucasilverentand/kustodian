@@ -1,8 +1,8 @@
 import { exec } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { promisify } from 'node:util';
-import type { KustodianErrorType } from '@kustodian/core';
-import { type ResultType, create_error, success } from '@kustodian/core';
+import type { KustodianErrorType } from 'kustodian/core';
+import { type ResultType, create_error, success } from 'kustodian/core';
 
 import { yaml_to_blueprint } from './generator.js';
 

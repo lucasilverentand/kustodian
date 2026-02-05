@@ -1,6 +1,6 @@
 {
-  "name": "@kustodian/plugin-authelia",
-  "version": "2.0.1",
+  "name": "kustodian-authelia",
+  "version": "3.0.0",
   "description": "Authelia authentication provider plugin for Kustodian",
   "type": "module",
   "main": "./dist/index.js",
@@ -11,9 +11,7 @@
       "import": "./dist/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "test": "bun test",
     "test:watch": "bun test --watch",
@@ -21,14 +19,7 @@
     "build": "bun build src/index.ts --outdir dist --target node --format esm && tsc --emitDeclarationOnly --outDir dist",
     "prepublishOnly": "bun run build"
   },
-  "keywords": [
-    "kustodian",
-    "plugin",
-    "authelia",
-    "authentication",
-    "oidc",
-    "kubernetes"
-  ],
+  "keywords": ["kustodian", "plugin", "authelia", "authentication", "oidc", "kubernetes"],
   "author": "Luca Silverentand <luca@onezero.company>",
   "license": "MIT",
   "repository": {
@@ -41,9 +32,7 @@
     "registry": "https://registry.npmjs.org"
   },
   "dependencies": {
-    "@kustodian/core": "workspace:*",
-    "@kustodian/plugins": "workspace:*",
-    "@kustodian/schema": "workspace:*",
+    "kustodian": "file:../..",
     "js-yaml": "^4.1.0",
     "zod": "^3.25.30"
   },

@@ -1,0 +1,444 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://kustodian.io/schemas/cluster.json",
+  "$ref": "#/definitions/Cluster",
+  "definitions": {
+    "Cluster": {
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "type": "string",
+          "const": "kustodian.io/v1"
+        },
+        "kind": {
+          "type": "string",
+          "const": "Cluster"
+        },
+        "metadata": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": ["name"],
+          "additionalProperties": false
+        },
+        "spec": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "minLength": 1
+            },
+            "git": {
+              "type": "object",
+              "properties": {
+                "owner": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "repository": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "branch": {
+                  "type": "string",
+                  "minLength": 1,
+                  "default": "main"
+                },
+                "path": {
+                  "type": "string"
+                }
+              },
+              "required": ["owner", "repository"],
+              "additionalProperties": false
+            },
+            "oci": {
+              "type": "object",
+              "properties": {
+                "registry": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "repository": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "tag_strategy": {
+                  "type": "string",
+                  "enum": ["cluster", "git-sha", "version", "manual"],
+                  "default": "git-sha"
+                },
+                "tag": {
+                  "type": "string"
+                },
+                "secret_ref": {
+                  "type": "string"
+                },
+                "provider": {
+                  "type": "string",
+                  "enum": ["aws", "azure", "gcp", "generic"],
+                  "default": "generic"
+                },
+                "insecure": {
+                  "type": "boolean",
+                  "default": false
+                }
+              },
+              "required": ["registry", "repository"],
+              "additionalProperties": false
+            },
+            "github": {
+              "type": "object",
+              "properties": {
+                "organization": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "repository": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "branch": {
+                  "type": "string",
+                  "minLength": 1,
+                  "default": "main"
+                }
+              },
+              "required": ["organization", "repository"],
+              "additionalProperties": false
+            },
+            "flux": {
+              "type": "object",
+              "properties": {
+                "controllers": {
+                  "type": "object",
+                  "properties": {
+                    "concurrent": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    },
+                    "requeue_dependency": {
+                      "type": "string"
+                    },
+                    "kustomize_controller": {
+                      "type": "object",
+                      "properties": {
+                        "concurrent": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "requeue_dependency": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "helm_controller": {
+                      "type": "object",
+                      "properties": {
+                        "concurrent": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "requeue_dependency": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "source_controller": {
+                      "type": "object",
+                      "properties": {
+                        "concurrent": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "requeue_dependency": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "defaults": {
+              "type": "object",
+              "properties": {
+                "flux_namespace": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "oci_repository_name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "oci_registry_secret_name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "flux_reconciliation_interval": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "flux_reconciliation_timeout": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            },
+            "templates": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "values": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "kustomizations": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "preservation": {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": ["none", "stateful", "custom"]
+                            },
+                            "keep_resources": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": ["mode"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": ["name"],
+                "additionalProperties": false
+              }
+            },
+            "plugins": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "config": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                },
+                "required": ["name"],
+                "additionalProperties": false
+              }
+            },
+            "node_defaults": {
+              "type": "object",
+              "properties": {
+                "label_prefix": {
+                  "type": "string"
+                },
+                "ssh": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "string"
+                    },
+                    "key_path": {
+                      "type": "string"
+                    },
+                    "known_hosts_path": {
+                      "type": "string"
+                    },
+                    "port": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "nodes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "secrets": {
+              "type": "object",
+              "properties": {
+                "doppler": {
+                  "type": "object",
+                  "properties": {
+                    "project": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "config": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "service_token": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "const": "1password"
+                            },
+                            "ref": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": ["type", "ref"],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "const": "doppler"
+                            },
+                            "project": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "config": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "secret": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": ["type", "project", "config", "secret"],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "cluster_secret": {
+                      "type": "object",
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean",
+                          "default": true
+                        },
+                        "namespace": {
+                          "type": "string",
+                          "minLength": 1,
+                          "default": "doppler-operator-system"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "default": "doppler-token"
+                        },
+                        "key": {
+                          "type": "string",
+                          "minLength": 1,
+                          "default": "serviceToken"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "onepassword": {
+                  "type": "object",
+                  "properties": {
+                    "vault": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "service_account_token": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "const": "1password"
+                            },
+                            "ref": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": ["type", "ref"],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "const": "doppler"
+                            },
+                            "project": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "config": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "secret": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": ["type", "project", "config", "secret"],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  },
+                  "required": ["vault"],
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": ["apiVersion", "kind", "metadata", "spec"],
+      "additionalProperties": false
+    }
+  },
+  "description": "Kustodian Cluster resource schema"
+}

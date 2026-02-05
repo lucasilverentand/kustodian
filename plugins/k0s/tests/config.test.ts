@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'bun:test';
-import type { NodeListType, NodeType } from '@kustodian/nodes';
+import type { NodeListType, NodeType } from 'kustodian/nodes';
 
 import {
   generate_k0sctl_config,
   node_to_k0sctl_host,
-  serialize_k0sctl_config} from '../src/config.js';
+  serialize_k0sctl_config,
+} from '../src/config.js';
 
 describe('k0s Config', () => {
   const create_node = (
@@ -14,12 +15,14 @@ describe('k0s Config', () => {
   ): NodeType => ({
     name,
     role,
-    address: address ?? `${name}.local`});
+    address: address ?? `${name}.local`,
+  });
 
   const create_node_list = (nodes: NodeType[] = []): NodeListType => ({
     cluster: 'test-cluster',
     ssh: { user: 'admin', key_path: '~/.ssh/cluster_key' },
-    nodes});
+    nodes,
+  });
 
   describe('node_to_k0sctl_host', () => {
     it('should convert worker node', () => {
@@ -65,7 +68,8 @@ describe('k0s Config', () => {
       // Arrange
       const node: NodeType = {
         ...create_node('node-1', 'worker'),
-        ssh: { user: 'ubuntu', key_path: '~/.ssh/node_key' }};
+        ssh: { user: 'ubuntu', key_path: '~/.ssh/node_key' },
+      };
       const default_ssh = { user: 'admin', key_path: '~/.ssh/default_key' };
 
       // Act
@@ -115,7 +119,8 @@ describe('k0s Config', () => {
       const options = {
         k0s_version: '1.30.0',
         telemetry_enabled: true,
-        dynamic_config: true};
+        dynamic_config: true,
+      };
 
       // Act
       const result = generate_k0sctl_config(node_list, options);
@@ -141,9 +146,11 @@ describe('k0s Config', () => {
       // Arrange
       const node_list: NodeListType = {
         cluster: 'test-cluster',
-        nodes: [create_node('worker-1', 'worker')]};
+        nodes: [create_node('worker-1', 'worker')],
+      };
       const options = {
-        default_ssh: { user: 'custom', key_path: '~/.ssh/custom' }};
+        default_ssh: { user: 'custom', key_path: '~/.ssh/custom' },
+      };
 
       // Act
       const result = generate_k0sctl_config(node_list, options);

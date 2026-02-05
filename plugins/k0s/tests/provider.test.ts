@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import type { NodeListType, NodeType } from '@kustodian/nodes';
+import type { NodeListType, NodeType } from 'kustodian/nodes';
 
 import { create_k0s_provider, validate_k0s_config } from '../src/provider.js';
 
@@ -15,7 +15,8 @@ describe('k0s Provider', () => {
     const node: NodeType = {
       name,
       role,
-      address: `${name}.local`};
+      address: `${name}.local`,
+    };
     if (ssh !== undefined) {
       node.ssh = ssh;
     }
@@ -25,7 +26,8 @@ describe('k0s Provider', () => {
   const create_node_list = (nodes: NodeType[], default_ssh?: NodeListType['ssh']): NodeListType => {
     const node_list: NodeListType = {
       cluster: 'test-cluster',
-      nodes};
+      nodes,
+    };
     if (default_ssh !== undefined) {
       node_list.ssh = default_ssh;
     }
@@ -165,7 +167,8 @@ describe('k0s Provider', () => {
       const provider = create_k0s_provider({
         k0s_version: '1.30.0',
         telemetry_enabled: false,
-        dynamic_config: true});
+        dynamic_config: true,
+      });
 
       // Assert
       expect(provider.name).toBe('k0s');

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { validate_cluster, validate_template } from '../packages/schema/src/index.js';
+import { validate_cluster, validate_template } from '../src/schema/index.js';
 
 describe('E2E: Schema Validation', () => {
   describe('Cluster validation', () => {
@@ -8,19 +8,25 @@ describe('E2E: Schema Validation', () => {
         apiVersion: 'kustodian.io/v1',
         kind: 'Cluster',
         metadata: {
-          name: 'production'},
+          name: 'production',
+        },
         spec: {
           oci: {
             registry: 'ghcr.io',
             repository: 'org/repo',
             tag_strategy: 'git-sha',
-            secret_ref: 'registry-auth'},
+            secret_ref: 'registry-auth',
+          },
           templates: [
             {
               name: 'app',
               values: {
-                replicas: '5'}},
-          ]}};
+                replicas: '5',
+              },
+            },
+          ],
+        },
+      };
 
       const result = validate_cluster(valid_cluster);
       expect(result.success).toBe(true);
@@ -31,9 +37,12 @@ describe('E2E: Schema Validation', () => {
         apiVersion: 'kustodian.io/v1',
         kind: 'Cluster',
         metadata: {
-          name: 'broken'},
+          name: 'broken',
+        },
         spec: {
-          templates: []}};
+          templates: [],
+        },
+      };
 
       const result = validate_cluster(invalid_cluster);
       expect(result.success).toBe(false);
@@ -44,13 +53,17 @@ describe('E2E: Schema Validation', () => {
         apiVersion: 'kustodian.io/v1',
         kind: 'Cluster',
         metadata: {
-          name: 'oci-cluster'},
+          name: 'oci-cluster',
+        },
         spec: {
           oci: {
             registry: 'ghcr.io',
             repository: 'org/repo',
             tag_strategy: 'git-sha',
-            secret_ref: 'registry-auth'}}};
+            secret_ref: 'registry-auth',
+          },
+        },
+      };
 
       const result = validate_cluster(cluster_with_oci);
       expect(result.success).toBe(true);
@@ -64,17 +77,23 @@ describe('E2E: Schema Validation', () => {
         apiVersion: 'kustodian.io/v1',
         kind: 'Cluster',
         metadata: {
-          name: 'with-nodes'},
+          name: 'with-nodes',
+        },
         spec: {
           oci: {
             registry: 'ghcr.io',
             repository: 'org/repo',
             tag_strategy: 'git-sha',
-            secret_ref: 'registry-auth'},
+            secret_ref: 'registry-auth',
+          },
           node_defaults: {
             ssh: {
               user: 'admin',
-              key_path: '~/.ssh/id_rsa'}}}};
+              key_path: '~/.ssh/id_rsa',
+            },
+          },
+        },
+      };
 
       const result = validate_cluster(cluster_with_nodes);
       expect(result.success).toBe(true);
@@ -87,20 +106,26 @@ describe('E2E: Schema Validation', () => {
         apiVersion: 'kustodian.io/v1',
         kind: 'Template',
         metadata: {
-          name: 'web-app'},
+          name: 'web-app',
+        },
         spec: {
           kustomizations: [
             {
               name: 'frontend',
               path: './frontend',
               namespace: {
-                default: 'web'},
+                default: 'web',
+              },
               substitutions: [
                 {
                   name: 'image_tag',
-                  default: 'latest'},
-              ]},
-          ]}};
+                  default: 'latest',
+                },
+              ],
+            },
+          ],
+        },
+      };
 
       const result = validate_template(valid_template);
       expect(result.success).toBe(true);
@@ -111,9 +136,12 @@ describe('E2E: Schema Validation', () => {
         apiVersion: 'kustodian.io/v1',
         kind: 'Template',
         metadata: {
-          name: 'empty'},
+          name: 'empty',
+        },
         spec: {
-          kustomizations: []}};
+          kustomizations: [],
+        },
+      };
 
       const result = validate_template(invalid_template);
       // Empty kustomizations array might be valid, but let's check the behavior
@@ -126,17 +154,22 @@ describe('E2E: Schema Validation', () => {
         apiVersion: 'kustodian.io/v1',
         kind: 'Template',
         metadata: {
-          name: 'with-deps'},
+          name: 'with-deps',
+        },
         spec: {
           kustomizations: [
             {
               name: 'database',
-              path: './db'},
+              path: './db',
+            },
             {
               name: 'app',
               path: './app',
-              depends_on: ['database']},
-          ]}};
+              depends_on: ['database'],
+            },
+          ],
+        },
+      };
 
       const result = validate_template(template_with_deps);
       expect(result.success).toBe(true);
@@ -147,7 +180,8 @@ describe('E2E: Schema Validation', () => {
         apiVersion: 'kustodian.io/v1',
         kind: 'Template',
         metadata: {
-          name: 'with-health'},
+          name: 'with-health',
+        },
         spec: {
           kustomizations: [
             {
@@ -158,9 +192,13 @@ describe('E2E: Schema Validation', () => {
                   apiVersion: 'apps/v1',
                   kind: 'Deployment',
                   name: 'app',
-                  namespace: 'default'},
-              ]},
-          ]}};
+                  namespace: 'default',
+                },
+              ],
+            },
+          ],
+        },
+      };
 
       const result = validate_template(template_with_health);
       expect(result.success).toBe(true);

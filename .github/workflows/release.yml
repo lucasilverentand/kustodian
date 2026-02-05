@@ -48,12 +48,32 @@ jobs:
       - name: Build all packages
         run: bun run build
 
-      - name: Publish packages to npm
+      - name: Publish root package to npm
+        env:
+          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          name=$(jq -r .name package.json)
+          version=$(jq -r .version package.json)
+          echo "::group::Publishing $name@$version"
+          if output=$(bun publish --access public --registry https://registry.npmjs.org 2>&1); then
+            echo "✅ Published $name@$version"
+          else
+            if echo "$output" | grep -q "cannot publish over the previously published"; then
+              echo "⏭️ Skipped $name@$version (already published)"
+            else
+              echo "❌ Failed to publish $name@$version"
+              echo "$output"
+              exit 1
+            fi
+          fi
+          echo "::endgroup::"
+
+      - name: Publish plugin packages to npm
         env:
           NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           failed=""
-          for pkg in packages/* plugins/*; do
+          for pkg in plugins/*; do
             if [ -f "$pkg/package.json" ]; then
               name=$(jq -r .name "$pkg/package.json")
               version=$(jq -r .version "$pkg/package.json")

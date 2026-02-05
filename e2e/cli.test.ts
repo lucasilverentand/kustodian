@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { apply_command } from '../packages/cli/src/commands/apply.js';
-import { init_command } from '../packages/cli/src/commands/init.js';
-import { validate_command } from '../packages/cli/src/commands/validate.js';
-import { create_container } from '../packages/cli/src/container.js';
-import { create_cli } from '../packages/cli/src/runner.js';
+import { apply_command } from '../src/cli/commands/apply.js';
+import { init_command } from '../src/cli/commands/init.js';
+import { validate_command } from '../src/cli/commands/validate.js';
+import { create_container } from '../src/cli/container.js';
+import { create_cli } from '../src/cli/runner.js';
 
 // Check if kubectl is connected to a cluster
 function has_kubectl_cluster(): boolean {
@@ -55,13 +55,11 @@ describe('E2E: CLI Commands', () => {
 
         // Verify all expected files were created
         expect(fs.existsSync(path.join(project_path, 'kustodian.yaml'))).toBe(true);
+        expect(fs.existsSync(path.join(project_path, 'templates', 'nginx', 'template.yaml'))).toBe(
+          true,
+        );
         expect(
-          fs.existsSync(path.join(project_path, 'templates', 'nginx', 'template.yaml')),
-        ).toBe(true);
-        expect(
-          fs.existsSync(
-            path.join(project_path, 'templates', 'nginx', 'web', 'kustomization.yaml'),
-          ),
+          fs.existsSync(path.join(project_path, 'templates', 'nginx', 'web', 'kustomization.yaml')),
         ).toBe(true);
         expect(
           fs.existsSync(path.join(project_path, 'templates', 'nginx', 'web', 'deployment.yaml')),

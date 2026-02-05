@@ -1,4 +1,4 @@
-import { success } from '@kustodian/core';
+import { success } from 'kustodian/core';
 import type {
   CommandType,
   HookContextType,
@@ -7,7 +7,7 @@ import type {
   PluginCommandContributionType,
   PluginHookContributionType,
   PluginManifestType,
-} from '@kustodian/plugins';
+} from 'kustodian/plugins';
 
 import { check_op_available, op_read } from './executor.js';
 import type { OnePasswordPluginOptionsType } from './types.js';

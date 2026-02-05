@@ -1,4 +1,4 @@
-import { success } from '@kustodian/core';
+import { success } from 'kustodian/core';
 import type {
   CommandType,
   GeneratorHookContextType,
@@ -8,12 +8,12 @@ import type {
   PluginCommandContributionType,
   PluginHookContributionType,
   PluginManifestType,
-} from '@kustodian/plugins';
+} from 'kustodian/plugins';
 import type {
   AuthConfigType as CoreAuthConfigType,
   KustomizationType,
   TemplateType,
-} from '@kustodian/schema';
+} from 'kustodian/schema';
 
 import {
   check_authentik_available,

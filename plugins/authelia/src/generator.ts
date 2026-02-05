@@ -1,11 +1,11 @@
+import * as yaml from 'js-yaml';
 import {
   type KustodianErrorType,
   type ResultType,
   create_error,
   failure,
   success,
-} from '@kustodian/core';
-import * as yaml from 'js-yaml';
+} from 'kustodian/core';
 import type {
   AccessControlRuleType,
   AuthConfigType,

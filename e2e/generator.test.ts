@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import * as path from 'node:path';
-import { create_generator } from '../packages/generator/src/index.js';
-import { load_project } from '../packages/loader/src/index.js';
+import { create_generator } from '../src/generator/index.js';
+import { load_project } from '../src/loader/index.js';
 
 const FIXTURES_DIR = path.join(import.meta.dir, 'fixtures');
 const VALID_PROJECT = path.join(FIXTURES_DIR, 'valid-project');
@@ -20,10 +20,12 @@ describe('E2E: Generator', () => {
     const templates = project.templates.map((t) => t.template);
 
     const generator = create_generator({
-      flux_namespace: 'flux-system'});
+      flux_namespace: 'flux-system',
+    });
 
     const result = await generator.generate(cluster.cluster, templates, {
-      output_dir: '/tmp/e2e-output'});
+      output_dir: '/tmp/e2e-output',
+    });
 
     expect(result.success).toBe(true);
     if (result.success) {
@@ -57,7 +59,8 @@ describe('E2E: Generator', () => {
     const templates = project.templates.map((t) => t.template);
 
     const generator = create_generator({
-      flux_namespace: 'flux-system'});
+      flux_namespace: 'flux-system',
+    });
 
     const result = await generator.generate(cluster.cluster, templates);
 
@@ -113,7 +116,9 @@ describe('E2E: Generator', () => {
       ...first_cluster.cluster,
       spec: {
         ...first_cluster.cluster.spec,
-        templates: []}}; // Empty = no templates enabled
+        templates: [],
+      },
+    }; // Empty = no templates enabled
 
     const generator = create_generator();
     const result = await generator.generate(cluster_with_no_templates, templates);

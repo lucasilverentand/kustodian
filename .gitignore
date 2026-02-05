@@ -8,14 +8,14 @@ dist/
 
 # TypeScript compiled files (build artifacts should go to dist/)
 # Only ignore in src/ and test directories, not root config files
-packages/**/src/**/*.js
-packages/**/src/**/*.d.ts
-packages/**/src/**/*.js.map
-packages/**/src/**/*.d.ts.map
-packages/**/tests/**/*.js
-packages/**/tests/**/*.d.ts
-packages/**/tests/**/*.js.map
-packages/**/tests/**/*.d.ts.map
+src/**/*.js
+src/**/*.d.ts
+src/**/*.js.map
+src/**/*.d.ts.map
+tests/**/*.js
+tests/**/*.d.ts
+tests/**/*.js.map
+tests/**/*.d.ts.map
 plugins/**/src/**/*.js
 plugins/**/src/**/*.d.ts
 plugins/**/src/**/*.js.map
@@ -70,7 +70,7 @@ pnpm-debug.log*
 
 # Release
 CHANGELOG.md
-!packages/*/CHANGELOG.md
+!plugins/*/CHANGELOG.md
 
 # Local scripts
 scripts/backfill-npm.sh

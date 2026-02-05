@@ -1,6 +1,6 @@
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
-import { type KustodianErrorType, type ResultType, create_error, success } from '@kustodian/core';
+import { type KustodianErrorType, type ResultType, create_error, success } from 'kustodian/core';
 
 const exec_async = promisify(exec);
 
