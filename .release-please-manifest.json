@@ -1,8 +1,8 @@
 {
-  ".": "3.0.0",
-  "plugins/k0s": "3.0.0",
-  "plugins/1password": "3.0.0",
-  "plugins/doppler": "3.0.0",
-  "plugins/authelia": "3.0.0",
-  "plugins/authentik": "3.0.0"
+  ".": "1.0.0",
+  "plugins/k0s": "1.0.0",
+  "plugins/1password": "1.0.0",
+  "plugins/doppler": "1.0.0",
+  "plugins/authelia": "1.0.0",
+  "plugins/authentik": "1.0.0"
 }
