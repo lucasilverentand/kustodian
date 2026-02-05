@@ -1,6 +1,6 @@
 {
   "name": "@kustodian/cli",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "CLI framework with DI and middleware for Kustodian",
   "type": "module",
   "main": "./dist/index.js",
