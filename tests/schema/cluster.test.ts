@@ -615,6 +615,74 @@ describe('Cluster Schema', () => {
       expect(result.success).toBe(false);
     });
 
+    it('should validate 1Password with cluster_secret configuration', () => {
+      // Arrange
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'production' },
+        spec: {
+          git: { owner: 'org', repository: 'repo' },
+          secrets: {
+            onepassword: {
+              vault: 'Infrastructure',
+              cluster_secret: {
+                enabled: true,
+                namespace: 'onepassword-system',
+                name: '1password-token',
+                key: 'token',
+              },
+            },
+          },
+        },
+      };
+
+      // Act
+      const result = validate_cluster(cluster);
+
+      // Assert
+      expect(result.success).toBe(true);
+      if (result.success) {
+        const op = result.data.spec.secrets?.onepassword;
+        expect(op?.cluster_secret?.enabled).toBe(true);
+        expect(op?.cluster_secret?.namespace).toBe('onepassword-system');
+        expect(op?.cluster_secret?.name).toBe('1password-token');
+        expect(op?.cluster_secret?.key).toBe('token');
+      }
+    });
+
+    it('should validate cluster_secret with no namespace/name/key (all optional, no defaults)', () => {
+      // Arrange
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'production' },
+        spec: {
+          git: { owner: 'org', repository: 'repo' },
+          secrets: {
+            doppler: {
+              project: 'infrastructure',
+              config: 'prod',
+              cluster_secret: {},
+            },
+          },
+        },
+      };
+
+      // Act
+      const result = validate_cluster(cluster);
+
+      // Assert
+      expect(result.success).toBe(true);
+      if (result.success) {
+        const cs = result.data.spec.secrets?.doppler?.cluster_secret;
+        expect(cs?.enabled).toBe(true); // default
+        expect(cs?.namespace).toBeUndefined();
+        expect(cs?.name).toBeUndefined();
+        expect(cs?.key).toBeUndefined();
+      }
+    });
+
     it('should validate empty flux configuration', () => {
       // Arrange
       const cluster = {

@@ -6,9 +6,15 @@ import { is_success, success } from '../../core/index.js';
 import { validate_template_requirements } from '../../generator/index.js';
 import { find_project_root, load_project } from '../../loader/index.js';
 import type { NodeListType } from '../../nodes/index.js';
-import type { ClusterType } from '../../schema/index.js';
+import type { ClusterSecretConfigType, ClusterType } from '../../schema/index.js';
 
 import { define_command } from '../command.js';
+import {
+  type ClusterSecretProvider,
+  type ResolvedSecretConfig,
+  get_configured_providers,
+  resolve_config,
+} from '../utils/cluster-secrets.js';
 import { resolve_defaults } from '../utils/defaults.js';
 
 const execAsync = promisify(exec);
@@ -303,13 +309,18 @@ export const apply_command = define_command({
     if (!skip_templates) {
       console.log('\n[4/5] Configuring cluster secrets...');
 
-      // Check if Doppler is configured for this cluster
-      const doppler_config = loaded_cluster.cluster.spec.secrets?.doppler;
-      if (doppler_config?.cluster_secret?.enabled !== false) {
-        console.log('  → Checking Doppler token...');
-        await ensure_doppler_token_secret(dry_run, doppler_config?.cluster_secret);
+      const secrets_config = loaded_cluster.cluster.spec.secrets;
+      if (secrets_config) {
+        for (const [provider, config] of get_configured_providers(secrets_config)) {
+          if (config.cluster_secret?.enabled === false) {
+            console.log(`  → ${provider.display_name} cluster secret disabled, skipping`);
+            continue;
+          }
+          console.log(`  → Checking ${provider.display_name} cluster secret...`);
+          await ensure_cluster_secret(provider, dry_run, config.cluster_secret);
+        }
       } else {
-        console.log('  → Doppler cluster secret disabled, skipping');
+        console.log('  → No secret providers configured');
       }
     }
 
@@ -759,37 +770,30 @@ async function ensure_oci_registry_secret(
 }
 
 /**
- * Gets the Doppler service token from environment or prompts user.
+ * Gets a provider token from environment variables or prompts the user.
  */
-async function get_doppler_token(): Promise<string | undefined> {
-  // Check environment variable
-  const env_token = process.env['DOPPLER_TOKEN'];
-  if (env_token) {
-    console.log('    → Using DOPPLER_TOKEN from environment');
-    return env_token;
+async function get_provider_token(provider: ClusterSecretProvider): Promise<string | undefined> {
+  // Check environment variables
+  for (const env_var of provider.env_vars) {
+    const env_token = process.env[env_var];
+    if (env_token) {
+      console.log(`    → Using ${env_var} from environment`);
+      return env_token;
+    }
   }
 
   // Prompt user
-  console.log('    → No Doppler token found (checked: DOPPLER_TOKEN env var)');
-  console.log('    → Create a service token at: https://dashboard.doppler.com');
-  const input = await prompt_for_input(
-    '    Enter Doppler service token (or Enter to skip): ',
-    true,
-  );
+  const env_list = provider.env_vars.join(', ');
+  console.log(`    → No ${provider.display_name} token found (checked: ${env_list})`);
+  console.log(`    → Create a token at: ${provider.token_help_url}`);
+  const input = await prompt_for_input(`    ${provider.prompt_text}`, true);
   return input || undefined;
 }
 
-interface DopplerSecretConfig {
-  namespace: string;
-  name: string;
-  key: string;
-  annotations?: Record<string, string>;
-}
-
 /**
- * Creates an Opaque Secret manifest for Doppler token.
+ * Creates an Opaque Secret manifest for a provider token.
  */
-function create_doppler_secret_manifest(token: string, config: DopplerSecretConfig): object {
+function create_opaque_secret_manifest(token: string, config: ResolvedSecretConfig): object {
   return {
     apiVersion: 'v1',
     kind: 'Secret',
@@ -806,9 +810,9 @@ function create_doppler_secret_manifest(token: string, config: DopplerSecretConf
 }
 
 /**
- * Ensures the Doppler namespace exists.
+ * Ensures a namespace exists, creating it if needed.
  */
-async function ensure_doppler_namespace(namespace: string, dry_run: boolean): Promise<boolean> {
+async function ensure_namespace(namespace: string, dry_run: boolean): Promise<boolean> {
   try {
     await execAsync(`kubectl get namespace ${namespace}`, { timeout: 5000 });
     return true;
@@ -833,50 +837,40 @@ async function ensure_doppler_namespace(namespace: string, dry_run: boolean): Pr
 }
 
 /**
- * Ensures Doppler token secret exists, creating if needed.
+ * Ensures a cluster secret exists for the given provider, creating if needed.
  */
-async function ensure_doppler_token_secret(
+async function ensure_cluster_secret(
+  provider: ClusterSecretProvider,
   dry_run: boolean,
-  cluster_config?: {
-    namespace?: string;
-    name?: string;
-    key?: string;
-    annotations?: Record<string, string> | undefined;
-  },
+  cluster_config?: ClusterSecretConfigType,
 ): Promise<boolean> {
-  // Merge cluster config with defaults
-  const config: DopplerSecretConfig = {
-    namespace: cluster_config?.namespace || 'doppler-operator-system',
-    name: cluster_config?.name || 'doppler-token',
-    key: cluster_config?.key || 'serviceToken',
-    ...(cluster_config?.annotations && { annotations: cluster_config.annotations }),
-  };
+  const config = resolve_config(provider, cluster_config);
 
   // Check if secret exists
   try {
     await execAsync(`kubectl get secret ${config.name} -n ${config.namespace}`, {
       timeout: 5000,
     });
-    console.log('    ✓ Doppler token secret exists');
+    console.log(`    ✓ ${provider.display_name} token secret exists`);
     return true;
   } catch {
     // Need to create
   }
 
-  const token = await get_doppler_token();
+  const token = await get_provider_token(provider);
   if (!token) {
-    console.log('    → No Doppler token provided, skipping secret creation');
-    console.log('    ⚠ ExternalSecrets using Doppler will fail until this is configured');
+    console.log(`    → No ${provider.display_name} token provided, skipping secret creation`);
+    console.log(`    ⚠ ${provider.skip_warning}`);
     return false;
   }
 
   // Ensure namespace exists
-  const ns_ok = await ensure_doppler_namespace(config.namespace, dry_run);
+  const ns_ok = await ensure_namespace(config.namespace, dry_run);
   if (!ns_ok) {
     return false;
   }
 
-  const secret = create_doppler_secret_manifest(token, config);
+  const secret = create_opaque_secret_manifest(token, config);
 
   if (dry_run) {
     console.log(`    [dry-run] Would create secret: ${config.name}`);
@@ -910,7 +904,7 @@ async function ensure_doppler_token_secret(
     return true;
   } catch (error) {
     const err = error as Error;
-    console.error(`    ✗ Failed to create Doppler secret: ${err.message}`);
+    console.error(`    ✗ Failed to create ${provider.display_name} secret: ${err.message}`);
     return false;
   }
 }

@@ -142,9 +142,9 @@ export type BootstrapCredentialType = z.infer<typeof bootstrap_credential_schema
  */
 export const cluster_secret_config_schema = z.object({
   enabled: z.boolean().optional().default(true),
-  namespace: z.string().min(1).optional().default('doppler-operator-system'),
-  name: z.string().min(1).optional().default('doppler-token'),
-  key: z.string().min(1).optional().default('serviceToken'),
+  namespace: z.string().min(1).optional(),
+  name: z.string().min(1).optional(),
+  key: z.string().min(1).optional(),
   annotations: z.record(z.string()).optional(),
 });
 
@@ -168,6 +168,7 @@ export type DopplerConfigType = z.infer<typeof doppler_config_schema>;
 export const onepassword_config_schema = z.object({
   vault: z.string().min(1),
   service_account_token: bootstrap_credential_schema.optional(),
+  cluster_secret: cluster_secret_config_schema.optional(),
 });
 
 export type OnePasswordConfigType = z.infer<typeof onepassword_config_schema>;
