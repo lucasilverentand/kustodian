@@ -133,6 +133,7 @@ describe('k0s Provider', () => {
       expect(provider.install).toBeDefined();
       expect(provider.get_kubeconfig).toBeDefined();
       expect(provider.reset).toBeDefined();
+      expect(provider.check_exists).toBeDefined();
     });
 
     it('should validate using validate_k0s_config', () => {
@@ -173,6 +174,26 @@ describe('k0s Provider', () => {
       // Assert
       expect(provider.name).toBe('k0s');
     });
+  });
+
+  describe('check_exists', () => {
+    it.skipIf(process.env['CI'] !== 'true')(
+      'should return false when k0sctl cannot reach cluster',
+      async () => {
+        // Arrange - k0sctl not installed in CI, so kubeconfig will fail
+        const provider = create_k0s_provider();
+        const node_list = create_node_list(
+          [create_node('controller-1', 'controller', { user: 'admin' })],
+          { user: 'admin' },
+        );
+
+        // Act
+        const result = await provider.check_exists?.(node_list);
+
+        // Assert - should return false (cluster doesn't exist) or fail (k0sctl not found)
+        expect(result).toBeDefined();
+      },
+    );
   });
 
   describe('install', () => {

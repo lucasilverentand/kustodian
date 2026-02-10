@@ -69,11 +69,46 @@ async function write_k0sctl_config(
 export function create_k0s_provider(options: K0sProviderOptionsType = {}): ClusterProviderType {
   let config_path: string | undefined;
 
+  async function ensure_config(
+    node_list: NodeListType,
+  ): Promise<ResultType<string, KustodianErrorType>> {
+    if (config_path) {
+      return success(config_path);
+    }
+
+    const k0sctl_config = generate_k0sctl_config(node_list, options);
+    const serialized = serialize_k0sctl_config(k0sctl_config);
+    const write_result = await write_k0sctl_config(serialized, node_list.cluster);
+    if (is_success(write_result)) {
+      config_path = write_result.value;
+    }
+    return write_result;
+  }
+
   return {
     name: 'k0s',
 
     validate(node_list: NodeListType): ResultType<void, KustodianErrorType> {
       return validate_k0s_config(node_list);
+    },
+
+    async check_exists(node_list: NodeListType): Promise<ResultType<boolean, KustodianErrorType>> {
+      const k0sctl_check = await check_k0sctl_available();
+      if (!is_success(k0sctl_check)) {
+        return k0sctl_check;
+      }
+
+      const config_result = await ensure_config(node_list);
+      if (!is_success(config_result)) {
+        return config_result;
+      }
+
+      const kubeconfig_result = await k0sctl_kubeconfig(config_result.value);
+      if (is_success(kubeconfig_result)) {
+        return success(true);
+      }
+
+      return success(false);
     },
 
     async install(
@@ -86,17 +121,11 @@ export function create_k0s_provider(options: K0sProviderOptionsType = {}): Clust
         return k0sctl_check;
       }
 
-      // Generate k0sctl config
-      const k0sctl_config = generate_k0sctl_config(node_list, options);
-      const serialized = serialize_k0sctl_config(k0sctl_config);
-
-      // Write config to temp file
-      const write_result = await write_k0sctl_config(serialized, node_list.cluster);
-      if (!is_success(write_result)) {
-        return write_result;
+      // Ensure k0sctl config is written
+      const config_result = await ensure_config(node_list);
+      if (!is_success(config_result)) {
+        return config_result;
       }
-
-      config_path = write_result.value;
 
       // Skip actual installation in dry run mode
       if (bootstrap_options.dry_run) {
@@ -104,7 +133,7 @@ export function create_k0s_provider(options: K0sProviderOptionsType = {}): Clust
       }
 
       // Run k0sctl apply
-      const apply_result = await k0sctl_apply(config_path, {
+      const apply_result = await k0sctl_apply(config_result.value, {
         timeout: bootstrap_options.timeout,
       });
 
@@ -117,7 +146,7 @@ export function create_k0s_provider(options: K0sProviderOptionsType = {}): Clust
         console.log('  → Applying node labels...');
 
         // Get kubeconfig
-        const kubeconfig_result = await k0sctl_kubeconfig(config_path);
+        const kubeconfig_result = await k0sctl_kubeconfig(config_result.value);
         if (!is_success(kubeconfig_result)) {
           console.warn(
             `  ⚠ Failed to get kubeconfig for labeling: ${kubeconfig_result.error.message}`,
@@ -155,61 +184,38 @@ export function create_k0s_provider(options: K0sProviderOptionsType = {}): Clust
     },
 
     async get_kubeconfig(node_list: NodeListType): Promise<ResultType<string, KustodianErrorType>> {
-      // Check k0sctl is available
       const k0sctl_check = await check_k0sctl_available();
       if (!is_success(k0sctl_check)) {
         return k0sctl_check;
       }
 
-      // If we have a config path from install, use it
-      if (config_path) {
-        return k0sctl_kubeconfig(config_path);
+      const config_result = await ensure_config(node_list);
+      if (!is_success(config_result)) {
+        return config_result;
       }
 
-      // Otherwise, generate a new config
-      const k0sctl_config = generate_k0sctl_config(node_list, options);
-      const serialized = serialize_k0sctl_config(k0sctl_config);
-
-      const write_result = await write_k0sctl_config(serialized, node_list.cluster);
-      if (!is_success(write_result)) {
-        return write_result;
-      }
-
-      config_path = write_result.value;
-      return k0sctl_kubeconfig(config_path);
+      return k0sctl_kubeconfig(config_result.value);
     },
 
     async reset(
       node_list: NodeListType,
       reset_options: ResetOptionsType,
     ): Promise<ResultType<void, KustodianErrorType>> {
-      // Check k0sctl is available
       const k0sctl_check = await check_k0sctl_available();
       if (!is_success(k0sctl_check)) {
         return k0sctl_check;
       }
 
-      // Generate k0sctl config if we don't have one
-      if (!config_path) {
-        const k0sctl_config = generate_k0sctl_config(node_list, options);
-        const serialized = serialize_k0sctl_config(k0sctl_config);
-
-        const write_result = await write_k0sctl_config(serialized, node_list.cluster);
-        if (!is_success(write_result)) {
-          return write_result;
-        }
-
-        config_path = write_result.value;
+      const config_result = await ensure_config(node_list);
+      if (!is_success(config_result)) {
+        return config_result;
       }
 
-      // Skip actual reset in dry run mode
       if (reset_options.dry_run) {
         return success(undefined);
       }
 
-      // Run k0sctl reset
-      const reset_result = await k0sctl_reset(config_path, reset_options.force ?? false);
-
+      const reset_result = await k0sctl_reset(config_result.value, reset_options.force ?? false);
       if (!is_success(reset_result)) {
         return reset_result;
       }

@@ -56,6 +56,13 @@ export interface ClusterProviderType {
   get_kubeconfig(node_list: NodeListType): Promise<ResultType<string, KustodianErrorType>>;
 
   /**
+   * Checks if the cluster already exists and is accessible.
+   * Returns true if the cluster exists, false if it needs to be bootstrapped.
+   * Optional — if not implemented, the apply command falls back to a generic kubectl check.
+   */
+  check_exists?(node_list: NodeListType): Promise<ResultType<boolean, KustodianErrorType>>;
+
+  /**
    * Resets/destroys the cluster.
    */
   reset(

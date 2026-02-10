@@ -6,7 +6,8 @@ import { is_success, success } from '../../core/index.js';
 import { validate_template_requirements } from '../../generator/index.js';
 import { find_project_root, load_project } from '../../loader/index.js';
 import type { NodeListType } from '../../nodes/index.js';
-import type { ClusterSecretConfigType, ClusterType } from '../../schema/index.js';
+import type { ClusterProviderType } from '../../plugins/types.js';
+import type { ClusterSecretConfigType, ClusterType, PluginConfigType } from '../../schema/index.js';
 
 import { define_command } from '../command.js';
 import {
@@ -141,70 +142,83 @@ export const apply_command = define_command({
     if (!skip_bootstrap) {
       console.log('\n[2/3] Checking cluster status...');
 
-      // Check if cluster is already accessible
       const { exec } = await import('node:child_process');
       const { promisify } = await import('node:util');
       const execAsync = promisify(exec);
 
+      // Check if we have nodes to bootstrap
+      if (loaded_cluster.nodes.length === 0) {
+        console.error('  ✗ Error: No nodes defined for cluster');
+        console.error(
+          '  → Add nodes to cluster.yaml spec.nodes or create node files in nodes/ directory',
+        );
+        return {
+          success: false as const,
+          error: { code: 'NOT_FOUND', message: 'No nodes defined for cluster' },
+        };
+      }
+
+      // Build NodeListType for bootstrap workflow
+      const node_list: NodeListType = {
+        cluster: cluster_name,
+        nodes: loaded_cluster.nodes,
+        ...(loaded_cluster.cluster.spec.node_defaults?.label_prefix && {
+          label_prefix: loaded_cluster.cluster.spec.node_defaults.label_prefix,
+        }),
+        ...(loaded_cluster.cluster.spec.node_defaults?.ssh && {
+          ssh: loaded_cluster.cluster.spec.node_defaults.ssh,
+        }),
+      } as NodeListType;
+
+      // Load cluster provider from spec.plugins configuration
+      const provider = await load_cluster_provider(
+        loaded_cluster.cluster.spec.plugins,
+        provider_name,
+      );
+
+      console.log('  → Validating cluster configuration...');
+      const validate_result = provider.validate(node_list);
+      if (!is_success(validate_result)) {
+        console.error(`  ✗ Validation failed: ${validate_result.error.message}`);
+        return validate_result;
+      }
+      console.log('    ✓ Configuration valid');
+
+      // Check if cluster already exists using provider-specific check
       let cluster_exists = false;
-      try {
-        await execAsync('kubectl cluster-info', { timeout: 5000 });
-        console.log('  ✓ Cluster is already running and accessible');
-        cluster_exists = true;
-      } catch {
-        console.log('  → No existing cluster detected');
+      if (provider.check_exists) {
+        console.log('  → Checking if cluster exists...');
+        const exists_result = await provider.check_exists(node_list);
+        if (is_success(exists_result) && exists_result.value) {
+          console.log('  ✓ Cluster is already running and accessible');
+          cluster_exists = true;
+        } else {
+          console.log('  → No existing cluster detected');
+        }
+      } else {
+        // Fallback: generic kubectl check for providers without check_exists
+        try {
+          await execAsync('kubectl cluster-info', { timeout: 5000 });
+          console.log('  ✓ Cluster is already running and accessible');
+          cluster_exists = true;
+        } catch {
+          console.log('  → No existing cluster detected');
+        }
       }
 
       if (!cluster_exists) {
-        console.log('  → Bootstrapping cluster with k0s...');
+        console.log(`  → Bootstrapping cluster with ${provider_name}...`);
 
-        // Check if we have nodes to bootstrap
-        if (loaded_cluster.nodes.length === 0) {
-          console.error('  ✗ Error: No nodes defined for cluster');
-          console.error(
-            '  → Add nodes to cluster.yaml spec.nodes or create node files in nodes/ directory',
-          );
-          return {
-            success: false as const,
-            error: { code: 'NOT_FOUND', message: 'No nodes defined for cluster' },
-          };
-        }
-
-        // Build NodeListType for bootstrap workflow
-        const node_list: NodeListType = {
-          cluster: cluster_name,
-          nodes: loaded_cluster.nodes,
-          ...(loaded_cluster.cluster.spec.node_defaults?.label_prefix && {
-            label_prefix: loaded_cluster.cluster.spec.node_defaults.label_prefix,
-          }),
-          ...(loaded_cluster.cluster.spec.node_defaults?.ssh && {
-            ssh: loaded_cluster.cluster.spec.node_defaults.ssh,
-          }),
-        } as NodeListType;
-
-        // Load k0s provider
-        const k0s_package = 'kustodian-k0s';
-        const { create_k0s_provider } = await import(k0s_package);
-        const provider = create_k0s_provider();
-
-        console.log('  → Validating cluster configuration...');
-        const validate_result = provider.validate(node_list);
-        if (!is_success(validate_result)) {
-          console.error(`  ✗ Validation failed: ${validate_result.error.message}`);
-          return validate_result;
-        }
-        console.log('    ✓ Configuration valid');
-
-        console.log('  → Installing k0s cluster...');
+        console.log('  → Installing cluster...');
         if (dry_run) {
-          console.log('    [dry-run] Would run: k0sctl apply');
+          console.log(`    [dry-run] Would run: ${provider_name} apply`);
         } else {
           const install_result = await provider.install(node_list, { dry_run: false });
           if (!is_success(install_result)) {
             console.error(`  ✗ Installation failed: ${install_result.error.message}`);
             return install_result;
           }
-          console.log('    ✓ k0s cluster installed');
+          console.log(`    ✓ ${provider_name} cluster installed`);
 
           console.log('  → Retrieving kubeconfig...');
           const kubeconfig_result = await provider.get_kubeconfig(node_list);
@@ -212,7 +226,7 @@ export const apply_command = define_command({
             console.error(`  ✗ Failed to get kubeconfig: ${kubeconfig_result.error.message}`);
             return kubeconfig_result;
           }
-          console.log(`    ✓ Kubeconfig: ${kubeconfig_result.value}`);
+          console.log('    ✓ Kubeconfig retrieved');
 
           console.log('  → Waiting for cluster nodes to be ready...');
           try {
@@ -531,6 +545,75 @@ export const apply_command = define_command({
     return success(undefined);
   },
 });
+
+/**
+ * Derives the npm package name from a plugin name.
+ * e.g., "@kustodian/plugin-k0s" → "kustodian-k0s"
+ */
+function plugin_name_to_package(name: string): string {
+  const match = name.match(/^@kustodian\/plugin-(.+)$/);
+  return match ? `kustodian-${match[1]}` : name;
+}
+
+/**
+ * Maps plugin config from cluster YAML to provider-specific options.
+ * Handles field name differences (e.g., "version" → "k0s_version").
+ */
+function map_provider_config(
+  provider_name: string,
+  config: Record<string, unknown>,
+): Record<string, unknown> {
+  if (provider_name === 'k0s') {
+    return {
+      k0s_version: config['version'] as string | undefined,
+      telemetry_enabled: config['telemetry_enabled'] as boolean | undefined,
+      dynamic_config: config['dynamic_config'] as boolean | undefined,
+    };
+  }
+  return config;
+}
+
+/**
+ * Loads the cluster provider from spec.plugins configuration.
+ * Finds the matching plugin, loads its package, and creates the provider with config.
+ */
+async function load_cluster_provider(
+  plugins: PluginConfigType[] | undefined,
+  provider_name: string,
+): Promise<ClusterProviderType> {
+  // Find the provider plugin in spec.plugins
+  const provider_plugin = plugins?.find((p) => p.name.endsWith(`-${provider_name}`));
+
+  // Derive npm package name and map config
+  const package_name = provider_plugin
+    ? plugin_name_to_package(provider_plugin.name)
+    : `kustodian-${provider_name}`;
+
+  const provider_config = provider_plugin?.config
+    ? map_provider_config(provider_name, provider_plugin.config as Record<string, unknown>)
+    : {};
+
+  console.log(`  → Loading ${provider_name} provider (${package_name})`);
+  if (provider_plugin?.config) {
+    const config_keys = Object.entries(provider_plugin.config)
+      .map(([k, v]) => `${k}=${v}`)
+      .join(', ');
+    console.log(`    Config: ${config_keys}`);
+  }
+
+  const provider_module = await import(package_name);
+  const create_fn_name = `create_${provider_name}_provider`;
+  const create_provider =
+    provider_module[create_fn_name] ?? provider_module.create_provider ?? provider_module.default;
+
+  if (typeof create_provider !== 'function') {
+    throw new Error(
+      `Provider package '${package_name}' does not export '${create_fn_name}' or 'create_provider'`,
+    );
+  }
+
+  return create_provider(provider_config) as ClusterProviderType;
+}
 
 /**
  * Resolves the OCI tag based on cluster strategy.
