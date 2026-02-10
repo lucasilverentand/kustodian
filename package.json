@@ -1,6 +1,6 @@
 {
   "name": "kustodian",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A GitOps templating framework for Kubernetes with Flux CD",
   "type": "module",
   "packageManager": "bun@1.3.5",
@@ -49,8 +49,13 @@
       "import": "./dist/sources/index.js"
     }
   },
-  "files": ["dist", "package.json"],
-  "workspaces": ["plugins/*"],
+  "files": [
+    "dist",
+    "package.json"
+  ],
+  "workspaces": [
+    "plugins/*"
+  ],
   "scripts": {
     "postinstall": "for d in plugins/*/; do mkdir -p \"$d/node_modules\" && rm -rf \"$d/node_modules/kustodian\" && ln -s ../../.. \"$d/node_modules/kustodian\"; done",
     "build": "tsc && turbo run build --filter='./plugins/*'",
