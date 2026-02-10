@@ -85,7 +85,7 @@ export interface ContainerType {
   register_singleton<T>(id: ServiceIdType<T>, factory: FactoryType<T>): void;
   register_transient<T>(id: ServiceIdType<T>, factory: FactoryType<T>): void;
   register_instance<T>(id: ServiceIdType<T>, instance: T): void;
-  resolve<T>(id: ServiceIdType<T>): T;
+  resolve<T>(id: ServiceIdType<T>): ResultType<T, KustodianErrorType>;
   has<T>(id: ServiceIdType<T>): boolean;
 }
 

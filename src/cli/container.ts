@@ -3,6 +3,14 @@
  * Provides a simple service locator pattern.
  */
 
+import {
+  Errors,
+  type KustodianErrorType,
+  type ResultType,
+  failure,
+  success,
+} from '../core/index.js';
+
 /**
  * Service identifier type.
  */
@@ -42,7 +50,7 @@ export interface ContainerType {
   /**
    * Resolves a service from the container.
    */
-  resolve<T>(id: ServiceIdType<T>): T;
+  resolve<T>(id: ServiceIdType<T>): ResultType<T, KustodianErrorType>;
 
   /**
    * Checks if a service is registered.
@@ -79,21 +87,21 @@ export function create_container(): ContainerType {
       });
     },
 
-    resolve<T>(id: ServiceIdType<T>): T {
+    resolve<T>(id: ServiceIdType<T>): ResultType<T, KustodianErrorType> {
       const registration = registrations.get(id) as RegistrationType<T> | undefined;
 
       if (!registration) {
-        throw new Error(`Service not registered: ${id.toString()}`);
+        return failure(Errors.not_found('Service', id.toString()));
       }
 
       if (registration.singleton) {
         if (registration.instance === undefined) {
           registration.instance = registration.factory(container);
         }
-        return registration.instance;
+        return success(registration.instance);
       }
 
-      return registration.factory(container);
+      return success(registration.factory(container));
     },
 
     has<T>(id: ServiceIdType<T>): boolean {

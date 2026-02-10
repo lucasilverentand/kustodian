@@ -4,6 +4,13 @@ export { create_oci_fetcher } from './oci.js';
 export type { SourceFetcherType } from './types.js';
 
 import {
+  Errors,
+  type KustodianErrorType,
+  type ResultType,
+  failure,
+  success,
+} from '../../core/index.js';
+import {
   type TemplateSourceType,
   is_git_source,
   is_http_source,
@@ -17,16 +24,19 @@ import type { SourceFetcherType } from './types.js';
 /**
  * Gets the appropriate fetcher for a source type.
  */
-export function get_fetcher_for_source(source: TemplateSourceType): SourceFetcherType {
+export function get_fetcher_for_source(
+  source: TemplateSourceType,
+): ResultType<SourceFetcherType, KustodianErrorType> {
   if (is_git_source(source)) {
-    return create_git_fetcher();
+    return success(create_git_fetcher());
   }
   if (is_http_source(source)) {
-    return create_http_fetcher();
+    return success(create_http_fetcher());
   }
   if (is_oci_source(source)) {
-    return create_oci_fetcher();
+    return success(create_oci_fetcher());
   }
-  // This should never happen due to schema validation
-  throw new Error(`Unknown source type for source: ${source.name}`);
+  return failure(
+    Errors.invalid_argument('source', `Unknown source type for source: ${source.name}`),
+  );
 }

@@ -128,23 +128,27 @@ describe('Middleware', () => {
       expect(final_called.value).toBe(true);
     });
 
-    it('should throw if next is called multiple times', async () => {
+    it('should return failure if next is called multiple times', async () => {
       // Arrange
       const middleware: MiddlewareType[] = [
         async (_ctx, next) => {
           await next();
-          await next();
-          return success(undefined);
+          return next();
         },
       ];
 
       const pipeline = create_pipeline(middleware);
       const ctx = create_context();
 
-      // Act & Assert
-      await expect(pipeline(ctx, async () => success(undefined))).rejects.toThrow(
-        'next() called multiple times',
-      );
+      // Act
+      const result = await pipeline(ctx, async () => success(undefined));
+
+      // Assert
+      expect(result.success).toBe(false);
+      if (!is_success(result)) {
+        expect(result.error.code).toBe('INVALID_ARGUMENT');
+        expect(result.error.message).toContain('next() called multiple times');
+      }
     });
 
     it('should propagate errors from middleware', async () => {

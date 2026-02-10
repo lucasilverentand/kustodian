@@ -405,7 +405,12 @@ export const sources_command = define_command({
           return failure({ code: 'NOT_FOUND', message: `Source '${source_name}' not found` });
         }
 
-        const fetcher = get_fetcher_for_source(source);
+        const fetcher_result = get_fetcher_for_source(source);
+        if (!fetcher_result.success) {
+          console.error(`Error: ${fetcher_result.error.message}`);
+          return fetcher_result;
+        }
+        const fetcher = fetcher_result.value;
 
         console.log(`Fetching versions for '${source_name}'...`);
         const versions_result = await fetcher.list_versions(source);

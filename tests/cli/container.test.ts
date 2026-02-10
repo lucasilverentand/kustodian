@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 
 import { create_container, create_service_id } from '../../src/cli/container.js';
+import { is_success } from '../../src/core/index.js';
 
 describe('Container', () => {
   describe('create_service_id', () => {
@@ -32,8 +33,12 @@ describe('Container', () => {
       const second = container.resolve(id);
 
       // Assert
-      expect(first.value).toBe(42);
-      expect(first).toBe(second);
+      expect(first.success).toBe(true);
+      expect(second.success).toBe(true);
+      if (is_success(first) && is_success(second)) {
+        expect(first.value.value).toBe(42);
+        expect(first.value).toBe(second.value);
+      }
       expect(calls).toBe(1);
     });
 
@@ -53,9 +58,13 @@ describe('Container', () => {
       const second = container.resolve(id);
 
       // Assert
-      expect(first.id).toBe(1);
-      expect(second.id).toBe(2);
-      expect(first).not.toBe(second);
+      expect(first.success).toBe(true);
+      expect(second.success).toBe(true);
+      if (is_success(first) && is_success(second)) {
+        expect(first.value.id).toBe(1);
+        expect(second.value.id).toBe(2);
+        expect(first.value).not.toBe(second.value);
+      }
     });
 
     it('should register and resolve an instance', () => {
@@ -69,16 +78,26 @@ describe('Container', () => {
       const resolved = container.resolve(id);
 
       // Assert
-      expect(resolved).toBe('production');
+      expect(resolved.success).toBe(true);
+      if (is_success(resolved)) {
+        expect(resolved.value).toBe('production');
+      }
     });
 
-    it('should throw for unregistered service', () => {
+    it('should return failure for unregistered service', () => {
       // Arrange
       const container = create_container();
       const id = create_service_id<string>('Unknown');
 
-      // Act & Assert
-      expect(() => container.resolve(id)).toThrow('Service not registered');
+      // Act
+      const result = container.resolve(id);
+
+      // Assert
+      expect(result.success).toBe(false);
+      if (!is_success(result)) {
+        expect(result.error.code).toBe('NOT_FOUND');
+        expect(result.error.message).toContain('Service');
+      }
     });
 
     it('should check if service is registered', () => {
@@ -101,15 +120,22 @@ describe('Container', () => {
       const serviceId = create_service_id<{ config: { env: string } }>('Service');
 
       container.register_instance(configId, { env: 'test' });
-      container.register_singleton(serviceId, (c) => ({
-        config: c.resolve(configId),
-      }));
+      container.register_singleton(serviceId, (c) => {
+        const config_result = c.resolve(configId);
+        if (!config_result.success) {
+          throw new Error('Config not registered');
+        }
+        return { config: config_result.value };
+      });
 
       // Act
-      const service = container.resolve(serviceId);
+      const result = container.resolve(serviceId);
 
       // Assert
-      expect(service.config.env).toBe('test');
+      expect(result.success).toBe(true);
+      if (is_success(result)) {
+        expect(result.value.config.env).toBe('test');
+      }
     });
   });
 });

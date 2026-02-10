@@ -77,7 +77,11 @@ class SourceResolver implements SourceResolverType {
     options?: FetchOptionsType,
   ): Promise<ResultType<ResolvedSourceType, KustodianErrorType>> {
     const force_refresh = options?.force_refresh ?? false;
-    const fetcher = get_fetcher_for_source(source);
+    const fetcher_result = get_fetcher_for_source(source);
+    if (!fetcher_result.success) {
+      return fetcher_result;
+    }
+    const fetcher = fetcher_result.value;
     const mutable = is_mutable_source(source);
 
     // Determine the version to fetch

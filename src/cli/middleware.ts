@@ -1,5 +1,5 @@
 import ora, { type Ora } from 'ora';
-import type { KustodianErrorType } from '../core/index.js';
+import { Errors, type KustodianErrorType } from '../core/index.js';
 import { type ResultType, failure } from '../core/index.js';
 
 /**
@@ -94,7 +94,7 @@ export function create_pipeline(middleware: MiddlewareType[]): MiddlewareType {
 
     const dispatch = async (i: number): Promise<ResultType<void, KustodianErrorType>> => {
       if (i <= index) {
-        throw new Error('next() called multiple times');
+        return failure(Errors.invalid_argument('next', 'next() called multiple times'));
       }
       index = i;
 
