@@ -43,22 +43,23 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+          registry-url: 'https://registry.npmjs.org'
+
       - name: Install dependencies
         run: bun install
 
       - name: Build all packages
         run: bun run build
 
-      - name: Setup npm auth
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-
       - name: Publish root package to npm
         run: |
           name=$(jq -r .name package.json)
           version=$(jq -r .version package.json)
           echo "::group::Publishing $name@$version"
-          if output=$(npm publish --access public 2>&1); then
+          if output=$(npm publish --provenance --access public 2>&1); then
             echo "✅ Published $name@$version"
           else
             if echo "$output" | grep -q "cannot publish over the previously published"; then
@@ -80,7 +81,7 @@ jobs:
               version=$(jq -r .version "$pkg/package.json")
               echo "::group::Publishing $name@$version"
               cd "$pkg"
-              if output=$(npm publish --access public 2>&1); then
+              if output=$(npm publish --provenance --access public 2>&1); then
                 echo "✅ Published $name@$version"
               else
                 if echo "$output" | grep -q "cannot publish over the previously published"; then
