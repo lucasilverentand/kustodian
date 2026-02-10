@@ -1,5 +1,5 @@
 {
-  ".": "1.0.0",
+  ".": "1.0.1",
   "plugins/k0s": "1.0.0",
   "plugins/1password": "1.0.0",
   "plugins/doppler": "1.0.0",
