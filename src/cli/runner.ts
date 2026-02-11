@@ -231,9 +231,14 @@ export function format_help(config: CLIConfigType, commands: CommandType[]): str
   lines.push('');
   lines.push('Examples:');
   lines.push(`  ${config.name} init my-project`);
+  lines.push(`  ${config.name} validate`);
   lines.push(`  ${config.name} validate --cluster production`);
-  lines.push(`  ${config.name} apply --cluster production --dry-run`);
-  lines.push(`  ${config.name} update --cluster production --dry-run`);
+  lines.push(`  ${config.name} preview`);
+  lines.push(`  ${config.name} preview --cluster staging -o /tmp/manifests`);
+  lines.push(`  ${config.name} apply --dry-run`);
+  lines.push(`  ${config.name} apply --cluster production`);
+  lines.push(`  ${config.name} update --dry-run`);
+  lines.push(`  ${config.name} update --cluster production`);
   lines.push(`  ${config.name} sources fetch`);
 
   return lines.join('\n');

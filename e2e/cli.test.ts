@@ -208,17 +208,19 @@ describe('E2E: CLI Commands', () => {
   });
 
   describe('apply command', () => {
-    it('should require --cluster option', async () => {
+    it('should fall back to all clusters when --cluster is not specified', async () => {
       const cli = create_cli({ name: 'kustodian', version: '1.0.0' });
       cli.command(apply_command);
 
       const fixtures_path = path.join(import.meta.dir, 'fixtures', 'valid-project');
-      const result = await cli.run(['apply', '--project', fixtures_path], create_container());
+      // Use --dry-run to skip confirmation prompt and --skip-bootstrap/--skip-templates to avoid side effects
+      const result = await cli.run(
+        ['apply', '--project', fixtures_path, '--dry-run', '--skip-bootstrap', '--skip-templates'],
+        create_container(),
+      );
 
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error.code).toBe('INVALID_ARGS');
-      }
+      // Should succeed by targeting all clusters in the project
+      expect(result.success).toBe(true);
     });
 
     it.skipIf(!has_kubectl_cluster())('should run in dry-run mode without errors', async () => {
