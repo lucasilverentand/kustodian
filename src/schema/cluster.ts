@@ -1,6 +1,20 @@
 import { z } from 'zod';
 
 import { api_version_schema, metadata_schema, values_schema } from './common.js';
+
+/**
+ * Extended metadata for clusters.
+ */
+export const cluster_metadata_schema = metadata_schema.extend({
+  code: z.string().min(1).optional(),
+  description: z.string().optional(),
+  environment: z.string().min(1).optional(),
+  region: z.string().min(1).optional(),
+  timezone: z.string().min(1).optional(),
+  labels: z.record(z.string(), z.string()).optional(),
+});
+
+export type ClusterMetadataType = z.infer<typeof cluster_metadata_schema>;
 import { ssh_config_schema } from './node-list.js';
 import { preservation_mode_schema } from './template.js';
 
@@ -251,7 +265,6 @@ export type DefaultsConfigType = z.infer<typeof defaults_config_schema>;
  */
 export const cluster_spec_schema = z
   .object({
-    code: z.string().min(1).optional(),
     git: git_config_schema.optional(),
     oci: oci_config_schema.optional(),
     github: github_config_schema.optional(),
@@ -275,7 +288,7 @@ export type ClusterSpecType = z.infer<typeof cluster_spec_schema>;
 export const cluster_schema = z.object({
   apiVersion: api_version_schema,
   kind: z.literal('Cluster'),
-  metadata: metadata_schema,
+  metadata: cluster_metadata_schema,
   spec: cluster_spec_schema,
 });
 

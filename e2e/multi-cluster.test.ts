@@ -26,11 +26,11 @@ describe('E2E: Multi-Cluster', () => {
 
         // Verify cluster-specific configuration
         if (staging) {
-          expect(staging.cluster.spec.code).toBe('stg');
+          expect(staging.cluster.metadata.code).toBe('stg');
         }
 
         if (production) {
-          expect(production.cluster.spec.code).toBe('prod');
+          expect(production.cluster.metadata.code).toBe('prod');
         }
       }
     });

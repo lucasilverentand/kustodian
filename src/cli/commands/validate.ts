@@ -3,7 +3,7 @@ import {
   validate_dependency_graph,
   validate_template_requirements,
 } from '../../generator/index.js';
-import { find_project_root, load_project } from '../../loader/index.js';
+import { filter_clusters, find_project_root, load_project } from '../../loader/index.js';
 
 import { define_command } from '../command.js';
 
@@ -63,7 +63,7 @@ export const validate_command = define_command({
 
     // Report clusters
     const clusters = cluster_filter
-      ? project.clusters.filter((c) => c.cluster.metadata.name === cluster_filter)
+      ? filter_clusters(project.clusters, cluster_filter)
       : project.clusters;
 
     if (cluster_filter && clusters.length === 0) {

@@ -55,6 +55,33 @@ export interface LoadedClusterType {
 }
 
 /**
+ * Finds a cluster by name or code.
+ * Matches against metadata.name first, then metadata.code.
+ */
+export function find_cluster(
+  clusters: LoadedClusterType[],
+  identifier: string,
+): LoadedClusterType | undefined {
+  return (
+    clusters.find((c) => c.cluster.metadata.name === identifier) ??
+    clusters.find((c) => c.cluster.metadata.code === identifier)
+  );
+}
+
+/**
+ * Filters clusters by name or code.
+ * Matches against metadata.name first, then metadata.code.
+ */
+export function filter_clusters(
+  clusters: LoadedClusterType[],
+  identifier: string,
+): LoadedClusterType[] {
+  return clusters.filter(
+    (c) => c.cluster.metadata.name === identifier || c.cluster.metadata.code === identifier,
+  );
+}
+
+/**
  * A fully loaded Kustodian project.
  */
 export interface ProjectType {

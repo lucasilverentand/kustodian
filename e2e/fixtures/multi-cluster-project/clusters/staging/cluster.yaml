@@ -2,8 +2,8 @@ apiVersion: kustodian.io/v1
 kind: Cluster
 metadata:
   name: staging
-spec:
   code: stg
+spec:
   oci:
     registry: ghcr.io
     repository: test/multi-cluster

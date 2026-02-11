@@ -2,8 +2,8 @@ apiVersion: kustodian.io/v1
 kind: Cluster
 metadata:
   name: local
-spec:
   code: local
+spec:
   oci:
     registry: ghcr.io
     repository: test/e2e-project

@@ -1,7 +1,7 @@
 import type { KustodianErrorType } from '../core/index.js';
 import { type ResultType, failure, success } from '../core/index.js';
 
-import type { CommandType, HandlerType } from './command.js';
+import type { ArgumentType, CommandType, HandlerType } from './command.js';
 import type { ContainerType } from './container.js';
 import {
   type ContextType,
@@ -188,12 +188,13 @@ export function format_version(config: CLIConfigType): string {
 }
 
 /**
- * Gets CLI help text.
+ * Gets CLI top-level help text.
  */
 export function format_help(config: CLIConfigType, commands: CommandType[]): string {
   const lines: string[] = [];
 
-  lines.push(config.description ?? config.name);
+  lines.push(`${config.name} v${config.version}`);
+  lines.push(config.description ?? '');
   lines.push('');
   lines.push('Usage:');
   lines.push(`  ${config.name} <command> [options]`);
@@ -201,13 +202,118 @@ export function format_help(config: CLIConfigType, commands: CommandType[]): str
   lines.push('Commands:');
 
   for (const cmd of commands) {
-    lines.push(`  ${cmd.name.padEnd(20)} ${cmd.description}`);
+    const args_str = format_arguments_inline(cmd.arguments);
+    const name_col = `${cmd.name}${args_str}`;
+    lines.push(`  ${name_col.padEnd(22)} ${cmd.description}`);
+
+    // Show subcommands inline
+    if (cmd.subcommands) {
+      for (const sub of cmd.subcommands) {
+        const sub_args_str = format_arguments_inline(sub.arguments);
+        const sub_name = `  ${cmd.name} ${sub.name}${sub_args_str}`;
+        lines.push(`  ${sub_name.padEnd(22)} ${sub.description}`);
+
+        // Show nested subcommands (e.g., sources cache info)
+        if (sub.subcommands) {
+          for (const nested of sub.subcommands) {
+            const nested_name = `  ${cmd.name} ${sub.name} ${nested.name}`;
+            lines.push(`  ${nested_name.padEnd(22)} ${nested.description}`);
+          }
+        }
+      }
+    }
   }
 
   lines.push('');
   lines.push('Options:');
-  lines.push('  --help, -h          Show help');
-  lines.push('  --version, -v       Show version');
+  lines.push('  --help, -h            Show help');
+  lines.push('  --version, -v         Show version');
+  lines.push('');
+  lines.push('Examples:');
+  lines.push(`  ${config.name} init my-project`);
+  lines.push(`  ${config.name} validate --cluster production`);
+  lines.push(`  ${config.name} apply --cluster production --dry-run`);
+  lines.push(`  ${config.name} update --cluster production --dry-run`);
+  lines.push(`  ${config.name} sources fetch`);
 
   return lines.join('\n');
+}
+
+/**
+ * Gets per-command help text.
+ */
+export function format_command_help(
+  cli_name: string,
+  command: CommandType,
+  parent_name?: string,
+): string {
+  const lines: string[] = [];
+  const full_name = parent_name ? `${parent_name} ${command.name}` : command.name;
+  const args_str = format_arguments_inline(command.arguments);
+
+  lines.push(command.description);
+  lines.push('');
+  lines.push('Usage:');
+  lines.push(`  ${cli_name} ${full_name}${args_str} [options]`);
+
+  // Subcommands
+  if (command.subcommands && command.subcommands.length > 0) {
+    lines.push('');
+    lines.push('Commands:');
+    for (const sub of command.subcommands) {
+      const sub_args_str = format_arguments_inline(sub.arguments);
+      const sub_name = `${sub.name}${sub_args_str}`;
+      lines.push(`  ${sub_name.padEnd(22)} ${sub.description}`);
+
+      if (sub.subcommands) {
+        for (const nested of sub.subcommands) {
+          const nested_name = `  ${sub.name} ${nested.name}`;
+          lines.push(`  ${nested_name.padEnd(22)} ${nested.description}`);
+        }
+      }
+    }
+  }
+
+  // Arguments
+  if (command.arguments && command.arguments.length > 0) {
+    lines.push('');
+    lines.push('Arguments:');
+    for (const arg of command.arguments) {
+      const required_str = arg.required ? ' (required)' : '';
+      lines.push(`  ${arg.name.padEnd(22)} ${arg.description}${required_str}`);
+    }
+  }
+
+  // Options
+  if (command.options && command.options.length > 0) {
+    lines.push('');
+    lines.push('Options:');
+    for (const opt of command.options) {
+      const short_str = opt.short ? `-${opt.short}, ` : '    ';
+      const name_str = `${short_str}--${opt.name}`;
+      const default_str =
+        opt.default_value !== undefined && opt.default_value !== false
+          ? ` (default: ${String(opt.default_value)})`
+          : '';
+      const required_str = opt.required ? ' (required)' : '';
+      lines.push(`  ${name_str.padEnd(22)} ${opt.description}${default_str}${required_str}`);
+    }
+  }
+
+  lines.push(`  ${'--help, -h'.padEnd(22)} Show help`);
+
+  return lines.join('\n');
+}
+
+/**
+ * Formats argument list for usage line.
+ */
+function format_arguments_inline(args?: ArgumentType[]): string {
+  if (!args || args.length === 0) return '';
+  return ` ${args
+    .map((a) => {
+      const name = a.variadic ? `${a.name}...` : a.name;
+      return a.required ? `<${name}>` : `[${name}]`;
+    })
+    .join(' ')}`;
 }
