@@ -14,7 +14,7 @@ export {
 } from './executor.js';
 export { create_k0s_plugin, plugin, plugin as default } from './plugin.js';
 // Provider exports
-export { create_k0s_provider, validate_k0s_config } from './provider.js';
+export { create_k0s_provider, validate_k0s_config, validate_ssh_keys } from './provider.js';
 
 // Types
 export {
