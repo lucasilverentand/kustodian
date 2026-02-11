@@ -87,11 +87,19 @@ describe('E2E: Schema Validation', () => {
             secret_ref: 'registry-auth',
           },
           node_defaults: {
-            ssh: {
-              user: 'admin',
-              key_path: '~/.ssh/id_rsa',
-            },
+            label_prefix: 'myapp.io',
           },
+          plugins: [
+            {
+              name: 'k0s',
+              config: {
+                default_ssh: {
+                  user: 'admin',
+                  key_path: '~/.ssh/id_rsa',
+                },
+              },
+            },
+          ],
         },
       };
 

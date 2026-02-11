@@ -15,7 +15,7 @@ export const cluster_metadata_schema = metadata_schema.extend({
 });
 
 export type ClusterMetadataType = z.infer<typeof cluster_metadata_schema>;
-import { ssh_config_schema } from './node-list.js';
+
 import { preservation_mode_schema } from './template.js';
 
 /**
@@ -115,7 +115,6 @@ export type PluginConfigType = z.infer<typeof plugin_config_schema>;
  */
 export const node_defaults_schema = z.object({
   label_prefix: z.string().optional(),
-  ssh: ssh_config_schema.optional(),
 });
 
 export type NodeDefaultsType = z.infer<typeof node_defaults_schema>;
