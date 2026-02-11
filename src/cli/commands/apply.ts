@@ -182,10 +182,31 @@ export const apply_command = define_command({
           }),
         } as NodeListType;
 
-        // Load k0s provider
+        // Load k0s provider with plugin config
         const k0s_package = 'kustodian-k0s';
         const { create_k0s_provider } = await import(k0s_package);
-        const provider = create_k0s_provider();
+
+        // Find k0s plugin config from cluster spec
+        const k0s_plugin = loaded_cluster.cluster.spec.plugins?.find(
+          (p) => p.name === 'k0s' || p.name === '@kustodian/plugin-k0s',
+        );
+        const plugin_config = k0s_plugin?.config ?? {};
+
+        const provider_options: Record<string, unknown> = {};
+        if (plugin_config['k0s_version']) {
+          provider_options['k0s_version'] = plugin_config['k0s_version'];
+        }
+        if (plugin_config['telemetry_enabled'] !== undefined) {
+          provider_options['telemetry_enabled'] = plugin_config['telemetry_enabled'];
+        }
+        if (plugin_config['dynamic_config'] !== undefined) {
+          provider_options['dynamic_config'] = plugin_config['dynamic_config'];
+        }
+        if (loaded_cluster.cluster.spec.node_defaults?.ssh) {
+          provider_options['default_ssh'] = loaded_cluster.cluster.spec.node_defaults.ssh;
+        }
+
+        const provider = create_k0s_provider(provider_options);
 
         console.log('  → Validating cluster configuration...');
         const validate_result = provider.validate(node_list);
@@ -197,7 +218,20 @@ export const apply_command = define_command({
 
         console.log('  → Installing k0s cluster...');
         if (dry_run) {
-          console.log('    [dry-run] Would run: k0sctl apply');
+          // Show generated config preview if available
+          if (provider.get_config_preview) {
+            const preview_result = provider.get_config_preview(node_list);
+            if (is_success(preview_result)) {
+              const preview_yaml = preview_result.value as string;
+              console.log('    [dry-run] Generated k0sctl config:');
+              for (const line of preview_yaml.split('\n')) {
+                console.log(`      ${line}`);
+              }
+            }
+          }
+          console.log('    [dry-run] Would run: k0sctl apply --config <config-path>');
+          console.log('    [dry-run] Would run: k0sctl kubeconfig --config <config-path>');
+          console.log('    [dry-run] Would run: merge kubeconfig into ~/.kube/config');
         } else {
           const install_result = await provider.install(node_list, { dry_run: false });
           if (!is_success(install_result)) {
@@ -212,7 +246,33 @@ export const apply_command = define_command({
             console.error(`  ✗ Failed to get kubeconfig: ${kubeconfig_result.error.message}`);
             return kubeconfig_result;
           }
-          console.log(`    ✓ Kubeconfig: ${kubeconfig_result.value}`);
+          console.log('    ✓ Retrieved kubeconfig');
+
+          // Merge kubeconfig into ~/.kube/config
+          console.log('  → Merging kubeconfig into ~/.kube/config...');
+          const temp_kubeconfig = path.join(
+            (await import('node:os')).tmpdir(),
+            `kustodian-kubeconfig-${cluster_name}.yaml`,
+          );
+          const { writeFile, unlink } = await import('node:fs/promises');
+          await writeFile(temp_kubeconfig, kubeconfig_result.value as string, 'utf-8');
+
+          const { create_kubeconfig_manager } = await import('../../k8s/kubeconfig.js');
+          const kubeconfig_manager = create_kubeconfig_manager();
+          const merge_result = await kubeconfig_manager.merge(temp_kubeconfig);
+
+          // Clean up temp kubeconfig file
+          try {
+            await unlink(temp_kubeconfig);
+          } catch {
+            // Ignore cleanup errors
+          }
+
+          if (!is_success(merge_result)) {
+            console.error(`  ✗ Failed to merge kubeconfig: ${merge_result.error.message}`);
+            return merge_result;
+          }
+          console.log('    ✓ Kubeconfig merged into ~/.kube/config');
 
           console.log('  → Waiting for cluster nodes to be ready...');
           try {
@@ -226,6 +286,9 @@ export const apply_command = define_command({
         }
 
         console.log('  ✓ Cluster bootstrapped successfully');
+
+        // Clean up temp config files
+        await provider.cleanup?.();
 
         if (!dry_run) {
           console.log('  → Allowing control plane to stabilize...');

@@ -22,6 +22,37 @@ import {
 import type { K0sProviderOptionsType } from './types.js';
 
 /**
+ * Validates that SSH key files exist for all nodes.
+ */
+export async function validate_ssh_keys(
+  node_list: NodeListType,
+): Promise<ResultType<void, KustodianErrorType>> {
+  const key_paths = new Set<string>();
+
+  for (const node of node_list.nodes) {
+    const ssh = node.ssh ?? node_list.ssh;
+    const key_path = ssh?.key_path;
+    if (key_path) {
+      // Resolve ~ to home directory since fs.access doesn't expand tilde
+      const resolved = key_path.startsWith('~')
+        ? path.join(os.homedir(), key_path.slice(1))
+        : key_path;
+      key_paths.add(resolved);
+    }
+  }
+
+  for (const key_path of key_paths) {
+    try {
+      await fs.access(key_path);
+    } catch {
+      return failure(Errors.validation_error(`SSH key not found: ${key_path}`));
+    }
+  }
+
+  return success(undefined);
+}
+
+/**
  * Validates k0s cluster configuration.
  */
 export function validate_k0s_config(node_list: NodeListType): ResultType<void, KustodianErrorType> {
@@ -84,6 +115,12 @@ export function create_k0s_provider(options: K0sProviderOptionsType = {}): Clust
       const k0sctl_check = await check_k0sctl_available();
       if (!is_success(k0sctl_check)) {
         return k0sctl_check;
+      }
+
+      // Validate SSH keys exist
+      const ssh_check = await validate_ssh_keys(node_list);
+      if (!is_success(ssh_check)) {
+        return ssh_check;
       }
 
       // Generate k0sctl config
@@ -215,6 +252,27 @@ export function create_k0s_provider(options: K0sProviderOptionsType = {}): Clust
       }
 
       return success(undefined);
+    },
+
+    async cleanup(): Promise<ResultType<void, KustodianErrorType>> {
+      if (config_path) {
+        try {
+          await fs.unlink(config_path);
+        } catch (error) {
+          // Ignore ENOENT - file already deleted
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+            return failure(Errors.file_write_error(config_path, error));
+          }
+        }
+        config_path = undefined;
+      }
+      return success(undefined);
+    },
+
+    get_config_preview(node_list: NodeListType): ResultType<string, KustodianErrorType> {
+      const k0sctl_config = generate_k0sctl_config(node_list, options);
+      const serialized = serialize_k0sctl_config(k0sctl_config);
+      return success(YAML.stringify(serialized));
     },
   };
 }

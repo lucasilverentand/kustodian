@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import type { NodeListType, NodeType } from 'kustodian/nodes';
 
-import { create_k0s_provider, validate_k0s_config } from '../src/provider.js';
+import { create_k0s_provider, validate_k0s_config, validate_ssh_keys } from '../src/provider.js';
 
 // Note: k0sctl is not available in test environment, so install/get_kubeconfig/reset
 // tests will fail but verify the code paths are exercised
@@ -115,6 +115,63 @@ describe('k0s Provider', () => {
     });
   });
 
+  describe('validate_ssh_keys', () => {
+    it('should pass when no key paths are configured', async () => {
+      // Arrange
+      const node_list = create_node_list(
+        [create_node('controller-1', 'controller', { user: 'admin' })],
+        { user: 'admin' },
+      );
+
+      // Act
+      const result = await validate_ssh_keys(node_list);
+
+      // Assert
+      expect(result.success).toBe(true);
+    });
+
+    it('should fail when a key path does not exist', async () => {
+      // Arrange
+      const node_list = create_node_list(
+        [
+          create_node('controller-1', 'controller', {
+            user: 'admin',
+            key_path: '/nonexistent/path/id_rsa',
+          }),
+        ],
+        { user: 'admin' },
+      );
+
+      // Act
+      const result = await validate_ssh_keys(node_list);
+
+      // Assert
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.message).toContain('SSH key not found');
+        expect(result.error.message).toContain('/nonexistent/path/id_rsa');
+      }
+    });
+
+    it('should check default key path from node list ssh config', async () => {
+      // Arrange
+      const node_list = create_node_list([create_node('controller-1', 'controller')], {
+        user: 'admin',
+        key_path: '/nonexistent/default/key',
+      });
+
+      // Act
+      const result = await validate_ssh_keys(node_list);
+
+      // Assert
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.message).toContain('SSH key not found');
+        expect(result.error.message).toContain('/nonexistent/default/key');
+      }
+    });
+  });
+
   describe('create_k0s_provider', () => {
     it('should create provider with correct name', () => {
       // Act
@@ -133,6 +190,15 @@ describe('k0s Provider', () => {
       expect(provider.install).toBeDefined();
       expect(provider.get_kubeconfig).toBeDefined();
       expect(provider.reset).toBeDefined();
+    });
+
+    it('should have cleanup and get_config_preview methods', () => {
+      // Act
+      const provider = create_k0s_provider();
+
+      // Assert
+      expect(provider.cleanup).toBeDefined();
+      expect(provider.get_config_preview).toBeDefined();
     });
 
     it('should validate using validate_k0s_config', () => {
@@ -172,6 +238,48 @@ describe('k0s Provider', () => {
 
       // Assert
       expect(provider.name).toBe('k0s');
+    });
+  });
+
+  describe('cleanup', () => {
+    it('should succeed when no config file exists', async () => {
+      // Arrange
+      const provider = create_k0s_provider();
+
+      // Act
+      const result = await provider.cleanup?.();
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result?.success).toBe(true);
+    });
+  });
+
+  describe('get_config_preview', () => {
+    it('should return valid YAML with k0sctl fields', () => {
+      // Arrange
+      const provider = create_k0s_provider({ k0s_version: '1.30.0' });
+      const node_list = create_node_list(
+        [
+          create_node('controller-1', 'controller', { user: 'admin' }),
+          create_node('worker-1', 'worker', { user: 'admin' }),
+        ],
+        { user: 'admin' },
+      );
+
+      // Act
+      const result = provider.get_config_preview?.(node_list);
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result?.success).toBe(true);
+      if (result?.success) {
+        expect(result.value).toContain('apiVersion: k0sctl.k0sproject.io/v1beta1');
+        expect(result.value).toContain('kind: Cluster');
+        expect(result.value).toContain('name: test-cluster');
+        expect(result.value).toContain('controller');
+        expect(result.value).toContain('worker');
+      }
     });
   });
 

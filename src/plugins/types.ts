@@ -62,6 +62,16 @@ export interface ClusterProviderType {
     node_list: NodeListType,
     options: ResetOptionsType,
   ): Promise<ResultType<void, KustodianErrorType>>;
+
+  /**
+   * Cleans up temporary resources created by the provider.
+   */
+  cleanup?(): Promise<ResultType<void, KustodianErrorType>>;
+
+  /**
+   * Returns the generated config YAML for dry-run preview.
+   */
+  get_config_preview?(node_list: NodeListType): ResultType<string, KustodianErrorType>;
 }
 
 // ============================================================
