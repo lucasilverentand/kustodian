@@ -9,7 +9,7 @@ describe('resolve_defaults', () => {
       apiVersion: 'kustodian.io/v1',
       kind: 'Cluster',
       metadata: { name: 'test' },
-      spec: { domain: 'example.com', git: { owner: 'org', repository: 'repo', branch: 'main' } },
+      spec: { git: { owner: 'org', repository: 'repo', branch: 'main' } },
     };
 
     const defaults = resolve_defaults(cluster);
@@ -26,7 +26,7 @@ describe('resolve_defaults', () => {
       apiVersion: 'kustodian.io/v1',
       kind: 'Cluster',
       metadata: { name: 'test' },
-      spec: { domain: 'example.com', git: { owner: 'org', repository: 'repo', branch: 'main' } },
+      spec: { git: { owner: 'org', repository: 'repo', branch: 'main' } },
     };
 
     const project: ProjectConfigType = {
@@ -54,7 +54,6 @@ describe('resolve_defaults', () => {
       kind: 'Cluster',
       metadata: { name: 'test' },
       spec: {
-        domain: 'example.com',
         git: { owner: 'org', repository: 'repo', branch: 'main' },
         defaults: {
           flux_namespace: 'flux-cluster-override',
@@ -89,7 +88,6 @@ describe('resolve_defaults', () => {
       kind: 'Cluster',
       metadata: { name: 'test' },
       spec: {
-        domain: 'example.com',
         git: { owner: 'org', repository: 'repo', branch: 'main' },
         defaults: {
           oci_repository_name: 'cluster-oci',

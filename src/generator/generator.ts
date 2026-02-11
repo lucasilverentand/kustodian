@@ -149,10 +149,13 @@ export function create_generator(
     cluster: ClusterType,
     template_name: string,
   ): Record<string, string> {
+    const cluster_values = cluster.spec.values ?? {};
     const template_config = cluster.spec.templates?.find(
       (t: TemplateConfigType) => t.name === template_name,
     );
-    return template_config?.values ?? {};
+    const template_values = template_config?.values ?? {};
+    // Template-level values override cluster-level values
+    return { ...cluster_values, ...template_values };
   }
 
   function is_template_enabled(cluster: ClusterType, template_name: string): boolean {

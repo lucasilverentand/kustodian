@@ -10,7 +10,6 @@ describe('Hook Dispatcher', () => {
       kind: 'Cluster',
       metadata: { name: 'test-cluster' },
       spec: {
-        domain: 'example.com',
         git: { owner: 'test', repository: 'test', branch: 'main', path: './' },
       },
     },

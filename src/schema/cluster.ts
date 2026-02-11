@@ -270,6 +270,7 @@ export const cluster_spec_schema = z
     github: github_config_schema.optional(),
     flux: flux_config_schema.optional(),
     defaults: defaults_config_schema.optional(),
+    values: values_schema.optional(),
     templates: z.array(template_config_schema).optional(),
     plugins: z.array(plugin_config_schema).optional(),
     node_defaults: node_defaults_schema.optional(),
