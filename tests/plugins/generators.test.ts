@@ -59,7 +59,6 @@ describe('Plugin Generators', () => {
           kind: 'Cluster' as const,
           metadata: { name: 'test' },
           spec: {
-            domain: 'example.com',
             git: { owner: 'test', repository: 'test', branch: 'main', path: './' },
           },
         },

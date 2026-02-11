@@ -17,7 +17,6 @@ describe('Generator', () => {
     kind: 'Cluster',
     metadata: { name: 'test-cluster' },
     spec: {
-      domain: 'example.com',
       git: {
         owner: 'test-org',
         repository: 'test-repo',
@@ -115,6 +114,51 @@ describe('Generator', () => {
 
       // Assert
       expect(result[0]?.enabled).toBe(true); // Listed = enabled
+    });
+
+    it('should inject cluster-level values into all templates', () => {
+      const generator = create_generator();
+      const cluster: ClusterType = {
+        ...create_cluster([{ name: 'nginx' }, { name: 'redis' }]),
+        spec: {
+          ...create_cluster([{ name: 'nginx' }, { name: 'redis' }]).spec,
+          values: { domain: 'example.com', environment: 'production' },
+        },
+      };
+      const templates = [
+        create_template('nginx', [{ name: 'deployment', path: './deployment' }]),
+        create_template('redis', [{ name: 'deployment', path: './deployment' }]),
+      ];
+
+      const result = generator.resolve_templates(cluster, templates);
+
+      expect(result[0]?.values).toEqual({ domain: 'example.com', environment: 'production' });
+      expect(result[1]?.values).toEqual({ domain: 'example.com', environment: 'production' });
+    });
+
+    it('should let template-level values override cluster-level values', () => {
+      const generator = create_generator();
+      const cluster: ClusterType = {
+        ...create_cluster([
+          { name: 'nginx', values: { domain: 'nginx.example.com', replicas: '3' } },
+        ]),
+        spec: {
+          ...create_cluster([
+            { name: 'nginx', values: { domain: 'nginx.example.com', replicas: '3' } },
+          ]).spec,
+          values: { domain: 'example.com', environment: 'production' },
+        },
+      };
+      const templates = [create_template('nginx', [{ name: 'deployment', path: './deployment' }])];
+
+      const result = generator.resolve_templates(cluster, templates);
+
+      // Template-level domain overrides cluster-level domain
+      expect(result[0]?.values).toEqual({
+        domain: 'nginx.example.com',
+        environment: 'production',
+        replicas: '3',
+      });
     });
   });
 

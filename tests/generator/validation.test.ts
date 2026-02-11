@@ -27,7 +27,6 @@ function create_test_cluster(name = 'test-cluster'): ClusterType {
     kind: 'Cluster',
     metadata: { name },
     spec: {
-      domain: 'test.example.com',
       git: {
         owner: 'test',
         repository: 'test',

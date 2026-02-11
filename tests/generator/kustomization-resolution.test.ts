@@ -137,7 +137,6 @@ describe('Kustomization Resolution', () => {
         kind: 'Cluster',
         metadata: { name: 'test' },
         spec: {
-          domain: 'test.example.com',
           git: { owner: 'test', repository: 'test', branch: 'main' },
           templates: [{ name: 'other-template' }],
         },
@@ -154,7 +153,6 @@ describe('Kustomization Resolution', () => {
         kind: 'Cluster',
         metadata: { name: 'test' },
         spec: {
-          domain: 'test.example.com',
           git: { owner: 'test', repository: 'test', branch: 'main' },
           templates: [{ name: 'my-template', values: { key: 'value' } }],
         },

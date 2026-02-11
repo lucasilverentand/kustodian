@@ -16,7 +16,6 @@ describe('Enablement Validation (Opt-in Model)', () => {
       kind: 'Cluster',
       metadata: { name },
       spec: {
-        domain: 'test.example.com',
         git: {
           owner: 'test',
           repository: 'test',

@@ -403,6 +403,28 @@ describe('Cluster Schema', () => {
       expect(result.success).toBe(false);
     });
 
+    it('should validate a cluster with cluster-level values', () => {
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'production' },
+        spec: {
+          git: { owner: 'org', repository: 'repo' },
+          values: { domain: 'example.com', environment: 'production' },
+        },
+      };
+
+      const result = validate_cluster(cluster);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.spec.values).toEqual({
+          domain: 'example.com',
+          environment: 'production',
+        });
+      }
+    });
+
     it('should reject empty region', () => {
       const cluster = {
         apiVersion: 'kustodian.io/v1',
