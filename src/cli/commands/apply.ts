@@ -4,7 +4,7 @@ import { createInterface } from 'node:readline';
 import { promisify } from 'node:util';
 import { is_success, success } from '../../core/index.js';
 import { validate_template_requirements } from '../../generator/index.js';
-import { find_project_root, load_project } from '../../loader/index.js';
+import { find_cluster, find_project_root, load_project } from '../../loader/index.js';
 import type { NodeListType } from '../../nodes/index.js';
 import type { ClusterSecretConfigType, ClusterType } from '../../schema/index.js';
 
@@ -39,7 +39,7 @@ export const apply_command = define_command({
     {
       name: 'provider',
       short: 'P',
-      description: 'Cluster provider for bootstrap (default: k0s)',
+      description: 'Cluster provider for bootstrap',
       type: 'string',
       default_value: 'k0s',
     },
@@ -118,7 +118,7 @@ export const apply_command = define_command({
     }
 
     const project = project_result.value;
-    const loaded_cluster = project.clusters.find((c) => c.cluster.metadata.name === cluster_name);
+    const loaded_cluster = find_cluster(project.clusters, cluster_name);
 
     if (!loaded_cluster) {
       console.error(`  ✗ Error: Cluster '${cluster_name}' not found`);

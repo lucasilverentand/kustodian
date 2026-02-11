@@ -233,14 +233,13 @@ describe('Cluster Schema', () => {
       expect(result.success).toBe(false);
     });
 
-    it('should validate a cluster with code field', () => {
+    it('should validate a cluster with code field in metadata', () => {
       // Arrange
       const cluster = {
         apiVersion: 'kustodian.io/v1',
         kind: 'Cluster',
-        metadata: { name: 'production' },
+        metadata: { name: 'production', code: 'prod' },
         spec: {
-          code: 'prod',
           git: { owner: 'org', repository: 'repo' },
         },
       };
@@ -251,8 +250,171 @@ describe('Cluster Schema', () => {
       // Assert
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.spec.code).toBe('prod');
+        expect(result.data.metadata.code).toBe('prod');
       }
+    });
+
+    it('should validate a cluster with timezone in metadata', () => {
+      // Arrange
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'production', timezone: 'Europe/Amsterdam' },
+        spec: {
+          git: { owner: 'org', repository: 'repo' },
+        },
+      };
+
+      // Act
+      const result = validate_cluster(cluster);
+
+      // Assert
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.metadata.timezone).toBe('Europe/Amsterdam');
+      }
+    });
+
+    it('should validate a cluster with environment in metadata', () => {
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'production', environment: 'production' },
+        spec: {
+          git: { owner: 'org', repository: 'repo' },
+        },
+      };
+
+      const result = validate_cluster(cluster);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.metadata.environment).toBe('production');
+      }
+    });
+
+    it('should validate a cluster with region in metadata', () => {
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'production', region: 'eu-west-1' },
+        spec: {
+          git: { owner: 'org', repository: 'repo' },
+        },
+      };
+
+      const result = validate_cluster(cluster);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.metadata.region).toBe('eu-west-1');
+      }
+    });
+
+    it('should validate a cluster with description in metadata', () => {
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'production', description: 'Main production cluster' },
+        spec: {
+          git: { owner: 'org', repository: 'repo' },
+        },
+      };
+
+      const result = validate_cluster(cluster);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.metadata.description).toBe('Main production cluster');
+      }
+    });
+
+    it('should validate a cluster with labels in metadata', () => {
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: {
+          name: 'production',
+          labels: {
+            team: 'platform',
+            'cost-center': 'engineering',
+            tier: 'critical',
+          },
+        },
+        spec: {
+          git: { owner: 'org', repository: 'repo' },
+        },
+      };
+
+      const result = validate_cluster(cluster);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.metadata.labels).toEqual({
+          team: 'platform',
+          'cost-center': 'engineering',
+          tier: 'critical',
+        });
+      }
+    });
+
+    it('should validate a cluster with all metadata fields', () => {
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: {
+          name: 'production',
+          code: 'prod',
+          description: 'EU production cluster',
+          environment: 'production',
+          region: 'eu-west-1',
+          timezone: 'Europe/Amsterdam',
+          labels: { team: 'platform', tier: 'critical' },
+        },
+        spec: {
+          git: { owner: 'org', repository: 'repo' },
+        },
+      };
+
+      const result = validate_cluster(cluster);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.metadata.code).toBe('prod');
+        expect(result.data.metadata.description).toBe('EU production cluster');
+        expect(result.data.metadata.environment).toBe('production');
+        expect(result.data.metadata.region).toBe('eu-west-1');
+        expect(result.data.metadata.timezone).toBe('Europe/Amsterdam');
+        expect(result.data.metadata.labels).toEqual({ team: 'platform', tier: 'critical' });
+      }
+    });
+
+    it('should reject empty environment', () => {
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'test', environment: '' },
+        spec: {
+          git: { owner: 'org', repository: 'repo' },
+        },
+      };
+
+      const result = validate_cluster(cluster);
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject empty region', () => {
+      const cluster = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'test', region: '' },
+        spec: {
+          git: { owner: 'org', repository: 'repo' },
+        },
+      };
+
+      const result = validate_cluster(cluster);
+      expect(result.success).toBe(false);
     });
 
     it('should validate a cluster with github configuration', () => {
@@ -313,9 +475,8 @@ describe('Cluster Schema', () => {
       const cluster = {
         apiVersion: 'kustodian.io/v1',
         kind: 'Cluster',
-        metadata: { name: 'production' },
+        metadata: { name: 'production', code: 'prod' },
         spec: {
-          code: 'prod',
           git: { owner: 'org', repository: 'repo' },
           github: {
             organization: 'acme-corp',
@@ -331,7 +492,7 @@ describe('Cluster Schema', () => {
       // Assert
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.spec.code).toBe('prod');
+        expect(result.data.metadata.code).toBe('prod');
         expect(result.data.spec.github?.organization).toBe('acme-corp');
       }
     });
@@ -341,9 +502,8 @@ describe('Cluster Schema', () => {
       const cluster = {
         apiVersion: 'kustodian.io/v1',
         kind: 'Cluster',
-        metadata: { name: 'test' },
+        metadata: { name: 'test', code: '' },
         spec: {
-          code: '',
           git: { owner: 'org', repository: 'repo' },
         },
       };

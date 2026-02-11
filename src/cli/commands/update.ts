@@ -2,6 +2,7 @@ import * as path from 'node:path';
 import type { KustodianErrorType } from '../../core/index.js';
 import { type ResultType, failure, is_success, success } from '../../core/index.js';
 import {
+  find_cluster,
   find_project_root,
   load_project,
   read_yaml_file,
@@ -102,7 +103,7 @@ export const update_command = define_command({
     }
 
     const project = project_result.value;
-    const loaded_cluster = project.clusters.find((c) => c.cluster.metadata.name === cluster_name);
+    const loaded_cluster = find_cluster(project.clusters, cluster_name);
 
     if (!loaded_cluster) {
       console.error(`Cluster '${cluster_name}' not found`);
