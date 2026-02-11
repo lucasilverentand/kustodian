@@ -7,7 +7,20 @@ import { validate_enablement_dependencies } from './enablement.js';
 import { build_dependency_graph } from './graph.js';
 import type { GraphValidationResultType } from './types.js';
 
+export type {
+  CrossReferenceErrorType,
+  CrossReferenceValidationResultType,
+} from './cross-reference.js';
+export {
+  validate_cross_references,
+  validate_kustomization_overrides,
+  validate_profile_references,
+  validate_substitution_completeness,
+  validate_template_references,
+} from './cross-reference.js';
 export { detect_cycles, has_cycles } from './cycle-detection.js';
+export type { SemanticErrorType, SemanticValidationResultType } from './semantic.js';
+export { validate_semantics } from './semantic.js';
 export type { MissingDependencyErrorType } from './enablement.js';
 export { validate_enablement_dependencies } from './enablement.js';
 

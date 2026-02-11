@@ -1,6 +1,9 @@
 import { failure, success } from '../../core/index.js';
 import {
+  type SemanticErrorType,
+  validate_cross_references,
   validate_dependency_graph,
+  validate_semantics,
   validate_template_requirements,
 } from '../../generator/index.js';
 import { filter_clusters, find_project_root, load_project } from '../../loader/index.js';
@@ -84,6 +87,37 @@ export const validate_command = define_command({
       }
     }
 
+    // Validate configurations (semantic checks)
+    console.log('\nValidating configurations...');
+    const semantic_result = validate_semantics(clusters);
+
+    if (!semantic_result.valid) {
+      print_semantic_errors(semantic_result.errors);
+      return failure({
+        code: 'SEMANTIC_VALIDATION_ERROR',
+        message: 'Configuration validation failed',
+      });
+    }
+
+    // Validate cross-references
+    console.log('\nValidating cross-references...');
+    const cross_ref_result = validate_cross_references(
+      clusters,
+      project.templates,
+      project.profiles,
+    );
+
+    if (!cross_ref_result.valid) {
+      console.error('\nCross-reference validation errors:');
+      for (const error of cross_ref_result.errors) {
+        console.error(`  ✗ ${error.message}`);
+      }
+      return failure({
+        code: 'CROSS_REFERENCE_VALIDATION_ERROR',
+        message: 'Cross-reference validation failed',
+      });
+    }
+
     // Validate template requirements for each cluster
     console.log('\nValidating template requirements...');
     let has_requirement_errors = false;
@@ -152,3 +186,57 @@ export const validate_command = define_command({
     return success(undefined);
   },
 });
+
+const ERROR_TYPE_LABELS: Record<SemanticErrorType['type'], string> = {
+  duplicate: 'Duplicate',
+  invalid_format: 'Invalid format',
+  inconsistency: 'Inconsistency',
+  missing_required: 'Missing required',
+};
+
+/**
+ * Strips the "Cluster 'name': " or "Cluster 'name', " prefix from a message
+ * for display under a cluster heading, to avoid redundancy.
+ */
+function strip_cluster_prefix(message: string, cluster: string): string {
+  const prefix = `Cluster '${cluster}': `;
+  if (message.startsWith(prefix)) {
+    return message.slice(prefix.length);
+  }
+  const comma_prefix = `Cluster '${cluster}', `;
+  if (message.startsWith(comma_prefix)) {
+    return message.slice(comma_prefix.length);
+  }
+  return message;
+}
+
+/**
+ * Prints semantic validation errors grouped by cluster, with field paths and error types.
+ */
+function print_semantic_errors(errors: SemanticErrorType[]): void {
+  const by_cluster = new Map<string, SemanticErrorType[]>();
+
+  for (const error of errors) {
+    const list = by_cluster.get(error.cluster);
+    if (list) {
+      list.push(error);
+    } else {
+      by_cluster.set(error.cluster, [error]);
+    }
+  }
+
+  const count = errors.length;
+  console.error(
+    `\nConfiguration validation failed (${count} ${count === 1 ? 'error' : 'errors'}):\n`,
+  );
+
+  for (const [cluster, cluster_errors] of by_cluster) {
+    console.error(`  ${cluster}:`);
+    for (const error of cluster_errors) {
+      const label = ERROR_TYPE_LABELS[error.type];
+      const msg = strip_cluster_prefix(error.message, cluster);
+      console.error(`    ✗ ${msg}  [${label}]`);
+    }
+    console.error('');
+  }
+}
