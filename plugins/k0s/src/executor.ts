@@ -173,7 +173,9 @@ export async function k0sctl_apply(
 ): Promise<ResultType<CommandResultType, KustodianErrorType>> {
   const max_retries = options.retries ?? K0SCTL_APPLY_MAX_RETRIES;
   const retry_delay = options.retry_delay_ms ?? K0SCTL_APPLY_RETRY_DELAY_MS;
-  let last_result: ResultType<CommandResultType, KustodianErrorType> | undefined;
+  let last_result: ResultType<CommandResultType, KustodianErrorType> = failure(
+    Errors.unknown('k0sctl apply failed: no attempts made'),
+  );
 
   for (let attempt = 1; attempt <= max_retries; attempt++) {
     last_result = await k0sctl_apply_once(config_path, options);
@@ -191,7 +193,7 @@ export async function k0sctl_apply(
     }
   }
 
-  return last_result!;
+  return last_result;
 }
 
 /**
