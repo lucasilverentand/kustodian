@@ -205,7 +205,9 @@ export function create_kubectl_client(options: KubectlClientOptionsType = {}): K
     },
 
     async label(node, labels) {
-      const label_args = Object.entries(labels).map(([k, v]) => `${k}=${v}`);
+      const label_args = Object.entries(labels).map(([k, v]) =>
+        k.endsWith('-') ? k : `${k}=${v}`,
+      );
       const args = [...base_args, 'label', 'node', node, ...label_args, '--overwrite'];
 
       const result = await exec_command('kubectl', args, exec_options);
