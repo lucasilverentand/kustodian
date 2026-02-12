@@ -196,17 +196,7 @@ export function create_k0s_provider(options: K0sProviderOptionsType = {}): Clust
         for (let attempt = 1; attempt <= MAX_LABEL_RETRIES; attempt++) {
           // Wait for nodes with labels to be Ready
           for (const node of nodes_with_labels) {
-            console.log(`    ⏳ Waiting for node ${node.name} to be Ready...`);
-            const wait_result = await kubectl.wait(
-              { kind: 'Node', name: node.name },
-              'condition=Ready',
-              120,
-            );
-            if (!is_success(wait_result)) {
-              console.warn(
-                `    ⚠ Node ${node.name} did not become Ready: ${wait_result.error.message}`,
-              );
-            }
+            await kubectl.wait({ kind: 'Node', name: node.name }, 'condition=Ready', 120);
           }
 
           // Sync labels
