@@ -11,9 +11,7 @@
       "import": "./dist/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "test": "bun test",
     "test:watch": "bun test --watch",
