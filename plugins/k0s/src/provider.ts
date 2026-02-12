@@ -184,15 +184,37 @@ export function create_k0s_provider(options: K0sProviderOptionsType = {}): Clust
         });
         const labeler = create_kubectl_labeler(kubectl);
 
-        // Sync labels
-        const label_result = await labeler.sync_labels(
-          node_list,
-          bootstrap_options.dry_run
-            ? {
-                dry_run: true,
-              }
-            : {},
-        );
+        // Wait for API server to become reachable before labeling
+        const MAX_LABEL_RETRIES = 6;
+        const LABEL_RETRY_DELAY_MS = 10_000;
+        let label_result: Awaited<ReturnType<typeof labeler.sync_labels>> | undefined;
+
+        for (let attempt = 1; attempt <= MAX_LABEL_RETRIES; attempt++) {
+          label_result = await labeler.sync_labels(
+            node_list,
+            bootstrap_options.dry_run ? { dry_run: true } : {},
+          );
+
+          if (is_success(label_result)) {
+            break;
+          }
+
+          // Check if the error looks like a connection issue (API server not ready)
+          const msg = label_result.error.message;
+          const is_connection_error =
+            msg.includes('connection refused') ||
+            msg.includes('connect: connection') ||
+            msg.includes('server API group list');
+
+          if (!is_connection_error || attempt === MAX_LABEL_RETRIES) {
+            break;
+          }
+
+          console.log(
+            `    ⚠ API server not ready, retrying in ${LABEL_RETRY_DELAY_MS / 1000}s (${attempt}/${MAX_LABEL_RETRIES})...`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, LABEL_RETRY_DELAY_MS));
+        }
 
         // Clean up temp kubeconfig file
         try {
@@ -201,8 +223,8 @@ export function create_k0s_provider(options: K0sProviderOptionsType = {}): Clust
           // Ignore cleanup errors
         }
 
-        if (!is_success(label_result)) {
-          console.warn(`  ⚠ Label sync failed: ${label_result.error.message}`);
+        if (!label_result || !is_success(label_result)) {
+          console.warn(`  ⚠ Label sync failed: ${label_result?.error.message ?? 'unknown error'}`);
         } else {
           console.log(`    ✓ Applied ${label_result.value.applied} labels`);
         }
