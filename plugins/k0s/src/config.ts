@@ -65,6 +65,7 @@ function build_k0s_config(
         api: primary_controller
           ? {
               external_address: primary_controller.address,
+              ...(options.sans && options.sans.length > 0 && { sans: options.sans }),
             }
           : undefined,
         telemetry: {

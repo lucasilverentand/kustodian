@@ -96,7 +96,7 @@ describe('k0s Executor', () => {
   describe('k0sctl_apply', () => {
     it('should fail with non-existent config file', async () => {
       // Act
-      const result = await k0sctl_apply('/non/existent/config.yaml');
+      const result = await k0sctl_apply('/non/existent/config.yaml', { retries: 1 });
 
       // Assert - will fail because k0sctl not installed or config doesn't exist
       expect(result).toBeDefined();

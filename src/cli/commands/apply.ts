@@ -183,158 +183,143 @@ export const apply_command = define_command({
 
       // ===== PHASE 2: Bootstrap Cluster =====
       if (!skip_bootstrap) {
-        console.log('\n[2/3] Checking cluster status...');
+        console.log('\n[2/3] Applying cluster configuration with k0s...');
 
-        // Check if cluster is already accessible
-        const { exec } = await import('node:child_process');
-        const { promisify } = await import('node:util');
-        const execAsync = promisify(exec);
-
-        let cluster_exists = false;
-        try {
-          await execAsync('kubectl cluster-info', { timeout: 5000 });
-          console.log('  ✓ Cluster is already running and accessible');
-          cluster_exists = true;
-        } catch {
-          console.log('  → No existing cluster detected');
+        // Check if we have nodes to bootstrap
+        if (loaded_cluster.nodes.length === 0) {
+          console.error('  ✗ Error: No nodes defined for cluster');
+          console.error(
+            '  → Add nodes to cluster.yaml spec.nodes or create node files in nodes/ directory',
+          );
+          return {
+            success: false as const,
+            error: { code: 'NOT_FOUND', message: 'No nodes defined for cluster' },
+          };
         }
 
-        if (!cluster_exists) {
-          console.log('  → Bootstrapping cluster with k0s...');
+        // Build NodeListType for bootstrap workflow
+        const node_list: NodeListType = {
+          cluster: cluster_name,
+          nodes: loaded_cluster.nodes,
+          ...(loaded_cluster.cluster.spec.node_defaults?.label_prefix && {
+            label_prefix: loaded_cluster.cluster.spec.node_defaults.label_prefix,
+          }),
+        } as NodeListType;
 
-          // Check if we have nodes to bootstrap
-          if (loaded_cluster.nodes.length === 0) {
-            console.error('  ✗ Error: No nodes defined for cluster');
-            console.error(
-              '  → Add nodes to cluster.yaml spec.nodes or create node files in nodes/ directory',
-            );
-            return {
-              success: false as const,
-              error: { code: 'NOT_FOUND', message: 'No nodes defined for cluster' },
-            };
-          }
+        // Load k0s provider with plugin config
+        const k0s_package = 'kustodian-k0s';
+        const { create_k0s_provider } = await import(k0s_package);
 
-          // Build NodeListType for bootstrap workflow
-          const node_list: NodeListType = {
-            cluster: cluster_name,
-            nodes: loaded_cluster.nodes,
-            ...(loaded_cluster.cluster.spec.node_defaults?.label_prefix && {
-              label_prefix: loaded_cluster.cluster.spec.node_defaults.label_prefix,
-            }),
-          } as NodeListType;
+        // Find k0s plugin config from cluster spec
+        const k0s_plugin = loaded_cluster.cluster.spec.plugins?.find(
+          (p) => p.name === 'k0s' || p.name === '@kustodian/plugin-k0s',
+        );
+        const plugin_config = k0s_plugin?.config ?? {};
 
-          // Load k0s provider with plugin config
-          const k0s_package = 'kustodian-k0s';
-          const { create_k0s_provider } = await import(k0s_package);
+        const provider_options: Record<string, unknown> = {};
+        if (plugin_config['k0s_version']) {
+          provider_options['k0s_version'] = plugin_config['k0s_version'];
+        }
+        if (plugin_config['telemetry_enabled'] !== undefined) {
+          provider_options['telemetry_enabled'] = plugin_config['telemetry_enabled'];
+        }
+        if (plugin_config['dynamic_config'] !== undefined) {
+          provider_options['dynamic_config'] = plugin_config['dynamic_config'];
+        }
+        if (plugin_config['sans']) {
+          provider_options['sans'] = plugin_config['sans'];
+        }
+        if (plugin_config['default_ssh']) {
+          provider_options['default_ssh'] = plugin_config['default_ssh'];
+        }
 
-          // Find k0s plugin config from cluster spec
-          const k0s_plugin = loaded_cluster.cluster.spec.plugins?.find(
-            (p) => p.name === 'k0s' || p.name === '@kustodian/plugin-k0s',
-          );
-          const plugin_config = k0s_plugin?.config ?? {};
+        const provider = create_k0s_provider(provider_options);
 
-          const provider_options: Record<string, unknown> = {};
-          if (plugin_config['k0s_version']) {
-            provider_options['k0s_version'] = plugin_config['k0s_version'];
-          }
-          if (plugin_config['telemetry_enabled'] !== undefined) {
-            provider_options['telemetry_enabled'] = plugin_config['telemetry_enabled'];
-          }
-          if (plugin_config['dynamic_config'] !== undefined) {
-            provider_options['dynamic_config'] = plugin_config['dynamic_config'];
-          }
-          if (plugin_config['default_ssh']) {
-            provider_options['default_ssh'] = plugin_config['default_ssh'];
-          }
+        console.log('  → Validating cluster configuration...');
+        const validate_result = provider.validate(node_list);
+        if (!is_success(validate_result)) {
+          console.error(`  ✗ Validation failed: ${validate_result.error.message}`);
+          return validate_result;
+        }
+        console.log('    ✓ Configuration valid');
 
-          const provider = create_k0s_provider(provider_options);
-
-          console.log('  → Validating cluster configuration...');
-          const validate_result = provider.validate(node_list);
-          if (!is_success(validate_result)) {
-            console.error(`  ✗ Validation failed: ${validate_result.error.message}`);
-            return validate_result;
-          }
-          console.log('    ✓ Configuration valid');
-
-          console.log('  → Installing k0s cluster...');
-          if (dry_run) {
-            // Show generated config preview if available
-            if (provider.get_config_preview) {
-              const preview_result = provider.get_config_preview(node_list);
-              if (is_success(preview_result)) {
-                const preview_yaml = preview_result.value as string;
-                console.log('    [dry-run] Generated k0sctl config:');
-                for (const line of preview_yaml.split('\n')) {
-                  console.log(`      ${line}`);
-                }
+        console.log('  → Running k0sctl apply...');
+        if (dry_run) {
+          // Show generated config preview if available
+          if (provider.get_config_preview) {
+            const preview_result = provider.get_config_preview(node_list);
+            if (is_success(preview_result)) {
+              const preview_yaml = preview_result.value as string;
+              console.log('    [dry-run] Generated k0sctl config:');
+              for (const line of preview_yaml.split('\n')) {
+                console.log(`      ${line}`);
               }
             }
-            console.log('    [dry-run] Would run: k0sctl apply --config <config-path>');
-            console.log('    [dry-run] Would run: k0sctl kubeconfig --config <config-path>');
-            console.log('    [dry-run] Would run: merge kubeconfig into ~/.kube/config');
-          } else {
-            const install_result = await provider.install(node_list, { dry_run: false });
-            if (!is_success(install_result)) {
-              console.error(`  ✗ Installation failed: ${install_result.error.message}`);
-              return install_result;
-            }
-            console.log('    ✓ k0s cluster installed');
+          }
+          console.log('    [dry-run] Would run: k0sctl apply --config <config-path>');
+          console.log('    [dry-run] Would run: k0sctl kubeconfig --config <config-path>');
+          console.log('    [dry-run] Would run: merge kubeconfig into ~/.kube/config');
+        } else {
+          const install_result = await provider.install(node_list, { dry_run: false });
+          if (!is_success(install_result)) {
+            console.error(`  ✗ Installation failed: ${install_result.error.message}`);
+            return install_result;
+          }
+          console.log('    ✓ k0s cluster applied');
 
-            console.log('  → Retrieving kubeconfig...');
-            const kubeconfig_result = await provider.get_kubeconfig(node_list);
-            if (!is_success(kubeconfig_result)) {
-              console.error(`  ✗ Failed to get kubeconfig: ${kubeconfig_result.error.message}`);
-              return kubeconfig_result;
-            }
-            console.log('    ✓ Retrieved kubeconfig');
+          console.log('  → Retrieving kubeconfig...');
+          const kubeconfig_result = await provider.get_kubeconfig(node_list);
+          if (!is_success(kubeconfig_result)) {
+            console.error(`  ✗ Failed to get kubeconfig: ${kubeconfig_result.error.message}`);
+            return kubeconfig_result;
+          }
+          console.log('    ✓ Retrieved kubeconfig');
 
-            // Merge kubeconfig into ~/.kube/config
-            console.log('  → Merging kubeconfig into ~/.kube/config...');
-            const temp_kubeconfig = path.join(
-              (await import('node:os')).tmpdir(),
-              `kustodian-kubeconfig-${cluster_name}.yaml`,
-            );
-            const { writeFile, unlink } = await import('node:fs/promises');
-            await writeFile(temp_kubeconfig, kubeconfig_result.value as string, 'utf-8');
+          // Merge kubeconfig into ~/.kube/config
+          console.log('  → Merging kubeconfig into ~/.kube/config...');
+          const temp_kubeconfig = path.join(
+            (await import('node:os')).tmpdir(),
+            `kustodian-kubeconfig-${cluster_name}.yaml`,
+          );
+          const { writeFile, unlink } = await import('node:fs/promises');
+          await writeFile(temp_kubeconfig, kubeconfig_result.value as string, 'utf-8');
 
-            const { create_kubeconfig_manager } = await import('../../k8s/kubeconfig.js');
-            const kubeconfig_manager = create_kubeconfig_manager();
-            const merge_result = await kubeconfig_manager.merge(temp_kubeconfig);
+          const { create_kubeconfig_manager } = await import('../../k8s/kubeconfig.js');
+          const kubeconfig_manager = create_kubeconfig_manager();
+          const merge_result = await kubeconfig_manager.merge(temp_kubeconfig);
 
-            // Clean up temp kubeconfig file
-            try {
-              await unlink(temp_kubeconfig);
-            } catch {
-              // Ignore cleanup errors
-            }
-
-            if (!is_success(merge_result)) {
-              console.error(`  ✗ Failed to merge kubeconfig: ${merge_result.error.message}`);
-              return merge_result;
-            }
-            console.log('    ✓ Kubeconfig merged into ~/.kube/config');
-
-            console.log('  → Waiting for cluster nodes to be ready...');
-            try {
-              await execAsync('kubectl wait --for=condition=Ready node --all --timeout=300s', {
-                timeout: 320000,
-              });
-              console.log('    ✓ All nodes are ready');
-            } catch {
-              console.log('    ⚠ Some nodes may not be ready yet');
-            }
+          // Clean up temp kubeconfig file
+          try {
+            await unlink(temp_kubeconfig);
+          } catch {
+            // Ignore cleanup errors
           }
 
-          console.log('  ✓ Cluster bootstrapped successfully');
-
-          // Clean up temp config files
-          await provider.cleanup?.();
-
-          if (!dry_run) {
-            console.log('  → Allowing control plane to stabilize...');
-            await new Promise((resolve) => setTimeout(resolve, 5000));
+          if (!is_success(merge_result)) {
+            console.error(`  ✗ Failed to merge kubeconfig: ${merge_result.error.message}`);
+            return merge_result;
           }
+          console.log('    ✓ Kubeconfig merged into ~/.kube/config');
+
+          console.log('  → Waiting for cluster nodes to be ready...');
+          try {
+            await execAsync('kubectl wait --for=condition=Ready node --all --timeout=300s', {
+              timeout: 320000,
+            });
+            console.log('    ✓ All nodes are ready');
+          } catch {
+            console.log('    ⚠ Some nodes may not be ready yet');
+          }
+        }
+
+        console.log('  ✓ k0s apply completed');
+
+        // Clean up temp config files
+        await provider.cleanup?.();
+
+        if (!dry_run) {
+          console.log('  → Allowing control plane to stabilize...');
+          await new Promise((resolve) => setTimeout(resolve, 5000));
         }
       } else {
         console.log('\n[2/3] Skipping bootstrap (using existing cluster)');

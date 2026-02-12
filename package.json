@@ -84,6 +84,7 @@
     "registry": "https://registry.npmjs.org"
   },
   "dependencies": {
+    "kustodian-k0s": "workspace:*",
     "ora": "^9.0.0",
     "semver": "^7.6.0",
     "yaml": "^2.8.2",

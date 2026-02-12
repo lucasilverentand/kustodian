@@ -5,6 +5,7 @@
     "": {
       "name": "kustodian",
       "dependencies": {
+        "kustodian-k0s": "workspace:*",
         "ora": "^9.0.0",
         "semver": "^7.6.0",
         "yaml": "^2.8.2",
@@ -22,14 +23,14 @@
     },
     "plugins/1password": {
       "name": "kustodian-1password",
-      "version": "3.0.0",
+      "version": "1.0.0",
       "dependencies": {
         "kustodian": "file:../..",
       },
     },
     "plugins/authelia": {
       "name": "kustodian-authelia",
-      "version": "3.0.0",
+      "version": "1.0.0",
       "dependencies": {
         "js-yaml": "^4.1.0",
         "kustodian": "file:../..",
@@ -41,7 +42,7 @@
     },
     "plugins/authentik": {
       "name": "kustodian-authentik",
-      "version": "3.0.0",
+      "version": "1.0.0",
       "dependencies": {
         "js-yaml": "^4.1.0",
         "kustodian": "file:../..",
@@ -53,14 +54,14 @@
     },
     "plugins/doppler": {
       "name": "kustodian-doppler",
-      "version": "3.0.0",
+      "version": "1.0.0",
       "dependencies": {
         "kustodian": "file:../..",
       },
     },
     "plugins/k0s": {
       "name": "kustodian-k0s",
-      "version": "3.0.0",
+      "version": "1.0.0",
       "dependencies": {
         "kustodian": "file:../..",
         "yaml": "^2.8.2",
@@ -193,5 +194,7 @@
     "zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
 
     "zod-to-json-schema": ["zod-to-json-schema@3.25.1", "", { "peerDependencies": { "zod": "^3.25 || ^4" } }, "sha512-pM/SU9d3YAggzi6MtR4h7ruuQlqKtad8e9S0fmxcMi+ueAK5Korys/aWcV9LIIHTVbj01NdzxcnXSN+O74ZIVA=="],
+
+    "kustodian-k0s/kustodian": ["kustodian@root:", {}],
   }
 }
