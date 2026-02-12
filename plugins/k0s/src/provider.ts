@@ -188,50 +188,44 @@ export function create_k0s_provider(options: K0sProviderOptionsType = {}): Clust
         });
         const labeler = create_kubectl_labeler(kubectl);
 
-        // Wait for nodes with labels to be Ready before labeling
-        for (const node of nodes_with_labels) {
-          console.log(`    ⏳ Waiting for node ${node.name} to be Ready...`);
-          const wait_result = await kubectl.wait(
-            { kind: 'Node', name: node.name },
-            'condition=Ready',
-            120,
-          );
-          if (!is_success(wait_result)) {
-            console.warn(
-              `    ⚠ Node ${node.name} did not become Ready: ${wait_result.error.message}`,
-            );
-          }
-        }
-
-        // Retry sync_labels for transient errors
-        const MAX_LABEL_RETRIES = 3;
-        const LABEL_RETRY_DELAY_MS = 5_000;
+        // Retry the entire wait + sync flow in case the API server isn't ready yet
+        const MAX_LABEL_RETRIES = 5;
+        const LABEL_RETRY_DELAY_MS = 10_000;
         let label_result: Awaited<ReturnType<typeof labeler.sync_labels>> | undefined;
 
         for (let attempt = 1; attempt <= MAX_LABEL_RETRIES; attempt++) {
+          // Wait for nodes with labels to be Ready
+          for (const node of nodes_with_labels) {
+            console.log(`    ⏳ Waiting for node ${node.name} to be Ready...`);
+            const wait_result = await kubectl.wait(
+              { kind: 'Node', name: node.name },
+              'condition=Ready',
+              120,
+            );
+            if (!is_success(wait_result)) {
+              console.warn(
+                `    ⚠ Node ${node.name} did not become Ready: ${wait_result.error.message}`,
+              );
+            }
+          }
+
+          // Sync labels
           label_result = await labeler.sync_labels(
             node_list,
             bootstrap_options.dry_run ? { dry_run: true } : {},
           );
 
-          if (is_success(label_result)) {
+          // Success with all labels applied — done
+          if (is_success(label_result) && label_result.value.skipped === 0) {
             break;
           }
 
-          const msg = label_result.error.message;
-          const is_retryable =
-            msg.includes('connection refused') ||
-            msg.includes('connect: connection') ||
-            msg.includes('server API group list') ||
-            msg.includes('not found') ||
-            msg.includes('no matches');
-
-          if (!is_retryable || attempt === MAX_LABEL_RETRIES) {
+          if (attempt === MAX_LABEL_RETRIES) {
             break;
           }
 
           console.log(
-            `    ⚠ Label sync failed, retrying in ${LABEL_RETRY_DELAY_MS / 1000}s (${attempt}/${MAX_LABEL_RETRIES})...`,
+            `    ⚠ Label sync incomplete (${is_success(label_result) ? `${label_result.value.skipped} skipped` : label_result.error.message}), retrying in ${LABEL_RETRY_DELAY_MS / 1000}s (${attempt}/${MAX_LABEL_RETRIES})...`,
           );
           await new Promise((resolve) => setTimeout(resolve, LABEL_RETRY_DELAY_MS));
         }
@@ -245,6 +239,10 @@ export function create_k0s_provider(options: K0sProviderOptionsType = {}): Clust
 
         if (!label_result || !is_success(label_result)) {
           console.warn(`  ⚠ Label sync failed: ${label_result?.error.message ?? 'unknown error'}`);
+        } else if (label_result.value.skipped > 0) {
+          console.warn(
+            `  ⚠ Applied ${label_result.value.applied} labels, ${label_result.value.skipped} skipped`,
+          );
         } else {
           console.log(`    ✓ Applied ${label_result.value.applied} labels`);
         }
