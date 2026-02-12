@@ -10,6 +10,7 @@ export const ssh_config_schema = z.object({
   key_path: z.string().optional(),
   known_hosts_path: z.string().optional(),
   port: z.number().int().positive().optional(),
+  disable_multiplexing: z.boolean().optional(),
 });
 
 export type SshConfigSchemaType = z.infer<typeof ssh_config_schema>;

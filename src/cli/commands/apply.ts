@@ -232,6 +232,7 @@ export const apply_command = define_command({
         if (plugin_config['default_ssh']) {
           provider_options['default_ssh'] = plugin_config['default_ssh'];
         }
+        provider_options['cluster_name'] = loaded_cluster.cluster.metadata.code ?? cluster_name;
 
         const provider = create_k0s_provider(provider_options);
 

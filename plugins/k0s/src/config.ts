@@ -27,7 +27,7 @@ export function generate_k0sctl_config(
     apiVersion: 'k0sctl.k0sproject.io/v1beta1',
     kind: 'Cluster',
     metadata: {
-      name: node_list.cluster,
+      name: options.cluster_name ?? node_list.cluster,
     },
     spec: {
       k0s: build_k0s_config(primary_controller, options),
@@ -64,7 +64,7 @@ function build_k0s_config(
       spec: {
         api: primary_controller
           ? {
-              external_address: primary_controller.address,
+              externalAddress: primary_controller.address,
               ...(options.sans && options.sans.length > 0 && { sans: options.sans }),
             }
           : undefined,

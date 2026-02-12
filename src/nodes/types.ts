@@ -11,6 +11,7 @@ export interface SshConfigType {
   key_path?: string;
   known_hosts_path?: string;
   port?: number;
+  disable_multiplexing?: boolean;
 }
 
 /**
