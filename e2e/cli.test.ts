@@ -215,7 +215,15 @@ describe('E2E: CLI Commands', () => {
       const fixtures_path = path.join(import.meta.dir, 'fixtures', 'valid-project');
       // Use --dry-run to skip confirmation prompt and --skip-bootstrap/--skip-templates to avoid side effects
       const result = await cli.run(
-        ['apply', '--project', fixtures_path, '--dry-run', '--skip-bootstrap', '--skip-templates'],
+        [
+          'apply',
+          '--project',
+          fixtures_path,
+          '--dry-run',
+          '--skip-bootstrap',
+          '--skip-flux',
+          '--skip-templates',
+        ],
         create_container(),
       );
 
