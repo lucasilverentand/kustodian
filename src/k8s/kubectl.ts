@@ -1,6 +1,7 @@
 import type { KustodianErrorType } from '../core/index.js';
 import { type ResultType, failure, success } from '../core/index.js';
 
+import { spawn } from 'node:child_process';
 import { type ExecOptionsType, check_command, exec_command } from './exec.js';
 import type { ApplyOptionsType, K8sResourceType, LogOptionsType } from './types.js';
 
@@ -84,6 +85,11 @@ export interface KubectlClientType {
     namespace: string,
     options?: LogOptionsType,
   ): Promise<ResultType<string, KustodianErrorType>>;
+
+  /**
+   * Applies YAML from stdin.
+   */
+  apply_stdin(yaml: string): Promise<ResultType<string, KustodianErrorType>>;
 
   /**
    * Checks if kubectl is available.
@@ -304,6 +310,51 @@ export function create_kubectl_client(options: KubectlClientOptionsType = {}): K
       }
 
       return success(result.value.stdout);
+    },
+
+    async apply_stdin(yaml) {
+      const args = [...base_args, 'apply', '-f', '-'];
+
+      return new Promise((resolve) => {
+        const proc = spawn('kubectl', args, {
+          stdio: ['pipe', 'pipe', 'pipe'],
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        proc.stdout.on('data', (data: Buffer) => {
+          stdout += data.toString();
+        });
+        proc.stderr.on('data', (data: Buffer) => {
+          stderr += data.toString();
+        });
+
+        proc.on('close', (code) => {
+          if (code === 0) {
+            resolve(success(stdout.trim()));
+          } else {
+            resolve(
+              failure({
+                code: 'KUBECTL_APPLY_ERROR',
+                message: stderr.trim() || `kubectl exited with code ${code}`,
+              }),
+            );
+          }
+        });
+
+        proc.on('error', (err) => {
+          resolve(
+            failure({
+              code: 'EXEC_ERROR',
+              message: `Failed to execute kubectl: ${err.message}`,
+            }),
+          );
+        });
+
+        proc.stdin.write(yaml);
+        proc.stdin.end();
+      });
     },
 
     async check() {
