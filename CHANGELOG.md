@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.2.2...kustodian-v1.3.0) (2026-02-12)
+
+
+### Features
+
+* add kubeconfig command to pull and merge k0s cluster configs ([2c73715](https://github.com/lucasilverentand/kustodian/commit/2c737157187d7050addc27ef6678dd10cc232eea))
+
+
+### Bug Fixes
+
+* use cluster secrets pattern for OCI registry credentials ([d6cba71](https://github.com/lucasilverentand/kustodian/commit/d6cba715d88533710b5aed811177734e33d49b31))
+
 ## [1.2.2](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.2.1...kustodian-v1.2.2) (2026-02-12)
 
 
