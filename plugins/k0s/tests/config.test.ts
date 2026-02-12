@@ -35,6 +35,7 @@ describe('k0s Config', () => {
 
       // Assert
       expect(result.role).toBe('worker');
+      expect(result.hostname).toBe('worker-1');
       expect(result.noTaints).toBeUndefined();
       expect(result.openSSH.address).toBe('worker-1.local');
       expect(result.openSSH.user).toBe('admin');
@@ -49,6 +50,7 @@ describe('k0s Config', () => {
 
       // Assert
       expect(result.role).toBe('controller');
+      expect(result.hostname).toBe('controller-1');
       expect(result.noTaints).toBeUndefined();
     });
 

@@ -53,6 +53,7 @@ export interface K0sctlSshConfigType {
  */
 export interface K0sctlHostType {
   role: K0sctlHostRoleType;
+  hostname?: string | undefined;
   noTaints?: boolean | undefined;
   openSSH: K0sctlSshConfigType;
 }
