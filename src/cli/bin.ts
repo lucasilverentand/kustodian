@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { apply_command } from './commands/apply.js';
 import { init_command } from './commands/init.js';
+import { kubeconfig_command } from './commands/kubeconfig.js';
 import { preview_command } from './commands/preview.js';
 import { sources_command } from './commands/sources.js';
 import { update_command } from './commands/update.js';
@@ -22,6 +23,7 @@ const all_commands = [
   preview_command,
   apply_command,
   update_command,
+  kubeconfig_command,
   sources_command,
 ];
 
