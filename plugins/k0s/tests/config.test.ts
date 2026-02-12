@@ -110,7 +110,7 @@ describe('k0s Config', () => {
       const result = generate_k0sctl_config(node_list);
 
       // Assert
-      expect(result.spec.k0s?.config?.spec?.api?.external_address).toBe('10.0.0.1');
+      expect(result.spec.k0s?.config?.spec?.api?.externalAddress).toBe('10.0.0.1');
     });
 
     it('should apply provider options', () => {

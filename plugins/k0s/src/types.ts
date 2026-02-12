@@ -12,7 +12,7 @@ export interface K0sVersionType {
  * k0s cluster API configuration.
  */
 export interface K0sApiConfigType {
-  external_address?: string | undefined;
+  externalAddress?: string | undefined;
   sans?: string[] | undefined;
 }
 
@@ -44,6 +44,7 @@ export interface K0sctlSshConfigType {
   user: string;
   keyPath?: string | undefined;
   port?: number | undefined;
+  disableMultiplexing?: boolean | undefined;
   options?: Record<string, string> | undefined;
 }
 
@@ -98,6 +99,7 @@ export interface K0sctlConfigType {
  * k0s provider options.
  */
 export interface K0sProviderOptionsType {
+  cluster_name?: string | undefined;
   k0s_version?: string | undefined;
   telemetry_enabled?: boolean | undefined;
   dynamic_config?: boolean | undefined;
@@ -119,6 +121,9 @@ export function to_k0sctl_ssh_config(address: string, ssh?: SshConfigType): K0sc
     user: ssh?.user ?? 'root',
     keyPath: ssh?.key_path,
     port: ssh?.port,
+    ...(ssh?.disable_multiplexing !== undefined && {
+      disableMultiplexing: ssh.disable_multiplexing,
+    }),
     ...(Object.keys(options).length > 0 && { options }),
   };
 }
