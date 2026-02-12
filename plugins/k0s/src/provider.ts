@@ -156,7 +156,11 @@ export function create_k0s_provider(options: K0sProviderOptionsType = {}): Clust
       }
 
       // Apply node labels if configured
-      if (node_list.nodes.some((n) => n.labels && Object.keys(n.labels).length > 0)) {
+      const nodes_with_labels = node_list.nodes.filter(
+        (n) => n.labels && Object.keys(n.labels).length > 0,
+      );
+
+      if (nodes_with_labels.length > 0) {
         console.log('  → Applying node labels...');
 
         // Get kubeconfig
@@ -184,9 +188,24 @@ export function create_k0s_provider(options: K0sProviderOptionsType = {}): Clust
         });
         const labeler = create_kubectl_labeler(kubectl);
 
-        // Wait for API server to become reachable before labeling
-        const MAX_LABEL_RETRIES = 6;
-        const LABEL_RETRY_DELAY_MS = 10_000;
+        // Wait for nodes with labels to be Ready before labeling
+        for (const node of nodes_with_labels) {
+          console.log(`    ⏳ Waiting for node ${node.name} to be Ready...`);
+          const wait_result = await kubectl.wait(
+            { kind: 'Node', name: node.name },
+            'condition=Ready',
+            120,
+          );
+          if (!is_success(wait_result)) {
+            console.warn(
+              `    ⚠ Node ${node.name} did not become Ready: ${wait_result.error.message}`,
+            );
+          }
+        }
+
+        // Retry sync_labels for transient errors
+        const MAX_LABEL_RETRIES = 3;
+        const LABEL_RETRY_DELAY_MS = 5_000;
         let label_result: Awaited<ReturnType<typeof labeler.sync_labels>> | undefined;
 
         for (let attempt = 1; attempt <= MAX_LABEL_RETRIES; attempt++) {
@@ -199,19 +218,20 @@ export function create_k0s_provider(options: K0sProviderOptionsType = {}): Clust
             break;
           }
 
-          // Check if the error looks like a connection issue (API server not ready)
           const msg = label_result.error.message;
-          const is_connection_error =
+          const is_retryable =
             msg.includes('connection refused') ||
             msg.includes('connect: connection') ||
-            msg.includes('server API group list');
+            msg.includes('server API group list') ||
+            msg.includes('not found') ||
+            msg.includes('no matches');
 
-          if (!is_connection_error || attempt === MAX_LABEL_RETRIES) {
+          if (!is_retryable || attempt === MAX_LABEL_RETRIES) {
             break;
           }
 
           console.log(
-            `    ⚠ API server not ready, retrying in ${LABEL_RETRY_DELAY_MS / 1000}s (${attempt}/${MAX_LABEL_RETRIES})...`,
+            `    ⚠ Label sync failed, retrying in ${LABEL_RETRY_DELAY_MS / 1000}s (${attempt}/${MAX_LABEL_RETRIES})...`,
           );
           await new Promise((resolve) => setTimeout(resolve, LABEL_RETRY_DELAY_MS));
         }

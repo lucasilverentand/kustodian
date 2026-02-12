@@ -45,6 +45,7 @@ export function node_to_k0sctl_host(node: NodeType, default_ssh?: SshConfigType)
 
   return {
     role,
+    hostname: node.name,
     noTaints: role === 'controller+worker' ? true : undefined,
     openSSH: to_k0sctl_ssh_config(node.address, ssh_config),
   };

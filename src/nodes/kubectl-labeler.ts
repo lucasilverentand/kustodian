@@ -2,6 +2,7 @@ import { Errors, failure, is_success, success } from '../core/index.js';
 import type { KubectlClientType } from '../k8s/index.js';
 
 import {
+  type LabelChangeType,
   type NodeLabelerType,
   calculate_all_label_changes,
   create_dry_run_result,
@@ -72,49 +73,93 @@ export function create_kubectl_labeler(kubectl: KubectlClientType): NodeLabelerT
 
     async sync_labels(node_list, options = {}) {
       const current_labels_by_node = new Map<string, Record<string, string>>();
+      const all_changes: LabelChangeType[] = [];
+      let applied = 0;
+      let skipped = 0;
 
       for (const node of node_list.nodes) {
-        const labels_result = await this.get_labels(node.name);
+        try {
+          const labels_result = await this.get_labels(node.name);
 
-        if (!is_success(labels_result)) {
-          return failure({
-            code: 'KUBECTL_LABEL_ERROR',
-            message: `Failed to get labels for node ${node.name}: ${labels_result.error.message}`,
-          });
+          if (!is_success(labels_result)) {
+            console.warn(
+              `  ⚠ Failed to get labels for node ${node.name}: ${labels_result.error.message}`,
+            );
+            skipped++;
+            continue;
+          }
+
+          current_labels_by_node.set(node.name, labels_result.value);
+        } catch (error) {
+          console.warn(`  ⚠ Error getting labels for node ${node.name}: ${error}`);
+          skipped++;
         }
-
-        current_labels_by_node.set(node.name, labels_result.value);
       }
 
-      const changes = calculate_all_label_changes(node_list, current_labels_by_node);
+      // Only calculate changes for nodes we successfully fetched labels for
+      const fetched_node_list = {
+        ...node_list,
+        nodes: node_list.nodes.filter((n) => current_labels_by_node.has(n.name)),
+      };
+      const changes = calculate_all_label_changes(fetched_node_list, current_labels_by_node);
+      all_changes.push(...changes);
 
       if (options.dry_run) {
-        return success(create_dry_run_result(changes));
+        return success(create_dry_run_result(all_changes));
       }
 
       const grouped_changes = group_changes_by_node(changes);
-      let applied = 0;
-      let failed = 0;
 
       for (const [node_name, node_changes] of grouped_changes) {
-        for (const change of node_changes) {
-          const apply_result = await this.apply_change(change);
+        try {
+          // Batch add/update labels into a single kubectl call
+          const add_update_labels: Record<string, string> = {};
+          const remove_labels: Record<string, string> = {};
 
-          if (is_success(apply_result)) {
-            applied++;
-          } else {
-            failed++;
-            console.warn(
-              `  ⚠ Failed to apply change on ${node_name}: ${apply_result.error.message}`,
-            );
+          for (const change of node_changes) {
+            if (change.operation === 'remove') {
+              remove_labels[`${change.key}-`] = '';
+            } else if (change.value) {
+              add_update_labels[change.key] = change.value;
+            }
           }
+
+          // Apply add/update labels in one call
+          if (Object.keys(add_update_labels).length > 0) {
+            const label_result = await kubectl.label(node_name, add_update_labels);
+            if (!is_success(label_result)) {
+              console.warn(
+                `  ⚠ Failed to apply labels on ${node_name}: ${label_result.error.message}`,
+              );
+              skipped += node_changes.length;
+              continue;
+            }
+          }
+
+          // Apply removals in one call
+          if (Object.keys(remove_labels).length > 0) {
+            const remove_result = await kubectl.label(node_name, remove_labels);
+            if (!is_success(remove_result)) {
+              console.warn(
+                `  ⚠ Failed to remove labels on ${node_name}: ${remove_result.error.message}`,
+              );
+              skipped += node_changes.filter((c) => c.operation === 'remove').length;
+              applied += node_changes.filter((c) => c.operation !== 'remove').length;
+              continue;
+            }
+          }
+
+          applied += node_changes.length;
+        } catch (error) {
+          console.warn(`  ⚠ Error applying labels on ${node_name}: ${error}`);
+          skipped += node_changes.length;
         }
       }
 
       return success({
-        changes,
+        changes: all_changes,
         applied,
-        skipped: failed,
+        skipped,
       });
     },
   };
