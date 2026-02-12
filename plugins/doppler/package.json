@@ -1,6 +1,6 @@
 {
   "name": "kustodian-doppler",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Doppler secret provider plugin for Kustodian",
   "type": "module",
   "main": "./dist/index.js",
@@ -11,7 +11,9 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "test": "bun test",
     "test:watch": "bun test --watch",
@@ -19,7 +21,13 @@
     "build": "bun build src/index.ts --outdir dist --target node --format esm && tsc --emitDeclarationOnly --outDir dist",
     "prepublishOnly": "bun run build"
   },
-  "keywords": ["kustodian", "plugin", "doppler", "secrets", "kubernetes"],
+  "keywords": [
+    "kustodian",
+    "plugin",
+    "doppler",
+    "secrets",
+    "kubernetes"
+  ],
   "author": "Luca Silverentand <luca@onezero.company>",
   "license": "MIT",
   "repository": {
