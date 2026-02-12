@@ -18,6 +18,7 @@ import type { ClusterSecretConfigType, ClusterType } from '../../schema/index.js
 import { define_command } from '../command.js';
 import {
   type ClusterSecretProvider,
+  OCI_REGISTRY_PROVIDER,
   type ResolvedSecretConfig,
   get_configured_providers,
   resolve_config,
@@ -391,6 +392,7 @@ export const apply_command = define_command({
         }
 
         // ===== PHASE 4: Configure Secrets =====
+        let oci_has_auth = false;
         if (!skip_templates) {
           console.log('\n[4/5] Configuring cluster secrets...');
 
@@ -411,6 +413,18 @@ export const apply_command = define_command({
             }
           } else {
             console.log('  → No secret providers configured');
+          }
+
+          // Handle OCI registry secret alongside other cluster secrets
+          if (loaded_cluster.cluster.spec.oci) {
+            console.log('  → Checking OCI registry secret...');
+            oci_has_auth = await ensure_oci_cluster_secret(
+              loaded_cluster.cluster.spec.oci.registry,
+              dry_run,
+              OCI_REGISTRY_SECRET_NAME,
+              FLUX_NAMESPACE,
+              temp_kubeconfig,
+            );
           }
         }
 
@@ -493,20 +507,9 @@ export const apply_command = define_command({
             const gen_data = gen_result.value;
             console.log(`  ✓ Generated ${gen_data.kustomizations.length} Flux Kustomizations`);
 
-            // Ensure OCI registry authentication
-            const oci_config = loaded_cluster.cluster.spec.oci;
-            console.log('  → Checking OCI registry authentication...');
-            const auth_result = await ensure_oci_registry_secret(
-              oci_config.registry,
-              dry_run,
-              OCI_REGISTRY_SECRET_NAME,
-              FLUX_NAMESPACE,
-              temp_kubeconfig,
-            );
-
             if (dry_run) {
               console.log('\n  [dry-run] Would push to OCI and apply Flux resources');
-              if (auth_result.has_auth) {
+              if (oci_has_auth) {
                 console.log(`  → Secret: ${OCI_REGISTRY_SECRET_NAME} (registry auth)`);
               }
               if (gen_data.oci_repository) {
@@ -558,7 +561,7 @@ export const apply_command = define_command({
                   oci_repo.spec = { ...oci_repo.spec, ref: { tag } };
 
                   // Add secretRef if auth is configured
-                  if (auth_result.has_auth) {
+                  if (oci_has_auth) {
                     oci_repo.spec = {
                       ...oci_repo.spec,
                       secretRef: { name: defaults.oci_registry_secret_name },
@@ -725,48 +728,6 @@ async function prompt_for_input(message: string, hidden = false): Promise<string
 }
 
 /**
- * Gets the OCI registry token from environment or prompts user.
- */
-async function get_oci_registry_token(registry: string): Promise<string | undefined> {
-  if (registry === 'ghcr.io') {
-    // Check environment variables
-    const env_token = process.env['GITHUB_TOKEN'] || process.env['GH_TOKEN'];
-    if (env_token) {
-      console.log('    → Using GITHUB_TOKEN from environment');
-      return env_token;
-    }
-
-    // Try gh CLI
-    try {
-      const { stdout } = await execAsync('gh auth token', { timeout: 5000 });
-      const gh_token = stdout.trim();
-      if (gh_token) {
-        console.log('    → Using token from gh CLI');
-        return gh_token;
-      }
-    } catch {
-      // gh CLI not available
-    }
-
-    // Prompt user
-    console.log('    → No GHCR token found (checked: GITHUB_TOKEN, GH_TOKEN, gh CLI)');
-    console.log('    → Create a token at: https://github.com/settings/tokens');
-    console.log('    → Required scope: read:packages');
-    const input = await prompt_for_input('    Enter GitHub token (or Enter to skip): ', true);
-    return input || undefined;
-  }
-
-  // Generic registry
-  const username = process.env['REGISTRY_USERNAME'];
-  const password = process.env['REGISTRY_PASSWORD'];
-  if (username && password) {
-    return `${username}:${password}`;
-  }
-
-  return undefined;
-}
-
-/**
  * Creates a dockerconfigjson Secret manifest for OCI registry auth.
  */
 function create_registry_secret_manifest(
@@ -797,14 +758,15 @@ function create_registry_secret_manifest(
 
 /**
  * Ensures OCI registry secret exists, creating if needed.
+ * Follows the same pattern as ensure_cluster_secret — checks env vars, prompts user.
  */
-async function ensure_oci_registry_secret(
+async function ensure_oci_cluster_secret(
   registry: string,
   dry_run: boolean,
   secret_name: string,
   namespace: string,
   kubeconfig_path?: string,
-): Promise<{ has_auth: boolean; secret?: object }> {
+): Promise<boolean> {
   const kc_flag = kubeconfig_path ? ` --kubeconfig=${kubeconfig_path}` : '';
 
   // Check if secret exists
@@ -813,22 +775,29 @@ async function ensure_oci_registry_secret(
       timeout: 5000,
     });
     console.log('    ✓ OCI registry secret exists');
-    return { has_auth: true };
+    return true;
   } catch {
     // Need to create
   }
 
-  const token = await get_oci_registry_token(registry);
+  const token = await get_provider_token(OCI_REGISTRY_PROVIDER);
   if (!token) {
-    console.log('    → No credentials provided, OCI will be unauthenticated');
-    return { has_auth: false };
+    console.log('    → No OCI registry token provided, skipping secret creation');
+    console.log(`    ⚠ ${OCI_REGISTRY_PROVIDER.skip_warning}`);
+    return false;
+  }
+
+  // Ensure namespace exists
+  const ns_ok = await ensure_namespace(namespace, dry_run, kubeconfig_path);
+  if (!ns_ok) {
+    return false;
   }
 
   const secret = create_registry_secret_manifest(registry, token, secret_name, namespace);
 
   if (dry_run) {
     console.log(`    [dry-run] Would create secret: ${secret_name}`);
-    return { has_auth: true, secret };
+    return true;
   }
 
   // Apply secret via kubectl client
@@ -840,12 +809,12 @@ async function ensure_oci_registry_secret(
       throw new Error(result.error.message);
     }
 
-    console.log(`    ✓ Created secret: ${secret_name}`);
-    return { has_auth: true, secret };
+    console.log(`    ✓ Created secret: ${secret_name} in ${namespace}`);
+    return true;
   } catch (error) {
     const err = error as Error;
-    console.error(`    ✗ Failed to create secret: ${err.message}`);
-    return { has_auth: false };
+    console.error(`    ✗ Failed to create OCI registry secret: ${err.message}`);
+    return false;
   }
 }
 

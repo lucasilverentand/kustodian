@@ -53,6 +53,17 @@ export const ONEPASSWORD_PROVIDER: ClusterSecretProvider = {
   skip_warning: 'ExternalSecrets using 1Password will fail until this is configured',
 };
 
+export const OCI_REGISTRY_PROVIDER: ClusterSecretProvider = {
+  display_name: 'OCI Registry',
+  default_namespace: 'flux-system',
+  default_secret_name: 'kustodian-oci-registry',
+  default_key: '.dockerconfigjson',
+  env_vars: ['GITHUB_TOKEN', 'GH_TOKEN', 'REGISTRY_TOKEN'],
+  token_help_url: 'https://github.com/settings/tokens',
+  prompt_text: 'Enter registry token (or Enter to skip): ',
+  skip_warning: 'OCI registry will be unauthenticated - Flux may fail to pull artifacts',
+};
+
 /**
  * Merges user-provided cluster_secret config with provider defaults.
  */
