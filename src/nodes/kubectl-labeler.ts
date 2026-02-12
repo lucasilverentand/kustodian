@@ -82,16 +82,12 @@ export function create_kubectl_labeler(kubectl: KubectlClientType): NodeLabelerT
           const labels_result = await this.get_labels(node.name);
 
           if (!is_success(labels_result)) {
-            console.warn(
-              `  ⚠ Failed to get labels for node ${node.name}: ${labels_result.error.message}`,
-            );
             skipped++;
             continue;
           }
 
           current_labels_by_node.set(node.name, labels_result.value);
-        } catch (error) {
-          console.warn(`  ⚠ Error getting labels for node ${node.name}: ${error}`);
+        } catch {
           skipped++;
         }
       }
@@ -128,9 +124,6 @@ export function create_kubectl_labeler(kubectl: KubectlClientType): NodeLabelerT
           if (Object.keys(add_update_labels).length > 0) {
             const label_result = await kubectl.label(node_name, add_update_labels);
             if (!is_success(label_result)) {
-              console.warn(
-                `  ⚠ Failed to apply labels on ${node_name}: ${label_result.error.message}`,
-              );
               skipped += node_changes.length;
               continue;
             }
@@ -140,9 +133,6 @@ export function create_kubectl_labeler(kubectl: KubectlClientType): NodeLabelerT
           if (Object.keys(remove_labels).length > 0) {
             const remove_result = await kubectl.label(node_name, remove_labels);
             if (!is_success(remove_result)) {
-              console.warn(
-                `  ⚠ Failed to remove labels on ${node_name}: ${remove_result.error.message}`,
-              );
               skipped += node_changes.filter((c) => c.operation === 'remove').length;
               applied += node_changes.filter((c) => c.operation !== 'remove').length;
               continue;
@@ -150,8 +140,7 @@ export function create_kubectl_labeler(kubectl: KubectlClientType): NodeLabelerT
           }
 
           applied += node_changes.length;
-        } catch (error) {
-          console.warn(`  ⚠ Error applying labels on ${node_name}: ${error}`);
+        } catch {
           skipped += node_changes.length;
         }
       }
