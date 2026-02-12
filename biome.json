@@ -61,6 +61,12 @@
       "linter": {
         "enabled": false
       }
+    },
+    {
+      "include": ["package.json", "plugins/*/package.json"],
+      "formatter": {
+        "enabled": false
+      }
     }
   ]
 }
