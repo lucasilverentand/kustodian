@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.3.1](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.3.0...kustodian-v1.3.1) (2026-02-12)
+
+
+### Bug Fixes
+
+* exclude package.json from biome formatting ([4568881](https://github.com/lucasilverentand/kustodian/commit/4568881075b99f60e27b410c2da1913eb81a695d))
+* remove unused preview command ([7c11424](https://github.com/lucasilverentand/kustodian/commit/7c11424d1c9cbba97c4425884292a36702339b56))
+* use peerDependencies for plugins and standardize on bun ([fdb732a](https://github.com/lucasilverentand/kustodian/commit/fdb732aa1a798a503179f3242a289c201c57ee9c))
+
 ## [1.3.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.2.2...kustodian-v1.3.0) (2026-02-12)
 
 

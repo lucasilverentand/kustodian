@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/lucasilverentand/kustodian/compare/kustodian-doppler-v1.1.1...kustodian-doppler-v1.1.2) (2026-02-12)
+
+
+### Bug Fixes
+
+* use peerDependencies for plugins and standardize on bun ([fdb732a](https://github.com/lucasilverentand/kustodian/commit/fdb732aa1a798a503179f3242a289c201c57ee9c))
+
 ## [1.1.1](https://github.com/lucasilverentand/kustodian/compare/kustodian-doppler-v1.1.0...kustodian-doppler-v1.1.1) (2026-02-12)
 
 
