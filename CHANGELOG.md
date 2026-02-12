@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.2](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.2.1...kustodian-v1.2.2) (2026-02-12)
+
+
+### Bug Fixes
+
+* auto-format release-please PR to prevent lint errors ([dca24a2](https://github.com/lucasilverentand/kustodian/commit/dca24a227e846675ea838a39b38f41a6836973b8))
+
 ## [1.2.1](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.2.0...kustodian-v1.2.1) (2026-02-12)
 
 
