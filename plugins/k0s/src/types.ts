@@ -44,6 +44,7 @@ export interface K0sctlSshConfigType {
   user: string;
   keyPath?: string | undefined;
   port?: number | undefined;
+  options?: Record<string, string> | undefined;
 }
 
 /**
@@ -100,6 +101,7 @@ export interface K0sProviderOptionsType {
   k0s_version?: string | undefined;
   telemetry_enabled?: boolean | undefined;
   dynamic_config?: boolean | undefined;
+  sans?: string[] | undefined;
   default_ssh?: SshConfigType | undefined;
 }
 
@@ -107,11 +109,17 @@ export interface K0sProviderOptionsType {
  * Converts internal SSH config to k0sctl SSH config format.
  */
 export function to_k0sctl_ssh_config(address: string, ssh?: SshConfigType): K0sctlSshConfigType {
+  const options: Record<string, string> = {};
+  if (ssh?.known_hosts_path) {
+    options['UserKnownHostsFile'] = ssh.known_hosts_path;
+  }
+
   return {
     address,
     user: ssh?.user ?? 'root',
     keyPath: ssh?.key_path,
     port: ssh?.port,
+    ...(Object.keys(options).length > 0 && { options }),
   };
 }
 

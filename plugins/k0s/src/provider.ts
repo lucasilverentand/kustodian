@@ -26,11 +26,13 @@ import type { K0sProviderOptionsType } from './types.js';
  */
 export async function validate_ssh_keys(
   node_list: NodeListType,
+  options: K0sProviderOptionsType = {},
 ): Promise<ResultType<void, KustodianErrorType>> {
   const key_paths = new Set<string>();
+  const default_ssh = options.default_ssh ?? node_list.ssh;
 
   for (const node of node_list.nodes) {
-    const ssh = node.ssh ?? node_list.ssh;
+    const ssh = node.ssh ?? default_ssh;
     const key_path = ssh?.key_path;
     if (key_path) {
       // Resolve ~ to home directory since fs.access doesn't expand tilde
@@ -55,7 +57,10 @@ export async function validate_ssh_keys(
 /**
  * Validates k0s cluster configuration.
  */
-export function validate_k0s_config(node_list: NodeListType): ResultType<void, KustodianErrorType> {
+export function validate_k0s_config(
+  node_list: NodeListType,
+  options: K0sProviderOptionsType = {},
+): ResultType<void, KustodianErrorType> {
   const controllers = get_controllers(node_list.nodes);
 
   if (controllers.length === 0) {
@@ -63,8 +68,9 @@ export function validate_k0s_config(node_list: NodeListType): ResultType<void, K
   }
 
   // Validate SSH configuration is present
+  const default_ssh = options.default_ssh ?? node_list.ssh;
   for (const node of node_list.nodes) {
-    const ssh = node.ssh ?? node_list.ssh;
+    const ssh = node.ssh ?? default_ssh;
     if (!ssh?.user) {
       return failure(
         Errors.validation_error(`Node '${node.name}' requires SSH user configuration`),
@@ -104,7 +110,7 @@ export function create_k0s_provider(options: K0sProviderOptionsType = {}): Clust
     name: 'k0s',
 
     validate(node_list: NodeListType): ResultType<void, KustodianErrorType> {
-      return validate_k0s_config(node_list);
+      return validate_k0s_config(node_list, options);
     },
 
     async install(
@@ -118,7 +124,7 @@ export function create_k0s_provider(options: K0sProviderOptionsType = {}): Clust
       }
 
       // Validate SSH keys exist
-      const ssh_check = await validate_ssh_keys(node_list);
+      const ssh_check = await validate_ssh_keys(node_list, options);
       if (!is_success(ssh_check)) {
         return ssh_check;
       }

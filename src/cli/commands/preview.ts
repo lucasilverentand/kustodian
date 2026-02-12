@@ -76,6 +76,9 @@ async function generate_k0s_preview(
   if (plugin_config['dynamic_config'] !== undefined) {
     provider_options['dynamic_config'] = plugin_config['dynamic_config'];
   }
+  if (plugin_config['sans']) {
+    provider_options['sans'] = plugin_config['sans'];
+  }
   if (plugin_config['default_ssh']) {
     provider_options['default_ssh'] = plugin_config['default_ssh'];
   }
