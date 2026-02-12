@@ -52,7 +52,6 @@
   "files": ["dist", "package.json"],
   "workspaces": ["plugins/*"],
   "scripts": {
-    "postinstall": "for d in plugins/*/; do mkdir -p \"$d/node_modules\" && rm -rf \"$d/node_modules/kustodian\" && ln -s ../../.. \"$d/node_modules/kustodian\"; done",
     "build": "tsc && turbo run build --filter='./plugins/*'",
     "test": "bun test src/ tests/ plugins/",
     "test:coverage": "bun test src/ tests/ plugins/ --coverage --coverage-reporter=lcov --coverage-dir=coverage",

@@ -14,7 +14,7 @@ Authentik authentication provider plugin for Kustodian. This plugin enables inte
 ## Installation
 
 ```bash
-pnpm add @kustodian/plugin-authentik
+bun add @kustodian/plugin-authentik
 ```
 
 ## Prerequisites

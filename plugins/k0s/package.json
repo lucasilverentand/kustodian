@@ -32,8 +32,10 @@
     "registry": "https://registry.npmjs.org"
   },
   "dependencies": {
-    "kustodian": "file:../..",
     "yaml": "^2.8.2"
+  },
+  "peerDependencies": {
+    "kustodian": "^1.0.0"
   },
   "devDependencies": {}
 }

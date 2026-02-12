@@ -31,8 +31,9 @@
     "access": "public",
     "registry": "https://registry.npmjs.org"
   },
-  "dependencies": {
-    "kustodian": "file:../.."
+  "dependencies": {},
+  "peerDependencies": {
+    "kustodian": "^1.0.0"
   },
   "devDependencies": {}
 }

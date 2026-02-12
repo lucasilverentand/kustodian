@@ -13,7 +13,7 @@ Authelia authentication provider plugin for Kustodian. This plugin enables integ
 ## Installation
 
 ```bash
-pnpm add @kustodian/plugin-authelia
+bun add @kustodian/plugin-authelia
 ```
 
 ## Prerequisites
@@ -280,7 +280,7 @@ bun test
 ### Type Checking
 
 ```bash
-pnpm run typecheck
+bun run typecheck
 ```
 
 ## API Reference
