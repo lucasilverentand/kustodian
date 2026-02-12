@@ -168,12 +168,19 @@ export function create_k0s_provider(options: K0sProviderOptionsType = {}): Clust
           return success(undefined);
         }
 
+        // Write kubeconfig to temp file (kubectl needs a file path, not content)
+        const kubeconfig_path = path.join(
+          os.tmpdir(),
+          `kustodian-label-kubeconfig-${node_list.cluster}.yaml`,
+        );
+        await fs.writeFile(kubeconfig_path, kubeconfig_result.value, 'utf-8');
+
         // Create kubectl client and labeler
         const { create_kubectl_client } = await import('kustodian/k8s');
         const { create_kubectl_labeler } = await import('kustodian/nodes');
 
         const kubectl = create_kubectl_client({
-          kubeconfig: kubeconfig_result.value,
+          kubeconfig: kubeconfig_path,
         });
         const labeler = create_kubectl_labeler(kubectl);
 
@@ -186,6 +193,13 @@ export function create_k0s_provider(options: K0sProviderOptionsType = {}): Clust
               }
             : {},
         );
+
+        // Clean up temp kubeconfig file
+        try {
+          await fs.unlink(kubeconfig_path);
+        } catch {
+          // Ignore cleanup errors
+        }
 
         if (!is_success(label_result)) {
           console.warn(`  ⚠ Label sync failed: ${label_result.error.message}`);
