@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.1.0...kustodian-v1.2.0) (2026-02-12)
+
+
+### Features
+
+* k0s cluster provider with apply, preview, and node labeling ([#144](https://github.com/lucasilverentand/kustodian/issues/144)) ([d7fe1e8](https://github.com/lucasilverentand/kustodian/commit/d7fe1e8937365ef4691957c8e73f078b454e7715))
+
+
+### Bug Fixes
+
+* K0s integration ([#146](https://github.com/lucasilverentand/kustodian/issues/146)) ([b5c6cbf](https://github.com/lucasilverentand/kustodian/commit/b5c6cbf2059da41866dc89072df1b09ffca5f257))
+
 ## [1.1.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.0.2...kustodian-v1.1.0) (2026-02-12)
 
 
