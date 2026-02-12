@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.2.0...kustodian-v1.2.1) (2026-02-12)
+
+
+### Bug Fixes
+
+* exclude node_modules from OCI artifact push ([#148](https://github.com/lucasilverentand/kustodian/issues/148)) ([a94801a](https://github.com/lucasilverentand/kustodian/commit/a94801ac91c4ab50f7a222248f3ffd1b8022f3b8)), closes [#147](https://github.com/lucasilverentand/kustodian/issues/147)
+
 ## [1.2.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.1.0...kustodian-v1.2.0) (2026-02-12)
 
 
