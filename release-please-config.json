@@ -11,20 +11,8 @@
       "package-name": "kustodian-k0s",
       "changelog-path": "CHANGELOG.md"
     },
-    "plugins/1password": {
-      "package-name": "kustodian-1password",
-      "changelog-path": "CHANGELOG.md"
-    },
-    "plugins/doppler": {
-      "package-name": "kustodian-doppler",
-      "changelog-path": "CHANGELOG.md"
-    },
     "plugins/authelia": {
       "package-name": "kustodian-authelia",
-      "changelog-path": "CHANGELOG.md"
-    },
-    "plugins/authentik": {
-      "package-name": "kustodian-authentik",
       "changelog-path": "CHANGELOG.md"
     }
   },
