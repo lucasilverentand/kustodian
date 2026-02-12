@@ -1,6 +1,6 @@
 {
-  ".": "1.0.2",
-  "plugins/k0s": "1.0.0",
+  ".": "1.1.0",
+  "plugins/k0s": "1.1.0",
   "plugins/1password": "1.0.0",
   "plugins/doppler": "1.0.0",
   "plugins/authelia": "1.0.0",
