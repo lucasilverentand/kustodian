@@ -203,56 +203,6 @@ export const namespace_substitution_schema = z.object({
 export type NamespaceSubstitutionType = z.infer<typeof namespace_substitution_schema>;
 
 /**
- * 1Password substitution for fetching secrets from 1Password vaults.
- * Uses the op:// secret reference format, or shorthand with cluster defaults.
- */
-export const onepassword_substitution_schema = z
-  .object({
-    type: z.literal('1password'),
-    name: z.string().min(1),
-    /** 1Password secret reference: op://vault/item[/section]/field, or shorthand item/field when vault is configured at cluster level */
-    ref: z.string().min(1).optional(),
-    /** Item name (shorthand, requires cluster-level vault configuration) */
-    item: z.string().min(1).optional(),
-    /** Field name (shorthand, requires cluster-level vault configuration) */
-    field: z.string().min(1).optional(),
-    /** Section name (optional, for shorthand references) */
-    section: z.string().optional(),
-    /** Optional default value if secret cannot be fetched */
-    default: z.string().optional(),
-  })
-  .refine(
-    (data) => {
-      // Either ref must be provided, or both item and field
-      return data.ref !== undefined || (data.item !== undefined && data.field !== undefined);
-    },
-    {
-      message: "Either 'ref' or both 'item' and 'field' must be specified",
-    },
-  );
-
-export type OnePasswordSubstitutionType = z.infer<typeof onepassword_substitution_schema>;
-
-/**
- * Doppler substitution for fetching secrets from Doppler projects.
- * Project and config can be omitted if configured at cluster level.
- */
-export const doppler_substitution_schema = z.object({
-  type: z.literal('doppler'),
-  name: z.string().min(1),
-  /** Doppler project name (optional if configured at cluster level) */
-  project: z.string().min(1).optional(),
-  /** Doppler config name (optional if configured at cluster level, e.g., 'dev', 'stg', 'prd') */
-  config: z.string().min(1).optional(),
-  /** Secret key name in Doppler */
-  secret: z.string().min(1),
-  /** Optional default value if secret cannot be fetched */
-  default: z.string().optional(),
-});
-
-export type DopplerSubstitutionType = z.infer<typeof doppler_substitution_schema>;
-
-/**
  * Core substitution types provided by Kustodian.
  * These are always validated by the schema.
  */
@@ -267,14 +217,7 @@ export const core_substitution_schema = z.union([
  * Built-in substitution types that should not be caught by the plugin schema.
  * These types have their own specific schemas with validation rules.
  */
-const builtin_substitution_types = [
-  'version',
-  'helm',
-  'namespace',
-  'generic',
-  '1password',
-  'doppler',
-];
+const builtin_substitution_types = ['version', 'helm', 'namespace', 'generic'];
 
 /**
  * Plugin-provided substitution types.
@@ -294,14 +237,11 @@ export const plugin_substitution_schema = z
 /**
  * Union of all substitution types.
  * Includes core types (version, helm, namespace, generic) plus plugin-provided types.
- * Also includes Doppler and 1Password for backward compatibility (will be migrated to plugins).
  *
  * Supports backward compatibility: substitutions without 'type' are treated as generic.
  */
 export const substitution_schema = z.union([
   core_substitution_schema,
-  onepassword_substitution_schema, // Temporary: will move to plugin
-  doppler_substitution_schema, // Temporary: will move to plugin
   plugin_substitution_schema, // Must be last to not shadow specific types
 ]);
 
@@ -336,25 +276,8 @@ export function is_generic_substitution(sub: SubstitutionType): sub is GenericSu
 }
 
 /**
- * Type guard for 1Password substitutions.
- */
-export function is_onepassword_substitution(
-  sub: SubstitutionType,
-): sub is OnePasswordSubstitutionType {
-  return 'type' in sub && sub.type === '1password';
-}
-
-/**
- * Type guard for Doppler substitutions.
- */
-export function is_doppler_substitution(sub: SubstitutionType): sub is DopplerSubstitutionType {
-  return 'type' in sub && sub.type === 'doppler';
-}
-
-/**
  * Type guard for plugin-provided substitutions.
- * Returns true if the substitution type is not a core type (version, helm, namespace, generic)
- * and not a legacy type (1password, doppler).
+ * Returns true if the substitution type is not a core type (version, helm, namespace, generic).
  */
 export function is_plugin_substitution(sub: SubstitutionType): boolean {
   if (!('type' in sub) || !sub.type) {
@@ -362,9 +285,8 @@ export function is_plugin_substitution(sub: SubstitutionType): boolean {
   }
 
   const core_types = ['version', 'helm', 'namespace', 'generic'];
-  const legacy_types = ['1password', 'doppler'];
 
-  return !core_types.includes(sub.type) && !legacy_types.includes(sub.type);
+  return !core_types.includes(sub.type);
 }
 
 /**
@@ -380,10 +302,10 @@ export type NamespaceConfigType = z.infer<typeof namespace_config_schema>;
 /**
  * Base auth configuration for kustomizations.
  * This schema defines common fields that all auth providers share.
- * Plugins (e.g., authelia, authentik) extend validation for provider-specific fields.
+ * Plugins (e.g., authelia) extend validation for provider-specific fields.
  */
 export const auth_config_schema = z.object({
-  /** Auth provider plugin name (e.g., 'authelia', 'authentik') */
+  /** Auth provider plugin name (e.g., 'authelia') */
   provider: z.string().min(1),
   /** Provider-specific auth type (e.g., 'oidc', 'proxy', 'oauth2', 'saml') */
   type: z.string().min(1),

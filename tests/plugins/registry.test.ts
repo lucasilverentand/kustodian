@@ -312,12 +312,12 @@ describe('Legacy Plugin Registry', () => {
   describe('register', () => {
     it('should register a legacy plugin', () => {
       const registry = create_legacy_plugin_registry();
-      const plugin = create_mock_secret_provider('doppler', 'doppler://');
+      const plugin = create_mock_secret_provider('vault', 'vault://');
 
       const result = registry.register(plugin);
 
       expect(result.success).toBe(true);
-      expect(registry.get('doppler')).toBe(plugin);
+      expect(registry.get('vault')).toBe(plugin);
     });
 
     it('should reject duplicate plugin names', () => {
@@ -335,27 +335,27 @@ describe('Legacy Plugin Registry', () => {
   describe('get_secret_providers', () => {
     it('should return only secret provider plugins', () => {
       const registry = create_legacy_plugin_registry();
-      registry.register(create_mock_secret_provider('doppler', 'doppler://'));
-      registry.register(create_mock_generator('authentik'));
-      registry.register(create_mock_secret_provider('1password', 'op://'));
+      registry.register(create_mock_secret_provider('vault', 'vault://'));
+      registry.register(create_mock_generator('custom-auth'));
+      registry.register(create_mock_secret_provider('sops', 'sops://'));
 
       const providers = registry.get_secret_providers();
 
       expect(providers).toHaveLength(2);
-      expect(providers.map((p) => p.manifest.name)).toContain('doppler');
-      expect(providers.map((p) => p.manifest.name)).toContain('1password');
+      expect(providers.map((p) => p.manifest.name)).toContain('vault');
+      expect(providers.map((p) => p.manifest.name)).toContain('sops');
     });
   });
 
   describe('get_secret_provider_by_scheme', () => {
     it('should return provider by scheme', () => {
       const registry = create_legacy_plugin_registry();
-      registry.register(create_mock_secret_provider('doppler', 'doppler://'));
-      registry.register(create_mock_secret_provider('1password', 'op://'));
+      registry.register(create_mock_secret_provider('vault', 'vault://'));
+      registry.register(create_mock_secret_provider('sops', 'sops://'));
 
-      const provider = registry.get_secret_provider_by_scheme('op://');
+      const provider = registry.get_secret_provider_by_scheme('sops://');
 
-      expect(provider?.manifest.name).toBe('1password');
+      expect(provider?.manifest.name).toBe('sops');
     });
 
     it('should return undefined for unknown scheme', () => {
@@ -370,13 +370,13 @@ describe('Legacy Plugin Registry', () => {
   describe('get_resource_generators', () => {
     it('should return only resource generator plugins', () => {
       const registry = create_legacy_plugin_registry();
-      registry.register(create_mock_secret_provider('doppler', 'doppler://'));
-      registry.register(create_mock_generator('authentik'));
+      registry.register(create_mock_secret_provider('vault', 'vault://'));
+      registry.register(create_mock_generator('custom-auth'));
 
       const generators = registry.get_resource_generators();
 
       expect(generators).toHaveLength(1);
-      expect(generators[0]?.manifest.name).toBe('authentik');
+      expect(generators[0]?.manifest.name).toBe('custom-auth');
     });
   });
 
@@ -396,14 +396,14 @@ describe('Legacy Plugin Registry', () => {
   describe('list', () => {
     it('should list all registered plugin names', () => {
       const registry = create_legacy_plugin_registry();
-      registry.register(create_mock_secret_provider('doppler', 'doppler://'));
-      registry.register(create_mock_generator('authentik'));
+      registry.register(create_mock_secret_provider('vault', 'vault://'));
+      registry.register(create_mock_generator('custom-auth'));
 
       const names = registry.list();
 
       expect(names).toHaveLength(2);
-      expect(names).toContain('doppler');
-      expect(names).toContain('authentik');
+      expect(names).toContain('vault');
+      expect(names).toContain('custom-auth');
     });
   });
 });

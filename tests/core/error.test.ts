@@ -258,11 +258,11 @@ describe('Error', () => {
     describe('plugin_not_found', () => {
       it('should create a plugin not found error', () => {
         // Act
-        const error = Errors.plugin_not_found('authentik');
+        const error = Errors.plugin_not_found('custom-auth');
 
         // Assert
         expect(error.code).toBe(ErrorCodes.PLUGIN_NOT_FOUND);
-        expect(error.message).toBe("Plugin 'authentik' not found");
+        expect(error.message).toBe("Plugin 'custom-auth' not found");
       });
     });
 
@@ -272,11 +272,11 @@ describe('Error', () => {
         const cause = new Error('Module not found');
 
         // Act
-        const error = Errors.plugin_load_error('doppler', cause);
+        const error = Errors.plugin_load_error('vault', cause);
 
         // Assert
         expect(error.code).toBe(ErrorCodes.PLUGIN_LOAD_ERROR);
-        expect(error.message).toBe("Failed to load plugin 'doppler'");
+        expect(error.message).toBe("Failed to load plugin 'vault'");
         expect(error.cause).toBe(cause);
       });
     });

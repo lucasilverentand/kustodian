@@ -59,8 +59,8 @@ describe('Cluster Schema', () => {
           ],
           plugins: [
             {
-              name: 'doppler',
-              config: { project: 'my-project' },
+              name: 'sops',
+              config: { provider: 'age' },
             },
           ],
         },
@@ -575,120 +575,6 @@ describe('Cluster Schema', () => {
       expect(result.success).toBe(false);
     });
 
-    it('should validate a cluster with secrets configuration', () => {
-      // Arrange
-      const cluster = {
-        apiVersion: 'kustodian.io/v1',
-        kind: 'Cluster',
-        metadata: { name: 'production' },
-        spec: {
-          git: { owner: 'org', repository: 'repo' },
-          secrets: {
-            doppler: {
-              project: 'infrastructure',
-              config: 'cluster_production',
-            },
-            onepassword: {
-              vault: 'Infrastructure',
-            },
-          },
-        },
-      };
-
-      // Act
-      const result = validate_cluster(cluster);
-
-      // Assert
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.spec.secrets?.doppler?.project).toBe('infrastructure');
-        expect(result.data.spec.secrets?.doppler?.config).toBe('cluster_production');
-        expect(result.data.spec.secrets?.onepassword?.vault).toBe('Infrastructure');
-      }
-    });
-
-    it('should validate a cluster with bootstrap credentials', () => {
-      // Arrange
-      const cluster = {
-        apiVersion: 'kustodian.io/v1',
-        kind: 'Cluster',
-        metadata: { name: 'production' },
-        spec: {
-          git: { owner: 'org', repository: 'repo' },
-          secrets: {
-            doppler: {
-              project: 'infrastructure',
-              config: 'cluster_production',
-              service_token: {
-                type: '1password',
-                ref: 'op://Operations/Doppler/service_token',
-              },
-            },
-          },
-        },
-      };
-
-      // Act
-      const result = validate_cluster(cluster);
-
-      // Assert
-      expect(result.success).toBe(true);
-      if (result.success) {
-        const doppler = result.data.spec.secrets?.doppler;
-        expect(doppler?.service_token?.type).toBe('1password');
-        if (doppler?.service_token?.type === '1password') {
-          expect(doppler.service_token.ref).toBe('op://Operations/Doppler/service_token');
-        }
-      }
-    });
-
-    it('should reject empty doppler project', () => {
-      // Arrange
-      const cluster = {
-        apiVersion: 'kustodian.io/v1',
-        kind: 'Cluster',
-        metadata: { name: 'test' },
-        spec: {
-          git: { owner: 'org', repository: 'repo' },
-          secrets: {
-            doppler: {
-              project: '',
-              config: 'prod',
-            },
-          },
-        },
-      };
-
-      // Act
-      const result = validate_cluster(cluster);
-
-      // Assert
-      expect(result.success).toBe(false);
-    });
-
-    it('should reject empty onepassword vault', () => {
-      // Arrange
-      const cluster = {
-        apiVersion: 'kustodian.io/v1',
-        kind: 'Cluster',
-        metadata: { name: 'test' },
-        spec: {
-          git: { owner: 'org', repository: 'repo' },
-          secrets: {
-            onepassword: {
-              vault: '',
-            },
-          },
-        },
-      };
-
-      // Act
-      const result = validate_cluster(cluster);
-
-      // Assert
-      expect(result.success).toBe(false);
-    });
-
     it('should validate a cluster with flux controllers configuration', () => {
       // Arrange
       const cluster = {
@@ -795,74 +681,6 @@ describe('Cluster Schema', () => {
 
       // Assert
       expect(result.success).toBe(false);
-    });
-
-    it('should validate 1Password with cluster_secret configuration', () => {
-      // Arrange
-      const cluster = {
-        apiVersion: 'kustodian.io/v1',
-        kind: 'Cluster',
-        metadata: { name: 'production' },
-        spec: {
-          git: { owner: 'org', repository: 'repo' },
-          secrets: {
-            onepassword: {
-              vault: 'Infrastructure',
-              cluster_secret: {
-                enabled: true,
-                namespace: 'onepassword-system',
-                name: '1password-token',
-                key: 'token',
-              },
-            },
-          },
-        },
-      };
-
-      // Act
-      const result = validate_cluster(cluster);
-
-      // Assert
-      expect(result.success).toBe(true);
-      if (result.success) {
-        const op = result.data.spec.secrets?.onepassword;
-        expect(op?.cluster_secret?.enabled).toBe(true);
-        expect(op?.cluster_secret?.namespace).toBe('onepassword-system');
-        expect(op?.cluster_secret?.name).toBe('1password-token');
-        expect(op?.cluster_secret?.key).toBe('token');
-      }
-    });
-
-    it('should validate cluster_secret with no namespace/name/key (all optional, no defaults)', () => {
-      // Arrange
-      const cluster = {
-        apiVersion: 'kustodian.io/v1',
-        kind: 'Cluster',
-        metadata: { name: 'production' },
-        spec: {
-          git: { owner: 'org', repository: 'repo' },
-          secrets: {
-            doppler: {
-              project: 'infrastructure',
-              config: 'prod',
-              cluster_secret: {},
-            },
-          },
-        },
-      };
-
-      // Act
-      const result = validate_cluster(cluster);
-
-      // Assert
-      expect(result.success).toBe(true);
-      if (result.success) {
-        const cs = result.data.spec.secrets?.doppler?.cluster_secret;
-        expect(cs?.enabled).toBe(true); // default
-        expect(cs?.namespace).toBeUndefined();
-        expect(cs?.name).toBeUndefined();
-        expect(cs?.key).toBeUndefined();
-      }
     });
 
     it('should validate empty flux configuration', () => {

@@ -75,24 +75,24 @@ describe('Flux Generator', () => {
 
     it('should format cross-template dependencies', () => {
       // Act
-      const result = generate_depends_on('app', ['secrets/doppler']);
+      const result = generate_depends_on('app', ['secrets/provider']);
 
       // Assert
-      expect(result).toEqual([{ name: 'secrets-doppler' }]);
+      expect(result).toEqual([{ name: 'secrets-provider' }]);
     });
 
     it('should format mixed within-template and cross-template dependencies', () => {
       // Act
       const result = generate_depends_on('app', [
         'config',
-        'secrets/doppler',
+        'secrets/provider',
         'networking/traefik',
       ]);
 
       // Assert
       expect(result).toEqual([
         { name: 'app-config' },
-        { name: 'secrets-doppler' },
+        { name: 'secrets-provider' },
         { name: 'networking-traefik' },
       ]);
     });
@@ -111,7 +111,7 @@ describe('Flux Generator', () => {
       // Act
       const result = generate_depends_on('app', [
         'database',
-        'secrets/doppler',
+        'secrets/provider',
         { raw: { name: 'legacy-infrastructure', namespace: 'gitops-system' } },
         { raw: { name: 'external-config', namespace: 'config-system' } },
       ]);
@@ -119,7 +119,7 @@ describe('Flux Generator', () => {
       // Assert
       expect(result).toEqual([
         { name: 'app-database' },
-        { name: 'secrets-doppler' },
+        { name: 'secrets-provider' },
         { name: 'legacy-infrastructure', namespace: 'gitops-system' },
         { name: 'external-config', namespace: 'config-system' },
       ]);

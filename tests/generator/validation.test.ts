@@ -75,13 +75,13 @@ describe('Validation Module', () => {
       });
 
       it('should parse cross-template reference', () => {
-        const result = parse_dependency_ref('secrets/doppler');
+        const result = parse_dependency_ref('secrets/provider');
 
         expect(is_parse_error(result)).toBe(false);
         if (!is_parse_error(result)) {
           expect(result.template).toBe('secrets');
-          expect(result.kustomization).toBe('doppler');
-          expect(result.raw).toBe('secrets/doppler');
+          expect(result.kustomization).toBe('provider');
+          expect(result.raw).toBe('secrets/provider');
         }
       });
 
@@ -133,10 +133,10 @@ describe('Validation Module', () => {
       });
 
       it('should resolve cross-template reference', () => {
-        const ref = { template: 'secrets', kustomization: 'doppler', raw: 'secrets/doppler' };
+        const ref = { template: 'secrets', kustomization: 'provider', raw: 'secrets/provider' };
         const result = resolve_dependency_ref(ref, 'media');
 
-        expect(result).toBe('secrets/doppler');
+        expect(result).toBe('secrets/provider');
       });
     });
 
@@ -199,8 +199,8 @@ describe('Validation Module', () => {
 
     it('should build graph with cross-template dependencies', () => {
       const templates = [
-        create_template('secrets', [{ name: 'doppler' }]),
-        create_template('app', [{ name: 'backend', depends_on: ['secrets/doppler'] }]),
+        create_template('secrets', [{ name: 'provider' }]),
+        create_template('app', [{ name: 'backend', depends_on: ['secrets/provider'] }]),
       ];
 
       const result = build_dependency_graph(templates);
@@ -208,7 +208,7 @@ describe('Validation Module', () => {
       expect(result.errors).toHaveLength(0);
 
       const backend = result.nodes.get('app/backend');
-      expect(backend?.dependencies).toEqual(['secrets/doppler']);
+      expect(backend?.dependencies).toEqual(['secrets/provider']);
     });
 
     it('should detect missing references', () => {
@@ -476,10 +476,10 @@ describe('Validation Module', () => {
   describe('Cross-Template Dependencies', () => {
     it('should validate cross-template dependencies', () => {
       const templates = [
-        create_template('secrets', [{ name: 'doppler' }]),
-        create_template('networking', [{ name: 'operator', depends_on: ['secrets/doppler'] }]),
+        create_template('secrets', [{ name: 'provider' }]),
+        create_template('networking', [{ name: 'operator', depends_on: ['secrets/provider'] }]),
         create_template('media', [
-          { name: 'app', depends_on: ['networking/operator', 'secrets/doppler'] },
+          { name: 'app', depends_on: ['networking/operator', 'secrets/provider'] },
         ]),
       ];
 

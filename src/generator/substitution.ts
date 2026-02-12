@@ -219,7 +219,6 @@ export function extract_all_substitutions(templates: ResolvedTemplateType[]): Su
  * Resolves external substitutions using registered providers.
  * Only resolves plugin-provided substitution types (e.g., 'sops', 'vault').
  * Core types (version, helm, namespace, generic) are handled elsewhere.
- * Legacy types (doppler, 1password) are handled by their respective plugins.
  *
  * @param templates - All resolved templates
  * @param cluster - Cluster configuration

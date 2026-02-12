@@ -1,4 +1,3 @@
-export * from './external-substitutions.js';
 export * from './flux.js';
 export * from './generator.js';
 export * from './namespace.js';

@@ -13,16 +13,10 @@ import {
   load_project,
 } from '../../loader/index.js';
 import type { NodeListType } from '../../nodes/index.js';
-import type { ClusterSecretConfigType, ClusterType } from '../../schema/index.js';
+import type { ClusterType } from '../../schema/index.js';
 
 import { define_command } from '../command.js';
-import {
-  type ClusterSecretProvider,
-  OCI_REGISTRY_PROVIDER,
-  type ResolvedSecretConfig,
-  get_configured_providers,
-  resolve_config,
-} from '../utils/cluster-secrets.js';
+import { type ClusterSecretProvider, OCI_REGISTRY_PROVIDER } from '../utils/cluster-secrets.js';
 import { confirm } from '../utils/confirm.js';
 import { resolve_defaults } from '../utils/defaults.js';
 
@@ -396,24 +390,7 @@ export const apply_command = define_command({
         if (!skip_templates) {
           console.log('\n[4/5] Configuring cluster secrets...');
 
-          const secrets_config = loaded_cluster.cluster.spec.secrets;
-          if (secrets_config) {
-            for (const [provider, config] of get_configured_providers(secrets_config)) {
-              if (config.cluster_secret?.enabled === false) {
-                console.log(`  → ${provider.display_name} cluster secret disabled, skipping`);
-                continue;
-              }
-              console.log(`  → Checking ${provider.display_name} cluster secret...`);
-              await ensure_cluster_secret(
-                provider,
-                dry_run,
-                config.cluster_secret,
-                temp_kubeconfig,
-              );
-            }
-          } else {
-            console.log('  → No secret providers configured');
-          }
+          console.log('  → No secret providers configured');
 
           // Handle OCI registry secret alongside other cluster secrets
           if (loaded_cluster.cluster.spec.oci) {
@@ -758,7 +735,7 @@ function create_registry_secret_manifest(
 
 /**
  * Ensures OCI registry secret exists, creating if needed.
- * Follows the same pattern as ensure_cluster_secret — checks env vars, prompts user.
+ * Checks env vars, prompts user for token, creates secret if needed.
  */
 async function ensure_oci_cluster_secret(
   registry: string,
@@ -840,25 +817,6 @@ async function get_provider_token(provider: ClusterSecretProvider): Promise<stri
 }
 
 /**
- * Creates an Opaque Secret manifest for a provider token.
- */
-function create_opaque_secret_manifest(token: string, config: ResolvedSecretConfig): object {
-  return {
-    apiVersion: 'v1',
-    kind: 'Secret',
-    metadata: {
-      name: config.name,
-      namespace: config.namespace,
-      ...(config.annotations && { annotations: config.annotations }),
-    },
-    type: 'Opaque',
-    stringData: {
-      [config.key]: token,
-    },
-  };
-}
-
-/**
  * Ensures a namespace exists, creating it if needed.
  */
 async function ensure_namespace(
@@ -887,67 +845,6 @@ async function ensure_namespace(
   } catch (error) {
     const err = error as Error;
     console.error(`    ✗ Failed to create namespace: ${err.message}`);
-    return false;
-  }
-}
-
-/**
- * Ensures a cluster secret exists for the given provider, creating if needed.
- */
-async function ensure_cluster_secret(
-  provider: ClusterSecretProvider,
-  dry_run: boolean,
-  cluster_config?: ClusterSecretConfigType,
-  kubeconfig_path?: string,
-): Promise<boolean> {
-  const config = resolve_config(provider, cluster_config);
-  const kc_flag = kubeconfig_path ? ` --kubeconfig=${kubeconfig_path}` : '';
-
-  // Check if secret exists
-  try {
-    await execAsync(`kubectl get secret ${config.name} -n ${config.namespace}${kc_flag}`, {
-      timeout: 5000,
-    });
-    console.log(`    ✓ ${provider.display_name} token secret exists`);
-    return true;
-  } catch {
-    // Need to create
-  }
-
-  const token = await get_provider_token(provider);
-  if (!token) {
-    console.log(`    → No ${provider.display_name} token provided, skipping secret creation`);
-    console.log(`    ⚠ ${provider.skip_warning}`);
-    return false;
-  }
-
-  // Ensure namespace exists
-  const ns_ok = await ensure_namespace(config.namespace, dry_run, kubeconfig_path);
-  if (!ns_ok) {
-    return false;
-  }
-
-  const secret = create_opaque_secret_manifest(token, config);
-
-  if (dry_run) {
-    console.log(`    [dry-run] Would create secret: ${config.name}`);
-    return true;
-  }
-
-  // Apply secret via kubectl client
-  try {
-    const { serialize_resource } = await import('../../generator/index.js');
-    const client = create_kubectl_client(kubeconfig_path ? { kubeconfig: kubeconfig_path } : {});
-    const result = await client.apply_stdin(serialize_resource(secret));
-    if (!is_success(result)) {
-      throw new Error(result.error.message);
-    }
-
-    console.log(`    ✓ Created secret: ${config.name} in ${config.namespace}`);
-    return true;
-  } catch (error) {
-    const err = error as Error;
-    console.error(`    ✗ Failed to create ${provider.display_name} secret: ${err.message}`);
     return false;
   }
 }

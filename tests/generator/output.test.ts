@@ -224,19 +224,19 @@ describe('Output Module', () => {
         output_dir: temp_dir,
         kustomizations: [
           {
-            name: 'secrets-doppler',
+            name: 'secrets-provider',
             template: '001-secrets',
-            path: './templates/001-secrets/doppler',
+            path: './templates/001-secrets/provider',
             flux_kustomization: {
               apiVersion: 'kustomize.toolkit.fluxcd.io/v1',
               kind: 'Kustomization',
               metadata: {
-                name: 'secrets-doppler',
+                name: 'secrets-provider',
                 namespace: 'flux-system',
               },
               spec: {
                 interval: '10m',
-                path: './templates/001-secrets/doppler',
+                path: './templates/001-secrets/provider',
                 prune: true,
                 wait: true,
                 sourceRef: {
@@ -280,7 +280,7 @@ describe('Output Module', () => {
       if (result.success) {
         // Check that files were written to correct locations
         expect(result.value).toContain(
-          path.join(temp_dir, 'templates', '001-secrets', 'secrets-doppler.yaml'),
+          path.join(temp_dir, 'templates', '001-secrets', 'secrets-provider.yaml'),
         );
         expect(result.value).toContain(
           path.join(temp_dir, 'templates', '401-media', 'media-jellyfin.yaml'),
@@ -289,10 +289,10 @@ describe('Output Module', () => {
 
         // Verify directory structure
         const secrets_file = await fs.readFile(
-          path.join(temp_dir, 'templates', '001-secrets', 'secrets-doppler.yaml'),
+          path.join(temp_dir, 'templates', '001-secrets', 'secrets-provider.yaml'),
           'utf-8',
         );
-        expect(secrets_file).toContain('name: secrets-doppler');
+        expect(secrets_file).toContain('name: secrets-provider');
 
         const media_file = await fs.readFile(
           path.join(temp_dir, 'templates', '401-media', 'media-jellyfin.yaml'),
@@ -306,7 +306,7 @@ describe('Output Module', () => {
           'utf-8',
         );
         expect(root_kustomization).toContain('apiVersion: kustomize.config.k8s.io/v1beta1');
-        expect(root_kustomization).toContain('../templates/001-secrets/secrets-doppler.yaml');
+        expect(root_kustomization).toContain('../templates/001-secrets/secrets-provider.yaml');
         expect(root_kustomization).toContain('../templates/401-media/media-jellyfin.yaml');
       }
     });
