@@ -41,10 +41,6 @@ inputs:
     description: Registry password/token
     required: false
     default: ''
-  doppler-token:
-    description: Doppler service token
-    required: false
-    default: ''
   kustodian-version:
     description: Kustodian CLI version
     required: false
@@ -94,8 +90,6 @@ runs:
       id: deploy
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      env:
-        DOPPLER_TOKEN: ${{ inputs.doppler-token }}
       run: |
         # Build CLI command
         CLI_VERSION="${{ inputs.kustodian-version }}"
