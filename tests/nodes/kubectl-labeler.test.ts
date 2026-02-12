@@ -136,6 +136,12 @@ describe('KubectlLabeler', () => {
       // Should have 2 calls: one for adds, one for removals
       const calls = kubectl.applied_label_calls;
       expect(calls.get('node-1')).toHaveLength(2);
+
+      // First call: add/update labels
+      expect(calls.get('node-1')?.[0]).toEqual({ 'test.io/new': 'label' });
+
+      // Second call: removal labels (key ending with -, empty value)
+      expect(calls.get('node-1')?.[1]).toEqual({ 'test.io/old-': '' });
     });
 
     it('should continue labeling other nodes when one node fails get_labels', async () => {
