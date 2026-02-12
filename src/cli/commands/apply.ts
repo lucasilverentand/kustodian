@@ -527,7 +527,14 @@ export const apply_command = define_command({
                 const git_revision = await get_git_revision(project_root);
 
                 const kubeconfig_flag = temp_kubeconfig ? ` --kubeconfig=${temp_kubeconfig}` : '';
-                const push_cmd = `flux push artifact ${oci_url} --path="${project_root}" --source="${git_source}" --revision="${git_revision}"${kubeconfig_flag}`;
+                const ignore_paths = [
+                  'node_modules/',
+                  '.git/',
+                  '.gitignore',
+                  '.gitmodules',
+                  '.gitattributes',
+                ].join(',');
+                const push_cmd = `flux push artifact ${oci_url} --path="${project_root}" --source="${git_source}" --revision="${git_revision}" --ignore-paths "${ignore_paths}"${kubeconfig_flag}`;
                 await execAsync(push_cmd, { timeout: 120000 });
                 console.log(`    ✓ Pushed to ${oci_url}`);
               } catch (error) {
