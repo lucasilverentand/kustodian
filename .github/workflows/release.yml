@@ -67,7 +67,7 @@ jobs:
           fi
           echo "::endgroup::"
         env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          BUN_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish plugin packages to npm
         run: |
@@ -98,7 +98,7 @@ jobs:
             exit 1
           fi
         env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          BUN_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-github:
     name: Publish to GitHub Packages
