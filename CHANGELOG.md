@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.4.0...kustodian-v1.5.0) (2026-02-13)
+
+
+### Features
+
+* switch npm publish to use OIDC provenance ([6c6e31a](https://github.com/lucasilverentand/kustodian/commit/6c6e31a5c789d3f166a78d82a586b6b2e3e468e0))
+
+
+### Bug Fixes
+
+* use BUN_AUTH_TOKEN for npm publish authentication ([34d7d61](https://github.com/lucasilverentand/kustodian/commit/34d7d616eeb1f8f26da4d5dfc4748fad42555529))
+
 ## [1.4.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.3.1...kustodian-v1.4.0) (2026-02-12)
 
 
