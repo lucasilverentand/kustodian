@@ -41,6 +41,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
       - uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
@@ -54,7 +59,7 @@ jobs:
           name=$(jq -r .name package.json)
           version=$(jq -r .version package.json)
           echo "::group::Publishing $name@$version"
-          if output=$(bun publish --access public 2>&1); then
+          if output=$(npm publish --provenance --access public 2>&1); then
             echo "✅ Published $name@$version"
           else
             if echo "$output" | grep -q "cannot publish over the previously published"; then
@@ -67,7 +72,7 @@ jobs:
           fi
           echo "::endgroup::"
         env:
-          BUN_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish plugin packages to npm
         run: |
@@ -78,7 +83,7 @@ jobs:
               version=$(jq -r .version "$pkg/package.json")
               echo "::group::Publishing $name@$version"
               cd "$pkg"
-              if output=$(bun publish --access public 2>&1); then
+              if output=$(npm publish --provenance --access public 2>&1); then
                 echo "✅ Published $name@$version"
               else
                 if echo "$output" | grep -q "cannot publish over the previously published"; then
@@ -98,7 +103,7 @@ jobs:
             exit 1
           fi
         env:
-          BUN_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-github:
     name: Publish to GitHub Packages
