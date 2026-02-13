@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.4.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.3.1...kustodian-v1.4.0) (2026-02-12)
+
+
+### Features
+
+* remove authentik, 1password, and doppler plugins ([6d10cc0](https://github.com/lucasilverentand/kustodian/commit/6d10cc012653c6e59d249de10951dfe664b79eea))
+
+
+### Bug Fixes
+
+* remove doppler and 1password from core schema ([c2ce7ec](https://github.com/lucasilverentand/kustodian/commit/c2ce7ece171673dadd90c151fedc09ac967b732c))
+* remove doppler-token input from deploy action ([2ed9e39](https://github.com/lucasilverentand/kustodian/commit/2ed9e396e548cf7573e07aa1908ca6d7aacbd7a4))
+* update bun to 1.3.8 and regenerate lockfile ([5ae4ae1](https://github.com/lucasilverentand/kustodian/commit/5ae4ae132ec62238a448c9823e568eeec7016aff))
+
 ## [1.3.1](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.3.0...kustodian-v1.3.1) (2026-02-12)
 
 
