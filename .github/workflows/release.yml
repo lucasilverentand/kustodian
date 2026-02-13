@@ -30,14 +30,11 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  publish-npm:
-    name: Publish to npm
+  build:
+    name: Build
     needs: release-please
     if: needs.release-please.outputs.releases_created == 'true' || inputs.publish == true
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -54,11 +51,48 @@ jobs:
       - name: Build all packages
         run: bun run build
 
-      - name: Publish root package to npm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: |
+            dist/
+            plugins/*/dist/
+
+  publish-npm:
+    name: Publish to npm (${{ matrix.package }})
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package: kustodian
+            path: '.'
+          - package: plugin-authelia
+            path: plugins/authelia
+          - package: plugin-k0s
+            path: plugins/k0s
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-output
+
+      - name: Publish ${{ matrix.package }}
+        working-directory: ${{ matrix.path }}
         run: |
           name=$(jq -r .name package.json)
           version=$(jq -r .version package.json)
-          echo "::group::Publishing $name@$version"
+          echo "Publishing $name@$version"
           if output=$(npm publish --provenance --access public 2>&1); then
             echo "✅ Published $name@$version"
           else
@@ -70,111 +104,53 @@ jobs:
               exit 1
             fi
           fi
-          echo "::endgroup::"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish plugin packages to npm
-        run: |
-          failed=""
-          for pkg in plugins/*; do
-            if [ -f "$pkg/package.json" ]; then
-              name=$(jq -r .name "$pkg/package.json")
-              version=$(jq -r .version "$pkg/package.json")
-              echo "::group::Publishing $name@$version"
-              cd "$pkg"
-              if output=$(npm publish --provenance --access public 2>&1); then
-                echo "✅ Published $name@$version"
-              else
-                if echo "$output" | grep -q "cannot publish over the previously published"; then
-                  echo "⏭️ Skipped $name@$version (already published)"
-                else
-                  echo "❌ Failed to publish $name@$version"
-                  echo "$output"
-                  failed="$failed $name"
-                fi
-              fi
-              cd ../..
-              echo "::endgroup::"
-            fi
-          done
-          if [ -n "$failed" ]; then
-            echo "::error::Failed to publish:$failed"
-            exit 1
-          fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-github:
-    name: Publish to GitHub Packages
-    needs: release-please
-    if: needs.release-please.outputs.releases_created == 'true' || inputs.publish == true
+    name: Publish to GitHub Packages (${{ matrix.package }})
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package: kustodian
+            path: '.'
+            scoped_name: '@lucasilverentand/kustodian'
+          - package: plugin-authelia
+            path: plugins/authelia
+            scoped_name: '@lucasilverentand/plugin-authelia'
+          - package: plugin-k0s
+            path: plugins/k0s
+            scoped_name: '@lucasilverentand/plugin-k0s'
     steps:
       - uses: actions/checkout@v4
 
       - uses: oven-sh/setup-bun@v2
 
-      - name: Install dependencies
-        run: bun install
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-output
 
-      - name: Build all packages
-        run: bun run build
-
-      - name: Publish root package to GitHub Packages
+      - name: Publish ${{ matrix.package }}
+        working-directory: ${{ matrix.path }}
         run: |
-          name=$(jq -r .name package.json)
           version=$(jq -r .version package.json)
-          # Temporarily update package.json to use scoped name for GitHub Packages
-          jq '.name = "@lucasilverentand/kustodian"' package.json > package.json.tmp
+          jq --arg name "${{ matrix.scoped_name }}" '.name = $name' package.json > package.json.tmp
           mv package.json.tmp package.json
-          echo "::group::Publishing @lucasilverentand/kustodian@$version"
+          echo "Publishing ${{ matrix.scoped_name }}@$version"
           if output=$(bun publish --access public --registry https://npm.pkg.github.com 2>&1); then
-            echo "✅ Published @lucasilverentand/kustodian@$version"
+            echo "✅ Published ${{ matrix.scoped_name }}@$version"
           else
             if echo "$output" | grep -q "cannot publish over the previously published"; then
-              echo "⏭️ Skipped @lucasilverentand/kustodian@$version (already published)"
+              echo "⏭️ Skipped ${{ matrix.scoped_name }}@$version (already published)"
             else
-              echo "❌ Failed to publish @lucasilverentand/kustodian@$version"
+              echo "❌ Failed to publish ${{ matrix.scoped_name }}@$version"
               echo "$output"
+              exit 1
             fi
           fi
-          echo "::endgroup::"
-          # Restore original package.json
-          git checkout package.json
-        env:
-          BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish plugin packages to GitHub Packages
-        run: |
-          for pkg in plugins/*; do
-            if [ -f "$pkg/package.json" ]; then
-              name=$(jq -r .name "$pkg/package.json")
-              version=$(jq -r .version "$pkg/package.json")
-              scoped_name="@lucasilverentand/${name}"
-              cd "$pkg"
-              # Temporarily update package.json to use scoped name
-              jq --arg name "$scoped_name" '.name = $name' package.json > package.json.tmp
-              mv package.json.tmp package.json
-              echo "::group::Publishing $scoped_name@$version"
-              if output=$(bun publish --access public --registry https://npm.pkg.github.com 2>&1); then
-                echo "✅ Published $scoped_name@$version"
-              else
-                if echo "$output" | grep -q "cannot publish over the previously published"; then
-                  echo "⏭️ Skipped $scoped_name@$version (already published)"
-                else
-                  echo "❌ Failed to publish $scoped_name@$version"
-                  echo "$output"
-                fi
-              fi
-              echo "::endgroup::"
-              # Restore original package.json
-              git checkout package.json
-              cd ../..
-            fi
-          done
         env:
           BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
