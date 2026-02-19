@@ -3,13 +3,40 @@ name: E2E Flux
 on:
   push:
     branches: [main]
+    paths:
+      - 'src/**'
+      - 'plugins/**'
+      - 'templates/**'
+      - 'scripts/**'
+      - 'e2e/**'
+      - 'package.json'
+      - 'bun.lock'
+      - 'mise.toml'
+      - 'tsconfig*.json'
+      - 'turbo.json'
+      - '.github/workflows/e2e-flux.yml'
   pull_request:
     branches: [main]
+    paths:
+      - 'src/**'
+      - 'plugins/**'
+      - 'templates/**'
+      - 'scripts/**'
+      - 'e2e/**'
+      - 'package.json'
+      - 'bun.lock'
+      - 'mise.toml'
+      - 'tsconfig*.json'
+      - 'turbo.json'
+      - '.github/workflows/e2e-flux.yml'
   workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   flux-e2e:
@@ -26,7 +53,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .turbo
-          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          key: ${{ runner.os }}-turbo-${{ hashFiles('bun.lock', 'turbo.json') }}
           restore-keys: |
             ${{ runner.os }}-turbo-
 
@@ -39,7 +66,7 @@ jobs:
           wait: 60s
 
       - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@main
+        uses: fluxcd/flux2/action@8454b02a32e48d775b9f563cb51fdcb1787b5b93 # v2.7.5
 
       - name: Install Flux
         run: |

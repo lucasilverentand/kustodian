@@ -3,13 +3,40 @@ name: E2E OCI
 on:
   push:
     branches: [main]
+    paths:
+      - 'src/**'
+      - 'plugins/**'
+      - 'templates/**'
+      - 'scripts/**'
+      - 'e2e/**'
+      - 'package.json'
+      - 'bun.lock'
+      - 'mise.toml'
+      - 'tsconfig*.json'
+      - 'turbo.json'
+      - '.github/workflows/e2e-oci.yml'
   pull_request:
     branches: [main]
+    paths:
+      - 'src/**'
+      - 'plugins/**'
+      - 'templates/**'
+      - 'scripts/**'
+      - 'e2e/**'
+      - 'package.json'
+      - 'bun.lock'
+      - 'mise.toml'
+      - 'tsconfig*.json'
+      - 'turbo.json'
+      - '.github/workflows/e2e-oci.yml'
   workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   oci-e2e:
@@ -32,7 +59,7 @@ jobs:
           registry_port: 5000
 
       - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@main
+        uses: fluxcd/flux2/action@8454b02a32e48d775b9f563cb51fdcb1787b5b93 # v2.7.5
 
       - name: Install Flux
         run: |

@@ -1,7 +1,9 @@
 name: Release
 
 on:
-  push:
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
     branches: [main]
   workflow_dispatch:
     inputs:
@@ -18,6 +20,7 @@ permissions:
 jobs:
   release-please:
     name: Release Please
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
@@ -33,7 +36,7 @@ jobs:
   build:
     name: Build
     needs: release-please
-    if: needs.release-please.outputs.releases_created == 'true' || inputs.publish == true
+    if: needs.release-please.outputs.releases_created == 'true' || (github.event_name == 'workflow_dispatch' && inputs.publish == true)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
