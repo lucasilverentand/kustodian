@@ -51,6 +51,29 @@ export interface ApplyOptionsType {
 }
 
 /**
+ * Diff result for kubectl/flux diff operations.
+ */
+export interface DiffResultType {
+  exit_code: number;
+  stdout: string;
+  stderr: string;
+  has_changes: boolean;
+}
+
+/**
+ * Options for flux diff kustomization.
+ */
+export interface FluxDiffKustomizationOptionsType {
+  path: string;
+  kustomization_file?: string;
+  namespace?: string;
+  progress_bar?: boolean;
+  recursive?: boolean;
+  strict_substitute?: boolean;
+  ignore_paths?: string[];
+}
+
+/**
  * Log options for kubectl logs.
  */
 export interface LogOptionsType {

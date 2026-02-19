@@ -21,6 +21,10 @@ import {
 } from './executor.js';
 import type { K0sProviderOptionsType } from './types.js';
 
+function sanitize_filename_part(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
 /**
  * Validates that SSH key files exist for all nodes.
  */
@@ -89,7 +93,7 @@ async function write_k0sctl_config(
   cluster_name: string,
 ): Promise<ResultType<string, KustodianErrorType>> {
   const temp_dir = os.tmpdir();
-  const config_path = path.join(temp_dir, `k0sctl-${cluster_name}.yaml`);
+  const config_path = path.join(temp_dir, `k0sctl-${sanitize_filename_part(cluster_name)}.yaml`);
 
   try {
     const yaml_content = YAML.stringify(config);
@@ -175,7 +179,7 @@ export function create_k0s_provider(options: K0sProviderOptionsType = {}): Clust
         // Write kubeconfig to temp file (kubectl needs a file path, not content)
         const kubeconfig_path = path.join(
           os.tmpdir(),
-          `kustodian-label-kubeconfig-${node_list.cluster}.yaml`,
+          `kustodian-label-kubeconfig-${sanitize_filename_part(node_list.cluster)}.yaml`,
         );
         await fs.writeFile(kubeconfig_path, kubeconfig_result.value, 'utf-8');
 

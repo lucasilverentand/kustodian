@@ -1,4 +1,4 @@
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -14,7 +14,7 @@ import { type TemplateSourceType, is_git_source } from '../../schema/index.js';
 import type { FetchOptionsType, FetchResultType, RemoteVersionType } from '../types.js';
 import type { SourceFetcherType } from './types.js';
 
-const exec_async = promisify(exec);
+const exec_file_async = promisify(execFile);
 
 const DEFAULT_TIMEOUT = 120_000; // 2 minutes
 
@@ -58,17 +58,19 @@ class GitFetcher implements SourceFetcherType {
       // Clone with depth=1 for efficiency (shallow clone)
       // For commits, we need a full clone to checkout specific commits
       const is_commit = ref.commit !== undefined;
-      const depth_flag = is_commit ? '' : '--depth=1';
-      const branch_flag = ref.branch || ref.tag ? `--branch=${git_ref}` : '';
+      const clone_args = ['clone', '--single-branch', url, temp_dir];
+      if (!is_commit) {
+        clone_args.splice(1, 0, '--depth=1');
+      }
+      if (ref.branch || ref.tag) {
+        clone_args.splice(1, 0, `--branch=${git_ref}`);
+      }
 
-      const clone_cmd =
-        `git clone ${depth_flag} ${branch_flag} --single-branch "${url}" "${temp_dir}"`.trim();
-
-      await this.exec_git(clone_cmd, timeout, source.name);
+      await this.exec_git(clone_args, timeout, source.name);
 
       // If fetching a specific commit, checkout that commit
       if (is_commit) {
-        await this.exec_git(`git -C "${temp_dir}" checkout ${git_ref}`, timeout, source.name);
+        await this.exec_git(['checkout', git_ref], timeout, source.name, temp_dir);
       }
 
       // Get the actual commit SHA for versioning
@@ -126,7 +128,7 @@ class GitFetcher implements SourceFetcherType {
 
     try {
       // Use ls-remote to list refs without cloning
-      const { stdout } = await exec_async(`git ls-remote --tags --heads "${url}"`, {
+      const { stdout } = await exec_file_async('git', ['ls-remote', '--tags', '--heads', url], {
         timeout: DEFAULT_TIMEOUT,
       });
 
@@ -164,12 +166,13 @@ class GitFetcher implements SourceFetcherType {
   }
 
   private async exec_git(
-    command: string,
+    args: string[],
     timeout: number,
     source_name: string,
+    cwd?: string,
   ): Promise<ResultType<string, KustodianErrorType>> {
     try {
-      const { stdout } = await exec_async(command, { timeout });
+      const { stdout } = await exec_file_async('git', args, { timeout, cwd });
       return success(stdout);
     } catch (error) {
       if (error instanceof Error && 'killed' in error && error.killed) {
@@ -184,11 +187,7 @@ class GitFetcher implements SourceFetcherType {
     timeout: number,
     source_name: string,
   ): Promise<ResultType<string, KustodianErrorType>> {
-    const result = await this.exec_git(
-      `git -C "${repo_path}" rev-parse HEAD`,
-      timeout,
-      source_name,
-    );
+    const result = await this.exec_git(['rev-parse', 'HEAD'], timeout, source_name, repo_path);
     if (!result.success) return result;
     return success(result.value.trim());
   }

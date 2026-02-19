@@ -100,7 +100,7 @@ export function create_kubeconfig_manager(): KubeconfigManagerType {
     },
 
     async list_contexts() {
-      const result = await exec_command('kubectl', ['config', 'get-contexts', '-o', 'name']);
+      const result = await exec_command('kubectl', ['config', 'view', '-o', 'json']);
       if (!result.success) {
         return result;
       }
@@ -108,42 +108,50 @@ export function create_kubeconfig_manager(): KubeconfigManagerType {
       if (result.value.exit_code !== 0) {
         return failure({
           code: 'KUBECONFIG_ERROR',
-          message: result.value.stderr || 'Failed to list contexts',
+          message: result.value.stderr || 'Failed to read kubeconfig contexts',
         });
       }
 
-      // Parse context names
-      const context_names = result.value.stdout.split('\n').filter(Boolean);
+      try {
+        const parsed = JSON.parse(result.value.stdout) as {
+          contexts?: Array<{
+            name?: string;
+            context?: {
+              cluster?: string;
+              user?: string;
+              namespace?: string;
+            };
+          }>;
+        };
 
-      // Get details for each context
-      const contexts: KubeconfigContextType[] = [];
-      for (const name of context_names) {
-        const view_result = await exec_command('kubectl', [
-          'config',
-          'view',
-          '-o',
-          `jsonpath={.contexts[?(@.name=="${name}")]}`,
-        ]);
-
-        if (view_result.success && view_result.value.exit_code === 0) {
-          try {
-            const ctx = JSON.parse(view_result.value.stdout);
-            contexts.push({
-              name,
+        const contexts = (parsed.contexts ?? [])
+          .filter(
+            (
+              ctx,
+            ): ctx is {
+              name: string;
+              context?: { cluster?: string; user?: string; namespace?: string };
+            } => Boolean(ctx.name),
+          )
+          .map((ctx) => {
+            const context_info: KubeconfigContextType = {
+              name: ctx.name,
               cluster: ctx.context?.cluster ?? '',
               user: ctx.context?.user ?? '',
-              namespace: ctx.context?.namespace,
-            });
-          } catch {
-            // If parsing fails, just add basic context info
-            contexts.push({ name, cluster: '', user: '' });
-          }
-        } else {
-          contexts.push({ name, cluster: '', user: '' });
-        }
-      }
+            };
+            if (ctx.context?.namespace) {
+              context_info.namespace = ctx.context.namespace;
+            }
+            return context_info;
+          });
 
-      return success(contexts);
+        return success(contexts);
+      } catch {
+        return failure({
+          code: 'KUBECONFIG_ERROR',
+          message: 'Failed to parse kubeconfig contexts',
+        });
+      }
     },
 
     async exists(kubeconfig_path) {

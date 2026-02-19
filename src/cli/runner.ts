@@ -28,6 +28,11 @@ export interface CLIType {
   run(args: string[], container: ContainerType): Promise<ResultType<void, KustodianErrorType>>;
 }
 
+interface ResolvedCommandType {
+  command: CommandType;
+  remaining_args: string[];
+}
+
 /**
  * Creates a new CLI instance.
  */
@@ -58,16 +63,14 @@ export function create_cli(_config: CLIConfigType): CLIType {
         return success(undefined);
       }
 
-      const command = commands.find((c) => c.name === command_name);
-      if (!command) {
-        return failure({
-          code: 'COMMAND_NOT_FOUND',
-          message: `Unknown command: ${command_name}`,
-        });
+      const resolved = resolve_command(commands, command_name, rest_args);
+      if (!resolved.success) {
+        return resolved;
       }
+      const { command, remaining_args } = resolved.value;
 
       // Parse options and arguments
-      const { options, positional_args } = parse_args(rest_args, command);
+      const { options, positional_args } = parse_args(remaining_args, command);
 
       // Create context
       const ctx = create_context(positional_args, options);
@@ -87,6 +90,48 @@ export function create_cli(_config: CLIConfigType): CLIType {
   };
 
   return cli;
+}
+
+function resolve_command(
+  commands: CommandType[],
+  command_name: string,
+  rest_args: string[],
+): ResultType<ResolvedCommandType, KustodianErrorType> {
+  const root_command = commands.find((c) => c.name === command_name);
+  if (!root_command) {
+    return failure({
+      code: 'COMMAND_NOT_FOUND',
+      message: `Unknown command: ${command_name}`,
+    });
+  }
+
+  let current = root_command;
+  const path_parts = [command_name];
+  let index = 0;
+
+  while (current.subcommands && index < rest_args.length) {
+    const token = rest_args[index];
+    if (!token || token.startsWith('-')) {
+      break;
+    }
+
+    const subcommand = current.subcommands.find((sub) => sub.name === token);
+    if (!subcommand) {
+      return failure({
+        code: 'COMMAND_NOT_FOUND',
+        message: `Unknown command: ${[...path_parts, token].join(' ')}`,
+      });
+    }
+
+    current = subcommand;
+    path_parts.push(token);
+    index++;
+  }
+
+  return success({
+    command: current,
+    remaining_args: rest_args.slice(index),
+  });
 }
 
 /**
@@ -233,10 +278,9 @@ export function format_help(config: CLIConfigType, commands: CommandType[]): str
   lines.push(`  ${config.name} init my-project`);
   lines.push(`  ${config.name} validate`);
   lines.push(`  ${config.name} validate --cluster production`);
-  lines.push(`  ${config.name} preview`);
-  lines.push(`  ${config.name} preview --cluster staging -o /tmp/manifests`);
   lines.push(`  ${config.name} apply --dry-run`);
   lines.push(`  ${config.name} apply --cluster production`);
+  lines.push(`  ${config.name} kubeconfig --cluster production`);
   lines.push(`  ${config.name} update --dry-run`);
   lines.push(`  ${config.name} update --cluster production`);
   lines.push(`  ${config.name} sources fetch`);

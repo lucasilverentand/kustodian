@@ -6,6 +6,10 @@ import type { NodeListType } from '../../nodes/index.js';
 
 import { define_command } from '../command.js';
 
+function sanitize_filename_part(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
 /**
  * Kubeconfig command - pulls kubeconfig from a k0s cluster and merges it
  * into the local ~/.kube/config.
@@ -122,7 +126,10 @@ export const kubeconfig_command = define_command({
     // Write to temp file for merging
     const { writeFile, unlink } = await import('node:fs/promises');
     const { tmpdir } = await import('node:os');
-    const temp_kubeconfig = path.join(tmpdir(), `kustodian-kubeconfig-${cluster_name}.yaml`);
+    const temp_kubeconfig = path.join(
+      tmpdir(),
+      `kustodian-kubeconfig-${sanitize_filename_part(cluster_name)}.yaml`,
+    );
     await writeFile(temp_kubeconfig, kubeconfig_result.value as string, 'utf-8');
 
     // Merge into ~/.kube/config

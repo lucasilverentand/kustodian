@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { apply_command } from './commands/apply.js';
+import { diff_command } from './commands/diff.js';
 import { init_command } from './commands/init.js';
 import { kubeconfig_command } from './commands/kubeconfig.js';
 import { sources_command } from './commands/sources.js';
@@ -20,6 +21,7 @@ const all_commands = [
   init_command,
   validate_command,
   apply_command,
+  diff_command,
   update_command,
   kubeconfig_command,
   sources_command,
@@ -94,7 +96,7 @@ async function main() {
 
   if (!result.success) {
     console.error(`\nError: ${result.error.message}`);
-    process.exit(1);
+    process.exit(process.exitCode ?? 1);
   }
 }
 

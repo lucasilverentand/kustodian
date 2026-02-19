@@ -31,6 +31,10 @@ interface HelmIndexType {
   generated?: string;
 }
 
+interface OciTagsResponse {
+  tags?: string[];
+}
+
 /**
  * Creates an abort signal with timeout.
  */
@@ -38,6 +42,62 @@ function create_abort_signal(timeout_ms: number): AbortSignal {
   const controller = new AbortController();
   setTimeout(() => controller.abort(), timeout_ms);
   return controller.signal;
+}
+
+function create_oci_auth_headers(config?: RegistryClientConfigType): Record<string, string> {
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+
+  if (config?.auth?.token) {
+    headers['Authorization'] = `Bearer ${config.auth.token}`;
+  } else if (config?.auth?.username && config.auth.password) {
+    const credentials = Buffer.from(`${config.auth.username}:${config.auth.password}`).toString(
+      'base64',
+    );
+    headers['Authorization'] = `Basic ${credentials}`;
+  }
+
+  return headers;
+}
+
+function create_generic_oci_registry_client(config?: RegistryClientConfigType): RegistryClientType {
+  return {
+    async list_tags(
+      image: ImageReferenceType,
+    ): Promise<ResultType<TagInfoType[], KustodianErrorType>> {
+      const url = `https://${image.registry}/v2/${image.namespace}/${image.repository}/tags/list`;
+
+      try {
+        const response = await fetch(url, {
+          headers: create_oci_auth_headers(config),
+          signal: create_abort_signal(config?.timeout ?? DEFAULT_TIMEOUT),
+        });
+
+        if (response.status === 401 || response.status === 403) {
+          return failure({
+            code: 'REGISTRY_AUTH_ERROR',
+            message: `Registry authentication failed for ${image.registry}. Configure credentials to access OCI chart tags.`,
+          });
+        }
+
+        if (!response.ok) {
+          return failure({
+            code: 'REGISTRY_ERROR',
+            message: `Failed to fetch OCI chart tags: ${response.status} ${response.statusText}`,
+          });
+        }
+
+        const data = (await response.json()) as OciTagsResponse;
+        return success((data.tags ?? []).map((name) => ({ name })));
+      } catch (error) {
+        return failure({
+          code: 'REGISTRY_ERROR',
+          message: `Failed to fetch OCI chart tags: ${error instanceof Error ? error.message : String(error)}`,
+        });
+      }
+    },
+  };
 }
 
 /**
@@ -137,8 +197,10 @@ export function create_helm_client(
   // OCI registry
   if (helm_config.oci) {
     const image_ref = parse_oci_helm_reference(helm_config.oci, helm_config.chart);
-    // Use GHCR client for OCI registries (they all use the same OCI Distribution spec)
-    const oci_client = create_ghcr_client(config);
+    const oci_client =
+      image_ref.registry === 'ghcr.io'
+        ? create_ghcr_client(config)
+        : create_generic_oci_registry_client(config);
     return {
       list_tags: () => oci_client.list_tags(image_ref),
     };

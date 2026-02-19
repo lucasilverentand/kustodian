@@ -59,8 +59,8 @@ describe('k0s Executor', () => {
     });
 
     it('should handle command with exit code', async () => {
-      // Act - exit with specific code (need proper quoting for bash -c)
-      const result = await exec_command('bash', ['-c', '"exit 42"']);
+      // Act - exit with specific code
+      const result = await exec_command('bash', ['-c', 'exit 42']);
 
       // Assert
       expect(result.success).toBe(true);
@@ -70,8 +70,8 @@ describe('k0s Executor', () => {
     });
 
     it('should capture stderr', async () => {
-      // Act - need proper quoting for bash -c
-      const result = await exec_command('bash', ['-c', '"echo error >&2"']);
+      // Act
+      const result = await exec_command('bash', ['-c', 'echo error >&2']);
 
       // Assert
       expect(result.success).toBe(true);

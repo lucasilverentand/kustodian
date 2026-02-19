@@ -84,12 +84,12 @@ class SourceResolver implements SourceResolverType {
     const fetcher = fetcher_result.value;
     const mutable = is_mutable_source(source);
 
-    // Determine the version to fetch
-    const version = this.get_source_version(source);
+    // Cache key is based on the requested source ref (branch/tag/checksum/etc.)
+    const cache_key = this.get_source_version(source);
 
     // Check cache first (unless force refresh)
     if (!force_refresh) {
-      const cached = await this.cache.get(source.name, version);
+      const cached = await this.cache.get(source.name, cache_key);
       if (cached.success && cached.value) {
         return success({
           source,
@@ -113,7 +113,7 @@ class SourceResolver implements SourceResolverType {
     const cache_result = await this.cache.put(
       source.name,
       fetcher.type,
-      fetch_result.value.version,
+      cache_key,
       fetch_result.value.path,
       mutable,
       source.ttl,

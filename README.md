@@ -301,6 +301,9 @@ kustodian validate --cluster production
 ### Apply Full Configuration
 
 ```bash
+# Preview pending cluster changes first
+kustodian diff --cluster production
+
 # Apply complete cluster setup (bootstrap + Flux + templates)
 kustodian apply --cluster production
 

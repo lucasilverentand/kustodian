@@ -1,15 +1,15 @@
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { type KustodianErrorType, type ResultType, create_error, success } from 'kustodian/core';
 
-const exec_async = promisify(exec);
+const exec_file_async = promisify(execFile);
 
 /**
  * Check if authelia CLI is available
  */
 export async function check_authelia_available(): Promise<ResultType<string, KustodianErrorType>> {
   try {
-    const { stdout } = await exec_async('authelia --version', { timeout: 5000 });
+    const { stdout } = await exec_file_async('authelia', ['--version'], { timeout: 5000 });
     const version = stdout.trim();
     return success(version);
   } catch (error) {
@@ -34,12 +34,18 @@ export async function hash_password(
   algorithm: 'pbkdf2' | 'argon2' = 'pbkdf2',
 ): Promise<ResultType<string, KustodianErrorType>> {
   try {
-    const cmd =
-      algorithm === 'argon2'
-        ? `authelia crypto hash generate argon2 --password '${password}'`
-        : `authelia crypto hash generate pbkdf2 --password '${password}'`;
-
-    const { stdout } = await exec_async(cmd, { timeout: 10000 });
+    const { stdout } = await exec_file_async(
+      'authelia',
+      [
+        'crypto',
+        'hash',
+        'generate',
+        algorithm === 'argon2' ? 'argon2' : 'pbkdf2',
+        '--password',
+        password,
+      ],
+      { timeout: 10000 },
+    );
 
     // Extract the hash from output (format: "Digest: $hash...")
     const hash_match = stdout.match(/Digest: (.+)/);
@@ -73,8 +79,9 @@ export async function generate_random_secret(
   length = 64,
 ): Promise<ResultType<string, KustodianErrorType>> {
   try {
-    const { stdout } = await exec_async(
-      `authelia crypto rand --length ${length} --charset alphanumeric`,
+    const { stdout } = await exec_file_async(
+      'authelia',
+      ['crypto', 'rand', '--length', String(length), '--charset', 'alphanumeric'],
       {
         timeout: 5000,
       },
@@ -99,7 +106,7 @@ export async function validate_access_control(
   config_path: string,
 ): Promise<ResultType<boolean, KustodianErrorType>> {
   try {
-    await exec_async(`authelia validate-config ${config_path}`, { timeout: 10000 });
+    await exec_file_async('authelia', ['validate-config', config_path], { timeout: 10000 });
     return success(true);
   } catch (error) {
     return {
