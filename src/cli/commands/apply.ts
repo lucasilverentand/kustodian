@@ -1,4 +1,4 @@
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import * as path from 'node:path';
 import { createInterface } from 'node:readline';
 import { promisify } from 'node:util';
@@ -20,7 +20,15 @@ import { type ClusterSecretProvider, OCI_REGISTRY_PROVIDER } from '../utils/clus
 import { confirm } from '../utils/confirm.js';
 import { resolve_defaults } from '../utils/defaults.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+
+function sanitize_filename_part(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
+function kubeconfig_args(kubeconfig_path?: string): string[] {
+  return kubeconfig_path ? [`--kubeconfig=${kubeconfig_path}`] : [];
+}
 
 /**
  * Apply command - orchestrates full cluster setup:
@@ -280,7 +288,7 @@ export const apply_command = define_command({
             // Write kubeconfig to temp file — kept alive for the entire cluster loop
             temp_kubeconfig = path.join(
               (await import('node:os')).tmpdir(),
-              `kustodian-kubeconfig-${cluster_name}.yaml`,
+              `kustodian-kubeconfig-${sanitize_filename_part(cluster_name)}.yaml`,
             );
             const { writeFile } = await import('node:fs/promises');
             await writeFile(temp_kubeconfig, kubeconfig_result.value as string, 'utf-8');
@@ -299,8 +307,16 @@ export const apply_command = define_command({
 
             console.log('  → Waiting for cluster nodes to be ready...');
             try {
-              await execAsync(
-                `kubectl wait --for=condition=Ready node --all --timeout=300s --kubeconfig=${temp_kubeconfig}`,
+              await execFileAsync(
+                'kubectl',
+                [
+                  'wait',
+                  '--for=condition=Ready',
+                  'node',
+                  '--all',
+                  '--timeout=300s',
+                  ...kubeconfig_args(temp_kubeconfig),
+                ],
                 { timeout: 320000 },
               );
               console.log('    ✓ All nodes are ready');
@@ -506,7 +522,6 @@ export const apply_command = define_command({
                 const git_source = await get_git_source(project_root);
                 const git_revision = await get_git_revision(project_root);
 
-                const kubeconfig_flag = temp_kubeconfig ? ` --kubeconfig=${temp_kubeconfig}` : '';
                 const ignore_paths = [
                   'node_modules/',
                   '.git/',
@@ -514,8 +529,24 @@ export const apply_command = define_command({
                   '.gitmodules',
                   '.gitattributes',
                 ].join(',');
-                const push_cmd = `flux push artifact ${oci_url} --path="${project_root}" --source="${git_source}" --revision="${git_revision}" --ignore-paths "${ignore_paths}"${kubeconfig_flag}`;
-                await execAsync(push_cmd, { timeout: 120000 });
+                await execFileAsync(
+                  'flux',
+                  [
+                    'push',
+                    'artifact',
+                    oci_url,
+                    '--path',
+                    project_root,
+                    '--source',
+                    git_source,
+                    '--revision',
+                    git_revision,
+                    '--ignore-paths',
+                    ignore_paths,
+                    ...kubeconfig_args(temp_kubeconfig),
+                  ],
+                  { timeout: 120000 },
+                );
                 console.log(`    ✓ Pushed to ${oci_url}`);
               } catch (error) {
                 const err = error as Error;
@@ -620,7 +651,9 @@ async function get_oci_tag(cluster: ClusterType, project_root: string): Promise<
       return cluster.spec.oci.tag || 'latest';
     case 'version': {
       try {
-        const { stdout } = await execAsync('git describe --tags --abbrev=0', { cwd: project_root });
+        const { stdout } = await execFileAsync('git', ['describe', '--tags', '--abbrev=0'], {
+          cwd: project_root,
+        });
         return stdout.trim();
       } catch {
         return 'latest';
@@ -628,7 +661,9 @@ async function get_oci_tag(cluster: ClusterType, project_root: string): Promise<
     }
     default: {
       try {
-        const { stdout } = await execAsync('git rev-parse --short HEAD', { cwd: project_root });
+        const { stdout } = await execFileAsync('git', ['rev-parse', '--short', 'HEAD'], {
+          cwd: project_root,
+        });
         return `sha1-${stdout.trim()}`;
       } catch {
         return 'latest';
@@ -642,7 +677,9 @@ async function get_oci_tag(cluster: ClusterType, project_root: string): Promise<
  */
 async function get_git_source(project_root: string): Promise<string> {
   try {
-    const { stdout } = await execAsync('git config --get remote.origin.url', { cwd: project_root });
+    const { stdout } = await execFileAsync('git', ['config', '--get', 'remote.origin.url'], {
+      cwd: project_root,
+    });
     return stdout.trim();
   } catch {
     return 'unknown';
@@ -654,7 +691,7 @@ async function get_git_source(project_root: string): Promise<string> {
  */
 async function get_git_revision(project_root: string): Promise<string> {
   try {
-    const { stdout } = await execAsync('git rev-parse HEAD', { cwd: project_root });
+    const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: project_root });
     return `sha1:${stdout.trim()}`;
   } catch {
     return 'unknown';
@@ -687,7 +724,11 @@ async function prompt_for_input(message: string, hidden = false): Promise<string
           rl.close();
           resolve(input);
         } else if (c === '\u0003') {
-          process.exit(1);
+          stdin.setRawMode?.(false);
+          stdin.removeListener('data', onData);
+          process.stdout.write('\n');
+          rl.close();
+          resolve('');
         } else if (c === '\u007F') {
           if (input.length > 0) input = input.slice(0, -1);
         } else {
@@ -744,13 +785,15 @@ async function ensure_oci_cluster_secret(
   namespace: string,
   kubeconfig_path?: string,
 ): Promise<boolean> {
-  const kc_flag = kubeconfig_path ? ` --kubeconfig=${kubeconfig_path}` : '';
-
   // Check if secret exists
   try {
-    await execAsync(`kubectl get secret ${secret_name} -n ${namespace}${kc_flag}`, {
-      timeout: 5000,
-    });
+    await execFileAsync(
+      'kubectl',
+      ['get', 'secret', secret_name, '-n', namespace, ...kubeconfig_args(kubeconfig_path)],
+      {
+        timeout: 5000,
+      },
+    );
     console.log('    ✓ OCI registry secret exists');
     return true;
   } catch {
@@ -824,10 +867,12 @@ async function ensure_namespace(
   dry_run: boolean,
   kubeconfig_path?: string,
 ): Promise<boolean> {
-  const kc_flag = kubeconfig_path ? ` --kubeconfig=${kubeconfig_path}` : '';
-
   try {
-    await execAsync(`kubectl get namespace ${namespace}${kc_flag}`, { timeout: 5000 });
+    await execFileAsync(
+      'kubectl',
+      ['get', 'namespace', namespace, ...kubeconfig_args(kubeconfig_path)],
+      { timeout: 5000 },
+    );
     return true;
   } catch {
     // Need to create
@@ -839,7 +884,11 @@ async function ensure_namespace(
   }
 
   try {
-    await execAsync(`kubectl create namespace ${namespace}${kc_flag}`, { timeout: 10000 });
+    await execFileAsync(
+      'kubectl',
+      ['create', 'namespace', namespace, ...kubeconfig_args(kubeconfig_path)],
+      { timeout: 10000 },
+    );
     console.log(`    ✓ Created namespace: ${namespace}`);
     return true;
   } catch (error) {

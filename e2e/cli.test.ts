@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { apply_command } from '../src/cli/commands/apply.js';
+import { diff_command } from '../src/cli/commands/diff.js';
 import { init_command } from '../src/cli/commands/init.js';
 import { validate_command } from '../src/cli/commands/validate.js';
 import { create_container } from '../src/cli/container.js';
@@ -261,6 +262,40 @@ describe('E2E: CLI Commands', () => {
       const fixtures_path = path.join(import.meta.dir, 'fixtures', 'valid-project');
       const result = await cli.run(
         ['apply', '--project', fixtures_path, '--cluster', 'nonexistent', '--dry-run'],
+        create_container(),
+      );
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.code).toBe('NOT_FOUND');
+      }
+    });
+  });
+
+  describe('diff command', () => {
+    it('should register and run diff command path', async () => {
+      const cli = create_cli({ name: 'kustodian', version: '1.0.0' });
+      cli.command(diff_command);
+
+      const fixtures_path = path.join(import.meta.dir, 'fixtures', 'valid-project');
+      const result = await cli.run(
+        ['diff', '--project', fixtures_path, '--cluster', 'nonexistent'],
+        create_container(),
+      );
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.code).toBe('NOT_FOUND');
+      }
+    });
+
+    it('should fail for nonexistent cluster', async () => {
+      const cli = create_cli({ name: 'kustodian', version: '1.0.0' });
+      cli.command(diff_command);
+
+      const fixtures_path = path.join(import.meta.dir, 'fixtures', 'valid-project');
+      const result = await cli.run(
+        ['diff', '--project', fixtures_path, '--cluster', 'does-not-exist'],
         create_container(),
       );
 

@@ -3,7 +3,7 @@ import { type ResultType, failure, success } from '../core/index.js';
 
 import { spawn } from 'node:child_process';
 import { type ExecOptionsType, check_command, exec_command } from './exec.js';
-import type { ApplyOptionsType, K8sResourceType, LogOptionsType } from './types.js';
+import type { ApplyOptionsType, DiffResultType, K8sResourceType, LogOptionsType } from './types.js';
 
 /**
  * Options for creating a KubectlClient.
@@ -90,6 +90,11 @@ export interface KubectlClientType {
    * Applies YAML from stdin.
    */
   apply_stdin(yaml: string): Promise<ResultType<string, KustodianErrorType>>;
+
+  /**
+   * Diffs YAML from stdin against live cluster state.
+   */
+  diff_stdin(yaml: string): Promise<ResultType<DiffResultType, KustodianErrorType>>;
 
   /**
    * Checks if kubectl is available.
@@ -343,6 +348,60 @@ export function create_kubectl_client(options: KubectlClientOptionsType = {}): K
               }),
             );
           }
+        });
+
+        proc.on('error', (err) => {
+          resolve(
+            failure({
+              code: 'EXEC_ERROR',
+              message: `Failed to execute kubectl: ${err.message}`,
+            }),
+          );
+        });
+
+        proc.stdin.write(yaml);
+        proc.stdin.end();
+      });
+    },
+
+    async diff_stdin(yaml) {
+      const args = [...base_args, 'diff', '-f', '-'];
+
+      return new Promise((resolve) => {
+        const proc = spawn('kubectl', args, {
+          stdio: ['pipe', 'pipe', 'pipe'],
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        proc.stdout.on('data', (data: Buffer) => {
+          stdout += data.toString();
+        });
+        proc.stderr.on('data', (data: Buffer) => {
+          stderr += data.toString();
+        });
+
+        proc.on('close', (code) => {
+          const exit_code = code ?? 1;
+          if (exit_code <= 1) {
+            resolve(
+              success({
+                exit_code,
+                stdout: stdout.trim(),
+                stderr: stderr.trim(),
+                has_changes: exit_code === 1,
+              }),
+            );
+            return;
+          }
+
+          resolve(
+            failure({
+              code: 'KUBECTL_DIFF_ERROR',
+              message: stderr.trim() || stdout.trim() || `kubectl diff exited with code ${code}`,
+            }),
+          );
         });
 
         proc.on('error', (err) => {

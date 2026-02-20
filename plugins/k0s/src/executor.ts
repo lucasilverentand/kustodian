@@ -3,7 +3,7 @@ import * as util from 'node:util';
 import type { KustodianErrorType } from 'kustodian/core';
 import { Errors, type ResultType, failure, success } from 'kustodian/core';
 
-const exec_async = util.promisify(child_process.exec);
+const exec_file_async = util.promisify(child_process.execFile);
 
 /**
  * Result of a command execution.
@@ -33,10 +33,8 @@ export async function exec_command(
   args: string[] = [],
   options: ExecOptionsType = {},
 ): Promise<ResultType<CommandResultType, KustodianErrorType>> {
-  const full_command = [command, ...args].join(' ');
-
   try {
-    const { stdout, stderr } = await exec_async(full_command, {
+    const { stdout, stderr } = await exec_file_async(command, args, {
       cwd: options.cwd,
       timeout: options.timeout,
       env: { ...process.env, ...options.env },
@@ -48,15 +46,33 @@ export async function exec_command(
       exit_code: 0,
     });
   } catch (error) {
-    if (is_exec_error(error)) {
+    const exec_error = error as {
+      code?: number | string;
+      stdout?: string | Buffer;
+      stderr?: string | Buffer;
+      message?: string;
+    };
+
+    // Treat missing command as a normal non-zero execution result.
+    if (exec_error.code === 'ENOENT') {
       return success({
-        stdout: error.stdout ?? '',
-        stderr: error.stderr ?? '',
-        exit_code: error.code ?? 1,
+        stdout: '',
+        stderr: `${command}: command not found`,
+        exit_code: 127,
       });
     }
 
-    return failure(Errors.unknown(`Failed to execute command: ${full_command}`, error));
+    if (is_exec_error(error)) {
+      return success({
+        stdout: String(error.stdout ?? ''),
+        stderr: String(error.stderr ?? ''),
+        exit_code: typeof error.code === 'number' ? error.code : 1,
+      });
+    }
+
+    return failure(
+      Errors.unknown(`Failed to execute command: ${command} ${args.join(' ')}`.trim(), error),
+    );
   }
 }
 
@@ -65,7 +81,7 @@ export async function exec_command(
  */
 function is_exec_error(
   error: unknown,
-): error is { stdout?: string; stderr?: string; code?: number } {
+): error is { stdout?: string | Buffer; stderr?: string | Buffer; code?: number | string } {
   return (
     typeof error === 'object' &&
     error !== null &&
