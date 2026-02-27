@@ -42,5 +42,7 @@
   "dependencies": {
     "yaml": "^2.8.2"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "kustodian": "^1.0.0"
+  }
 }
