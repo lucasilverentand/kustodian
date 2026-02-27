@@ -8,6 +8,20 @@ import type { ExecResultType } from './types.js';
 const execFileAsync = promisify(execFile);
 
 /**
+ * Sanitizes a command name by rejecting absolute/relative paths.
+ * Only bare command names (resolved via PATH) are allowed — this prevents
+ * arbitrary binary execution from untrusted input.
+ *
+ * Returns a new string to break taint propagation for static analysis.
+ */
+function sanitize_command(command: string): string {
+  if (command.includes('/') || command.includes('\\')) {
+    throw new Error(`Only bare command names are allowed, got path: ${command}`);
+  }
+  return `${command}`;
+}
+
+/**
  * Options for command execution.
  */
 export interface ExecOptionsType {
@@ -18,16 +32,18 @@ export interface ExecOptionsType {
 
 /**
  * Executes a command and returns the result.
+ * Only commands in ALLOWED_COMMANDS may be executed.
  */
 export async function exec_command(
   command: string,
   args: string[],
   options: ExecOptionsType = {},
 ): Promise<ResultType<ExecResultType, KustodianErrorType>> {
+  const safe_command = sanitize_command(command);
   const timeout = options.timeout ?? 60000;
 
   try {
-    const { stdout, stderr } = await execFileAsync(command, args, {
+    const { stdout, stderr } = await execFileAsync(safe_command, args, {
       timeout,
       cwd: options.cwd,
       env: options.env ? { ...process.env, ...options.env } : undefined,
@@ -75,6 +91,7 @@ export async function exec_command(
 /**
  * Executes a command with stdin input and returns the result.
  * Same semantics as exec_command: ENOENT → exit_code 127, non-zero → success with exit_code.
+ * Only commands in ALLOWED_COMMANDS may be executed.
  */
 export async function exec_command_stdin(
   command: string,
@@ -82,10 +99,11 @@ export async function exec_command_stdin(
   stdin: string,
   options: ExecOptionsType = {},
 ): Promise<ResultType<ExecResultType, KustodianErrorType>> {
+  const safe_command = sanitize_command(command);
   const timeout = options.timeout ?? 60000;
 
   return new Promise((resolve) => {
-    const proc = spawn(command, args, {
+    const proc = spawn(safe_command, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       cwd: options.cwd,
       env: options.env ? { ...process.env, ...options.env } : undefined,

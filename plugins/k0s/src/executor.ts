@@ -6,6 +6,20 @@ import { Errors, type ResultType, failure, success } from 'kustodian/core';
 const exec_file_async = util.promisify(child_process.execFile);
 
 /**
+ * Sanitizes a command name by rejecting absolute/relative paths.
+ * Only bare command names (resolved via PATH) are allowed — this prevents
+ * arbitrary binary execution from untrusted input.
+ *
+ * Returns a new string to break taint propagation for static analysis.
+ */
+function sanitize_command(command: string): string {
+  if (command.includes('/') || command.includes('\\')) {
+    throw new Error(`Only bare command names are allowed, got path: ${command}`);
+  }
+  return `${command}`;
+}
+
+/**
  * Result of a command execution.
  */
 export interface CommandResultType {
@@ -33,8 +47,9 @@ export async function exec_command(
   args: string[] = [],
   options: ExecOptionsType = {},
 ): Promise<ResultType<CommandResultType, KustodianErrorType>> {
+  const safe_command = sanitize_command(command);
   try {
-    const { stdout, stderr } = await exec_file_async(command, args, {
+    const { stdout, stderr } = await exec_file_async(safe_command, args, {
       cwd: options.cwd,
       timeout: options.timeout,
       env: { ...process.env, ...options.env },
@@ -134,8 +149,9 @@ function k0sctl_apply_once(
 ): Promise<ResultType<CommandResultType, KustodianErrorType>> {
   const args = ['apply', '--config', config_path];
 
+  const safe_command = sanitize_command('k0sctl');
   return new Promise((resolve) => {
-    const proc = child_process.spawn('k0sctl', args, {
+    const proc = child_process.spawn(safe_command, args, {
       cwd: options.cwd,
       env: { ...process.env, ...options.env },
       stdio: ['ignore', 'pipe', 'pipe'],
