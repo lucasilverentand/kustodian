@@ -106,13 +106,33 @@ class GitFetcher implements SourceFetcherType {
 
       // If fetching a specific commit, checkout that commit
       if (is_commit) {
-        await this.exec_git(['checkout', '--', git_ref], timeout, source.name, temp_dir);
+        try {
+          await exec_file_async('git', ['checkout', '--', git_ref], { timeout, cwd: temp_dir });
+        } catch (error) {
+          if (
+            error instanceof Error &&
+            'killed' in error &&
+            (error as { killed?: boolean }).killed
+          ) {
+            return failure(Errors.source_timeout(source.name, timeout));
+          }
+          throw error;
+        }
       }
 
       // Get the actual commit SHA for versioning
-      const version = await this.get_commit_sha(temp_dir, timeout, source.name);
-      if (!version.success) {
-        return failure(version.error);
+      let commit_sha: string;
+      try {
+        const { stdout } = await exec_file_async('git', ['rev-parse', 'HEAD'], {
+          timeout,
+          cwd: temp_dir,
+        });
+        commit_sha = stdout.trim();
+      } catch (error) {
+        if (error instanceof Error && 'killed' in error && (error as { killed?: boolean }).killed) {
+          return failure(Errors.source_timeout(source.name, timeout));
+        }
+        throw error;
       }
 
       // Determine final content path
@@ -138,7 +158,7 @@ class GitFetcher implements SourceFetcherType {
 
       return success({
         path: output_dir,
-        version: version.value,
+        version: commit_sha,
         from_cache: false,
         fetched_at: new Date(),
       });
@@ -202,33 +222,6 @@ class GitFetcher implements SourceFetcherType {
     } catch (error) {
       return failure(Errors.source_fetch_error(source.name, error));
     }
-  }
-
-  private async exec_git(
-    args: string[],
-    timeout: number,
-    source_name: string,
-    cwd?: string,
-  ): Promise<ResultType<string, KustodianErrorType>> {
-    try {
-      const { stdout } = await exec_file_async('git', args, { timeout, cwd });
-      return success(stdout);
-    } catch (error) {
-      if (error instanceof Error && 'killed' in error && error.killed) {
-        return failure(Errors.source_timeout(source_name, timeout));
-      }
-      throw error;
-    }
-  }
-
-  private async get_commit_sha(
-    repo_path: string,
-    timeout: number,
-    source_name: string,
-  ): Promise<ResultType<string, KustodianErrorType>> {
-    const result = await this.exec_git(['rev-parse', 'HEAD'], timeout, source_name, repo_path);
-    if (!result.success) return result;
-    return success(result.value.trim());
   }
 
   private async copy_excluding_git(src: string, dest: string): Promise<void> {
