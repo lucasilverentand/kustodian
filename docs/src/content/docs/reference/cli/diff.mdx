@@ -1,0 +1,63 @@
+---
+title: kustodian diff
+description: Preview pending cluster changes without applying them
+---
+
+The `diff` command previews what `kustodian apply` would change on a cluster, without mutating cluster state.
+
+It compares:
+
+- Flux control-plane resources (OCIRepository, Kustomizations, and OCI auth resources when available)
+- Rendered workload output through `flux diff kustomization`
+
+## Usage
+
+```bash
+kustodian diff [options]
+```
+
+## Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--cluster, -c <name>` | Target cluster (or all clusters if omitted) | All clusters |
+| `--project, -p <path>` | Path to project root | Current directory |
+| `--provider, -P <name>` | Cluster provider for kubeconfig retrieval | `k0s` |
+
+## Examples
+
+### Diff a Single Cluster
+
+```bash
+kustodian diff --cluster production
+```
+
+### Diff All Clusters in the Project
+
+```bash
+kustodian diff
+```
+
+### Diff from Another Directory
+
+```bash
+kustodian diff --project ~/Developer/my-infra --cluster staging
+```
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | No differences found |
+| `1` | Differences found |
+| `2` | Diff failed (configuration, connectivity, or command error) |
+
+## Notes
+
+- `diff` is non-mutating: it does not apply manifests, install Flux, or push OCI artifacts.
+- OCI registry token prompts are disabled in `diff`. If no token is found in environment variables, secret diffs are skipped with a warning.
+
+## Related Commands
+
+- [`kustodian apply`](/reference/cli/apply/) - Apply cluster configuration
+- [`kustodian validate`](/reference/cli/validate/) - Validate configuration before diff/apply

@@ -134,6 +134,9 @@ class CacheManager implements CacheManagerType {
       // Create directory structure
       await fs.mkdir(entry_path, { recursive: true });
 
+      // Replace existing cached templates atomically for the same cache key.
+      await fs.rm(templates_path, { recursive: true, force: true });
+
       // Copy content to templates directory
       await fs.cp(content_path, templates_path, { recursive: true });
 

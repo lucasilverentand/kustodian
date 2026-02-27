@@ -2,7 +2,13 @@ import type { KustodianErrorType } from '../core/index.js';
 import { type ResultType, failure, success } from '../core/index.js';
 
 import { type ExecOptionsType, check_command, exec_command } from './exec.js';
-import type { FluxBootstrapOptionsType, FluxResourceType, FluxStatusType } from './types.js';
+import type {
+  DiffResultType,
+  FluxBootstrapOptionsType,
+  FluxDiffKustomizationOptionsType,
+  FluxResourceType,
+  FluxStatusType,
+} from './types.js';
 
 /**
  * Options for creating a FluxClient.
@@ -61,6 +67,14 @@ export interface FluxClientType {
    * Checks if flux CLI is available.
    */
   check_cli(): Promise<ResultType<boolean, KustodianErrorType>>;
+
+  /**
+   * Diffs a Flux Kustomization against local manifests.
+   */
+  diff_kustomization(
+    name: string,
+    options: FluxDiffKustomizationOptionsType,
+  ): Promise<ResultType<DiffResultType, KustodianErrorType>>;
 }
 
 /**
@@ -304,6 +318,52 @@ export function create_flux_client(options: FluxClientOptionsType = {}): FluxCli
     async check_cli() {
       const available = await check_command('flux');
       return success(available);
+    },
+
+    async diff_kustomization(name, diff_options) {
+      const args = [...base_args, 'diff', 'kustomization', name, '--path', diff_options.path];
+
+      if (diff_options.kustomization_file) {
+        args.push('--kustomization-file', diff_options.kustomization_file);
+      }
+      if (diff_options.namespace) {
+        args.push('--namespace', diff_options.namespace);
+      }
+      if (diff_options.progress_bar !== undefined) {
+        args.push(`--progress-bar=${diff_options.progress_bar ? 'true' : 'false'}`);
+      }
+      if (diff_options.recursive) {
+        args.push('--recursive');
+      }
+      if (diff_options.strict_substitute) {
+        args.push('--strict-substitute');
+      }
+      if (diff_options.ignore_paths && diff_options.ignore_paths.length > 0) {
+        args.push('--ignore-paths', diff_options.ignore_paths.join(','));
+      }
+
+      const result = await exec_command('flux', args, exec_options);
+      if (!result.success) {
+        return result;
+      }
+
+      const exit_code = result.value.exit_code;
+      if (exit_code <= 1) {
+        return success({
+          exit_code,
+          stdout: result.value.stdout,
+          stderr: result.value.stderr,
+          has_changes: exit_code === 1,
+        });
+      }
+
+      return failure({
+        code: 'FLUX_DIFF_ERROR',
+        message:
+          result.value.stderr ||
+          result.value.stdout ||
+          `Failed to diff Flux Kustomization '${name}'`,
+      });
     },
   };
 }

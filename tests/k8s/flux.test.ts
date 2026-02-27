@@ -17,6 +17,7 @@ describe('FluxClient', () => {
       expect(client.uninstall).toBeDefined();
       expect(client.install).toBeDefined();
       expect(client.check_cli).toBeDefined();
+      expect(client.diff_kustomization).toBeDefined();
     });
 
     it('should create a client with custom options', () => {

@@ -1,4 +1,4 @@
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -14,7 +14,7 @@ import { type TemplateSourceType, is_git_source } from '../../schema/index.js';
 import type { FetchOptionsType, FetchResultType, RemoteVersionType } from '../types.js';
 import type { SourceFetcherType } from './types.js';
 
-const exec_async = promisify(exec);
+const exec_file_async = promisify(execFile);
 
 const DEFAULT_TIMEOUT = 120_000; // 2 minutes
 
@@ -27,6 +27,29 @@ export function create_git_fetcher(): SourceFetcherType {
 
 class GitFetcher implements SourceFetcherType {
   readonly type = 'git' as const;
+
+  /**
+   * Sanitizes a Git remote URL, returning a safe string guaranteed not to be
+   * interpreted as a Git CLI option (e.g. `--upload-pack=...`).
+   *
+   * Returns a fresh string to break taint propagation for static analysis.
+   */
+  private sanitize_git_url(url: string): string {
+    if (!url || url.trim() === '') {
+      throw Errors.invalid_argument('source.git.url', 'Git URL must not be empty');
+    }
+
+    // Reject URLs that could be interpreted by git as options
+    if (url.startsWith('-')) {
+      throw Errors.invalid_argument(
+        'source.git.url',
+        'Git URL must not start with "-"; option-like values are not allowed',
+      );
+    }
+
+    // Return a copy to break taint tracking: the returned value is validated.
+    return `${url}`;
+  }
 
   is_mutable(source: TemplateSourceType): boolean {
     if (!is_git_source(source)) return true;
@@ -42,7 +65,8 @@ class GitFetcher implements SourceFetcherType {
       return failure(Errors.invalid_argument('source', 'Expected a git source'));
     }
 
-    const { url, ref, path: subpath } = source.git;
+    const { ref, path: subpath } = source.git;
+    const url = this.sanitize_git_url(source.git.url);
     const timeout = options?.timeout ?? DEFAULT_TIMEOUT;
 
     // Determine the ref to fetch
@@ -58,23 +82,57 @@ class GitFetcher implements SourceFetcherType {
       // Clone with depth=1 for efficiency (shallow clone)
       // For commits, we need a full clone to checkout specific commits
       const is_commit = ref.commit !== undefined;
-      const depth_flag = is_commit ? '' : '--depth=1';
-      const branch_flag = ref.branch || ref.tag ? `--branch=${git_ref}` : '';
 
-      const clone_cmd =
-        `git clone ${depth_flag} ${branch_flag} --single-branch "${url}" "${temp_dir}"`.trim();
+      const clone_args: string[] = ['clone', '--single-branch'];
+      if (!is_commit) {
+        clone_args.push('--depth=1');
+      }
+      if (ref.branch || ref.tag) {
+        clone_args.push(`--branch=${git_ref}`);
+      }
+      // '--' separates git options from positional args (url, dest)
+      clone_args.push('--', url, temp_dir);
 
-      await this.exec_git(clone_cmd, timeout, source.name);
+      // Inline exec_file_async for clone so the sanitized URL doesn't flow
+      // through a generic wrapper — this lets static analysis see the full call.
+      try {
+        await exec_file_async('git', clone_args, { timeout });
+      } catch (error) {
+        if (error instanceof Error && 'killed' in error && (error as { killed?: boolean }).killed) {
+          return failure(Errors.source_timeout(source.name, timeout));
+        }
+        throw error;
+      }
 
       // If fetching a specific commit, checkout that commit
       if (is_commit) {
-        await this.exec_git(`git -C "${temp_dir}" checkout ${git_ref}`, timeout, source.name);
+        try {
+          await exec_file_async('git', ['checkout', '--', git_ref], { timeout, cwd: temp_dir });
+        } catch (error) {
+          if (
+            error instanceof Error &&
+            'killed' in error &&
+            (error as { killed?: boolean }).killed
+          ) {
+            return failure(Errors.source_timeout(source.name, timeout));
+          }
+          throw error;
+        }
       }
 
       // Get the actual commit SHA for versioning
-      const version = await this.get_commit_sha(temp_dir, timeout, source.name);
-      if (!version.success) {
-        return failure(version.error);
+      let commit_sha: string;
+      try {
+        const { stdout } = await exec_file_async('git', ['rev-parse', 'HEAD'], {
+          timeout,
+          cwd: temp_dir,
+        });
+        commit_sha = stdout.trim();
+      } catch (error) {
+        if (error instanceof Error && 'killed' in error && (error as { killed?: boolean }).killed) {
+          return failure(Errors.source_timeout(source.name, timeout));
+        }
+        throw error;
       }
 
       // Determine final content path
@@ -100,7 +158,7 @@ class GitFetcher implements SourceFetcherType {
 
       return success({
         path: output_dir,
-        version: version.value,
+        version: commit_sha,
         from_cache: false,
         fetched_at: new Date(),
       });
@@ -122,13 +180,16 @@ class GitFetcher implements SourceFetcherType {
       return failure(Errors.invalid_argument('source', 'Expected a git source'));
     }
 
-    const { url } = source.git;
+    const url = this.sanitize_git_url(source.git.url);
 
     try {
-      // Use ls-remote to list refs without cloning
-      const { stdout } = await exec_async(`git ls-remote --tags --heads "${url}"`, {
-        timeout: DEFAULT_TIMEOUT,
-      });
+      const { stdout } = await exec_file_async(
+        'git',
+        ['ls-remote', '--tags', '--heads', '--', url],
+        {
+          timeout: DEFAULT_TIMEOUT,
+        },
+      );
 
       const versions: RemoteVersionType[] = [];
 
@@ -161,36 +222,6 @@ class GitFetcher implements SourceFetcherType {
     } catch (error) {
       return failure(Errors.source_fetch_error(source.name, error));
     }
-  }
-
-  private async exec_git(
-    command: string,
-    timeout: number,
-    source_name: string,
-  ): Promise<ResultType<string, KustodianErrorType>> {
-    try {
-      const { stdout } = await exec_async(command, { timeout });
-      return success(stdout);
-    } catch (error) {
-      if (error instanceof Error && 'killed' in error && error.killed) {
-        return failure(Errors.source_timeout(source_name, timeout));
-      }
-      throw error;
-    }
-  }
-
-  private async get_commit_sha(
-    repo_path: string,
-    timeout: number,
-    source_name: string,
-  ): Promise<ResultType<string, KustodianErrorType>> {
-    const result = await this.exec_git(
-      `git -C "${repo_path}" rev-parse HEAD`,
-      timeout,
-      source_name,
-    );
-    if (!result.success) return result;
-    return success(result.value.trim());
   }
 
   private async copy_excluding_git(src: string, dest: string): Promise<void> {

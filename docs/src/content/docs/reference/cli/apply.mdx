@@ -164,6 +164,8 @@ Some labels are protected and won't be modified:
 ### Always Dry Run First
 
 ```bash
+kustodian diff --cluster production
+# Review changes
 kustodian apply --cluster production --dry-run
 # Review changes
 kustodian apply --cluster production
@@ -183,6 +185,7 @@ kustodian apply --cluster production
 ```yaml
 - name: Apply node configuration
   run: |
+    kustodian diff --cluster production
     kustodian apply --cluster production --dry-run
     kustodian apply --cluster production
 ```
@@ -190,4 +193,5 @@ kustodian apply --cluster production
 ## Related Commands
 
 - [`kustodian bootstrap`](/reference/cli/bootstrap/) - Bootstrap cluster nodes
+- [`kustodian diff`](/reference/cli/diff/) - Preview cluster changes
 - [`kustodian validate`](/reference/cli/validate/) - Validate configuration

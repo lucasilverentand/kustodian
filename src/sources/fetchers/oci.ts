@@ -1,4 +1,4 @@
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -14,7 +14,7 @@ import { type TemplateSourceType, is_oci_source } from '../../schema/index.js';
 import type { FetchOptionsType, FetchResultType, RemoteVersionType } from '../types.js';
 import type { SourceFetcherType } from './types.js';
 
-const exec_async = promisify(exec);
+const exec_file_async = promisify(execFile);
 
 const DEFAULT_TIMEOUT = 120_000; // 2 minutes
 
@@ -98,9 +98,13 @@ class OciFetcher implements SourceFetcherType {
 
     try {
       // Try using oras to list tags
-      const { stdout } = await exec_async(`oras repo tags ${registry}/${repository}`, {
-        timeout: DEFAULT_TIMEOUT,
-      });
+      const { stdout } = await exec_file_async(
+        'oras',
+        ['repo', 'tags', `${registry}/${repository}`],
+        {
+          timeout: DEFAULT_TIMEOUT,
+        },
+      );
 
       const versions: RemoteVersionType[] = stdout
         .split('\n')
@@ -112,7 +116,7 @@ class OciFetcher implements SourceFetcherType {
     } catch {
       // If oras fails, try crane
       try {
-        const { stdout } = await exec_async(`crane ls ${registry}/${repository}`, {
+        const { stdout } = await exec_file_async('crane', ['ls', `${registry}/${repository}`], {
           timeout: DEFAULT_TIMEOUT,
         });
 
@@ -136,7 +140,13 @@ class OciFetcher implements SourceFetcherType {
     source_name: string,
   ): Promise<ResultType<void, KustodianErrorType>> {
     try {
-      await exec_async(`flux pull artifact oci://${oci_ref} --output="${output_dir}"`, { timeout });
+      await exec_file_async(
+        'flux',
+        ['pull', 'artifact', `oci://${oci_ref}`, '--output', output_dir],
+        {
+          timeout,
+        },
+      );
       return success(undefined);
     } catch (error) {
       if (error instanceof Error && error.message.includes('not found')) {
@@ -159,7 +169,7 @@ class OciFetcher implements SourceFetcherType {
     source_name: string,
   ): Promise<ResultType<void, KustodianErrorType>> {
     try {
-      await exec_async(`oras pull ${oci_ref} --output="${output_dir}"`, { timeout });
+      await exec_file_async('oras', ['pull', oci_ref, '--output', output_dir], { timeout });
       return success(undefined);
     } catch (error) {
       if (error instanceof Error && error.message.includes('not found')) {
@@ -186,18 +196,24 @@ class OciFetcher implements SourceFetcherType {
   ): Promise<string | null> {
     try {
       // Try crane first
-      const { stdout } = await exec_async(`crane digest ${registry}/${repository}:${tag}`, {
-        timeout,
-      });
+      const { stdout } = await exec_file_async(
+        'crane',
+        ['digest', `${registry}/${repository}:${tag}`],
+        {
+          timeout,
+        },
+      );
       return stdout.trim();
     } catch {
       // If crane fails, try oras
       try {
-        const { stdout } = await exec_async(
-          `oras manifest fetch ${registry}/${repository}:${tag} --descriptor | jq -r .digest`,
+        const { stdout } = await exec_file_async(
+          'oras',
+          ['manifest', 'fetch', `${registry}/${repository}:${tag}`, '--descriptor'],
           { timeout },
         );
-        return stdout.trim() || null;
+        const descriptor = JSON.parse(stdout) as { digest?: string };
+        return descriptor.digest ?? null;
       } catch {
         return null;
       }

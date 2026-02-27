@@ -59,6 +59,103 @@ describe('CLI Runner', () => {
       expect(executed).toBe(true);
     });
 
+    it('should run subcommand handler', async () => {
+      // Arrange
+      let executed = false;
+      const cli = create_cli({ name: 'test', version: '1.0.0' });
+      const container = create_container();
+
+      cli.command(
+        define_command({
+          name: 'parent',
+          description: 'Parent command',
+          subcommands: [
+            define_command({
+              name: 'child',
+              description: 'Child command',
+              handler: async () => {
+                executed = true;
+                return success(undefined);
+              },
+            }),
+          ],
+        }),
+      );
+
+      // Act
+      const result = await cli.run(['parent', 'child'], container);
+
+      // Assert
+      expect(result.success).toBe(true);
+      expect(executed).toBe(true);
+    });
+
+    it('should run nested subcommand handler', async () => {
+      // Arrange
+      let executed = false;
+      const cli = create_cli({ name: 'test', version: '1.0.0' });
+      const container = create_container();
+
+      cli.command(
+        define_command({
+          name: 'parent',
+          description: 'Parent command',
+          subcommands: [
+            define_command({
+              name: 'child',
+              description: 'Child command',
+              subcommands: [
+                define_command({
+                  name: 'grandchild',
+                  description: 'Grandchild command',
+                  handler: async () => {
+                    executed = true;
+                    return success(undefined);
+                  },
+                }),
+              ],
+            }),
+          ],
+        }),
+      );
+
+      // Act
+      const result = await cli.run(['parent', 'child', 'grandchild'], container);
+
+      // Assert
+      expect(result.success).toBe(true);
+      expect(executed).toBe(true);
+    });
+
+    it('should return error for unknown subcommand', async () => {
+      // Arrange
+      const cli = create_cli({ name: 'test', version: '1.0.0' });
+      const container = create_container();
+
+      cli.command(
+        define_command({
+          name: 'parent',
+          description: 'Parent command',
+          subcommands: [
+            define_command({
+              name: 'child',
+              description: 'Child command',
+              handler: async () => success(undefined),
+            }),
+          ],
+        }),
+      );
+
+      // Act
+      const result = await cli.run(['parent', 'unknown'], container);
+
+      // Assert
+      expect(result.success).toBe(false);
+      if (!is_success(result)) {
+        expect(result.error.code).toBe('COMMAND_NOT_FOUND');
+      }
+    });
+
     it('should return error for unknown command', async () => {
       // Arrange
       const cli = create_cli({ name: 'test', version: '1.0.0' });

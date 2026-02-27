@@ -1,4 +1,4 @@
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
@@ -15,7 +15,7 @@ import { type TemplateSourceType, is_http_source } from '../../schema/index.js';
 import type { FetchOptionsType, FetchResultType, RemoteVersionType } from '../types.js';
 import type { SourceFetcherType } from './types.js';
 
-const exec_async = promisify(exec);
+const exec_file_async = promisify(execFile);
 
 const DEFAULT_TIMEOUT = 120_000; // 2 minutes
 
@@ -178,20 +178,20 @@ class HttpFetcher implements SourceFetcherType {
 
     try {
       if (lower_url.endsWith('.tar.gz') || lower_url.endsWith('.tgz')) {
-        await exec_async(`tar -xzf "${archive_path}" -C "${dest_dir}"`);
+        await exec_file_async('tar', ['-xzf', archive_path, '-C', dest_dir]);
       } else if (lower_url.endsWith('.tar')) {
-        await exec_async(`tar -xf "${archive_path}" -C "${dest_dir}"`);
+        await exec_file_async('tar', ['-xf', archive_path, '-C', dest_dir]);
       } else if (lower_url.endsWith('.zip')) {
-        await exec_async(`unzip -q "${archive_path}" -d "${dest_dir}"`);
+        await exec_file_async('unzip', ['-q', archive_path, '-d', dest_dir]);
       } else {
         // Try to detect format from content
-        const { stdout } = await exec_async(`file "${archive_path}"`);
+        const { stdout } = await exec_file_async('file', [archive_path]);
         if (stdout.includes('gzip')) {
-          await exec_async(`tar -xzf "${archive_path}" -C "${dest_dir}"`);
+          await exec_file_async('tar', ['-xzf', archive_path, '-C', dest_dir]);
         } else if (stdout.includes('Zip')) {
-          await exec_async(`unzip -q "${archive_path}" -d "${dest_dir}"`);
+          await exec_file_async('unzip', ['-q', archive_path, '-d', dest_dir]);
         } else if (stdout.includes('tar')) {
-          await exec_async(`tar -xf "${archive_path}" -C "${dest_dir}"`);
+          await exec_file_async('tar', ['-xf', archive_path, '-C', dest_dir]);
         } else {
           return failure(Errors.invalid_argument('source', `Unknown archive format for ${url}`));
         }

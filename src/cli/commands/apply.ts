@@ -1,26 +1,26 @@
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import * as path from 'node:path';
 import { createInterface } from 'node:readline';
 import { promisify } from 'node:util';
 import { is_success, success } from '../../core/index.js';
-import { validate_template_requirements } from '../../generator/index.js';
 import { create_flux_client } from '../../k8s/flux.js';
+import type { K8sObjectType } from '../../k8s/kubectl.js';
 import { create_kubectl_client } from '../../k8s/kubectl.js';
-import {
-  type LoadedClusterType,
-  find_cluster,
-  find_project_root,
-  load_project,
-} from '../../loader/index.js';
-import type { NodeListType } from '../../nodes/index.js';
-import type { ClusterType } from '../../schema/index.js';
 
 import { define_command } from '../command.js';
 import { type ClusterSecretProvider, OCI_REGISTRY_PROVIDER } from '../utils/cluster-secrets.js';
 import { confirm } from '../utils/confirm.js';
 import { resolve_defaults } from '../utils/defaults.js';
+import { build_node_list, resolve_k0s_provider_options } from '../utils/k0s-provider.js';
+import { create_registry_secret_manifest, get_oci_tag } from '../utils/oci.js';
+import { load_and_resolve_project, sanitize_filename_part } from '../utils/project.js';
+import { validate_cluster_template_requirements } from '../utils/validation.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+
+function kubeconfig_args(kubeconfig_path?: string): string[] {
+  return kubeconfig_path ? [`--kubeconfig=${kubeconfig_path}`] : [];
+}
 
 /**
  * Apply command - orchestrates full cluster setup:
@@ -92,49 +92,12 @@ export const apply_command = define_command({
     }
 
     // ===== Load Project =====
-    console.log('\nLoading project configuration...');
-
-    const root_result = await find_project_root(project_path);
-    if (!is_success(root_result)) {
-      console.error(`  ✗ Error: ${root_result.error.message}`);
-      return root_result;
-    }
-
-    const project_root = root_result.value;
-    console.log(`  → Project root: ${project_root}`);
-
-    const project_result = await load_project(project_root);
+    const project_result = await load_and_resolve_project(project_path, cluster_filter);
     if (!is_success(project_result)) {
-      console.error(`  ✗ Error: ${project_result.error.message}`);
       return project_result;
     }
 
-    const project = project_result.value;
-    console.log(`  ✓ Loaded ${project.templates.length} templates`);
-
-    // ===== Resolve target clusters =====
-    let target_clusters: LoadedClusterType[];
-    if (cluster_filter) {
-      const found = find_cluster(project.clusters, cluster_filter);
-      if (!found) {
-        console.error(`  ✗ Error: Cluster '${cluster_filter}' not found`);
-        return {
-          success: false as const,
-          error: { code: 'NOT_FOUND', message: `Cluster '${cluster_filter}' not found` },
-        };
-      }
-      target_clusters = [found];
-    } else {
-      target_clusters = project.clusters;
-    }
-
-    if (target_clusters.length === 0) {
-      console.error('  ✗ Error: No clusters found in project');
-      return {
-        success: false as const,
-        error: { code: 'NOT_FOUND', message: 'No clusters found in project' },
-      };
-    }
+    const { project_root, project, target_clusters } = project_result.value;
 
     // ===== Confirmation =====
     if (!dry_run) {
@@ -199,42 +162,12 @@ export const apply_command = define_command({
           }
 
           // Build NodeListType for bootstrap workflow
-          const node_list: NodeListType = {
-            cluster: cluster_name,
-            nodes: loaded_cluster.nodes,
-            ...(loaded_cluster.cluster.spec.node_defaults?.label_prefix && {
-              label_prefix: loaded_cluster.cluster.spec.node_defaults.label_prefix,
-            }),
-          } as NodeListType;
+          const node_list = build_node_list(loaded_cluster);
 
           // Load k0s provider with plugin config
+          const provider_options = resolve_k0s_provider_options(loaded_cluster);
           const k0s_package = 'kustodian-k0s';
           const { create_k0s_provider } = await import(k0s_package);
-
-          // Find k0s plugin config from cluster spec
-          const k0s_plugin = loaded_cluster.cluster.spec.plugins?.find(
-            (p) => p.name === 'k0s' || p.name === '@kustodian/plugin-k0s',
-          );
-          const plugin_config = k0s_plugin?.config ?? {};
-
-          const provider_options: Record<string, unknown> = {};
-          if (plugin_config['k0s_version']) {
-            provider_options['k0s_version'] = plugin_config['k0s_version'];
-          }
-          if (plugin_config['telemetry_enabled'] !== undefined) {
-            provider_options['telemetry_enabled'] = plugin_config['telemetry_enabled'];
-          }
-          if (plugin_config['dynamic_config'] !== undefined) {
-            provider_options['dynamic_config'] = plugin_config['dynamic_config'];
-          }
-          if (plugin_config['sans']) {
-            provider_options['sans'] = plugin_config['sans'];
-          }
-          if (plugin_config['default_ssh']) {
-            provider_options['default_ssh'] = plugin_config['default_ssh'];
-          }
-          provider_options['cluster_name'] = loaded_cluster.cluster.metadata.code ?? cluster_name;
-
           const provider = create_k0s_provider(provider_options);
 
           console.log('  → Validating cluster configuration...');
@@ -280,7 +213,7 @@ export const apply_command = define_command({
             // Write kubeconfig to temp file — kept alive for the entire cluster loop
             temp_kubeconfig = path.join(
               (await import('node:os')).tmpdir(),
-              `kustodian-kubeconfig-${cluster_name}.yaml`,
+              `kustodian-kubeconfig-${sanitize_filename_part(cluster_name)}.yaml`,
             );
             const { writeFile } = await import('node:fs/promises');
             await writeFile(temp_kubeconfig, kubeconfig_result.value as string, 'utf-8');
@@ -299,8 +232,16 @@ export const apply_command = define_command({
 
             console.log('  → Waiting for cluster nodes to be ready...');
             try {
-              await execAsync(
-                `kubectl wait --for=condition=Ready node --all --timeout=300s --kubeconfig=${temp_kubeconfig}`,
+              await execFileAsync(
+                'kubectl',
+                [
+                  'wait',
+                  '--for=condition=Ready',
+                  'node',
+                  '--all',
+                  '--timeout=300s',
+                  ...kubeconfig_args(temp_kubeconfig),
+                ],
                 { timeout: 320000 },
               );
               console.log('    ✓ All nodes are ready');
@@ -411,35 +352,14 @@ export const apply_command = define_command({
 
           // Validate template requirements
           console.log('  → Validating template requirements...');
-          // All templates listed in cluster.yaml are deployed (opt-in model)
-          const enabled_template_refs = loaded_cluster.cluster.spec.templates || [];
-
-          if (enabled_template_refs.length > 0) {
-            const enabled_templates = project.templates
-              .filter((t) =>
-                enabled_template_refs.some((ref) => ref.name === t.template.metadata.name),
-              )
-              .map((t) => t.template);
-
-            const requirements_result = validate_template_requirements(
-              enabled_templates,
-              loaded_cluster.nodes,
-            );
-
-            if (!requirements_result.valid) {
-              console.error('  ✗ Template requirement validation failed:');
-              for (const error of requirements_result.errors) {
-                console.error(`    - ${error.template}: ${error.message}`);
-              }
-              return {
-                success: false as const,
-                error: {
-                  code: 'REQUIREMENT_VALIDATION_ERROR',
-                  message: 'Template requirements not met',
-                },
-              };
-            }
-
+          const requirements_check = validate_cluster_template_requirements(
+            loaded_cluster,
+            project.templates,
+          );
+          if (!is_success(requirements_check)) {
+            return requirements_check;
+          }
+          if ((loaded_cluster.cluster.spec.templates || []).length > 0) {
             console.log('    ✓ All template requirements satisfied');
           }
 
@@ -506,7 +426,6 @@ export const apply_command = define_command({
                 const git_source = await get_git_source(project_root);
                 const git_revision = await get_git_revision(project_root);
 
-                const kubeconfig_flag = temp_kubeconfig ? ` --kubeconfig=${temp_kubeconfig}` : '';
                 const ignore_paths = [
                   'node_modules/',
                   '.git/',
@@ -514,8 +433,24 @@ export const apply_command = define_command({
                   '.gitmodules',
                   '.gitattributes',
                 ].join(',');
-                const push_cmd = `flux push artifact ${oci_url} --path="${project_root}" --source="${git_source}" --revision="${git_revision}" --ignore-paths "${ignore_paths}"${kubeconfig_flag}`;
-                await execAsync(push_cmd, { timeout: 120000 });
+                await execFileAsync(
+                  'flux',
+                  [
+                    'push',
+                    'artifact',
+                    oci_url,
+                    '--path',
+                    project_root,
+                    '--source',
+                    git_source,
+                    '--revision',
+                    git_revision,
+                    '--ignore-paths',
+                    ignore_paths,
+                    ...kubeconfig_args(temp_kubeconfig),
+                  ],
+                  { timeout: 120000 },
+                );
                 console.log(`    ✓ Pushed to ${oci_url}`);
               } catch (error) {
                 const err = error as Error;
@@ -530,7 +465,7 @@ export const apply_command = define_command({
               console.log('  → Applying Flux resources...');
               try {
                 // Build combined YAML for all resources
-                const resources: object[] = [];
+                const resources: K8sObjectType[] = [];
 
                 // Add OCIRepository with correct tag and auth
                 if (gen_data.oci_repository) {
@@ -545,12 +480,12 @@ export const apply_command = define_command({
                     };
                   }
 
-                  resources.push(oci_repo);
+                  resources.push(oci_repo as K8sObjectType);
                 }
 
                 // Add all Kustomizations
                 for (const k of gen_data.kustomizations) {
-                  resources.push(k.flux_kustomization);
+                  resources.push(k.flux_kustomization as K8sObjectType);
                 }
 
                 // Serialize and apply via kubectl client
@@ -604,45 +539,13 @@ export const apply_command = define_command({
 });
 
 /**
- * Resolves the OCI tag based on cluster strategy.
- */
-async function get_oci_tag(cluster: ClusterType, project_root: string): Promise<string> {
-  if (!cluster.spec.oci) {
-    return 'latest';
-  }
-
-  const strategy = cluster.spec.oci.tag_strategy || 'git-sha';
-
-  switch (strategy) {
-    case 'cluster':
-      return cluster.metadata.name;
-    case 'manual':
-      return cluster.spec.oci.tag || 'latest';
-    case 'version': {
-      try {
-        const { stdout } = await execAsync('git describe --tags --abbrev=0', { cwd: project_root });
-        return stdout.trim();
-      } catch {
-        return 'latest';
-      }
-    }
-    default: {
-      try {
-        const { stdout } = await execAsync('git rev-parse --short HEAD', { cwd: project_root });
-        return `sha1-${stdout.trim()}`;
-      } catch {
-        return 'latest';
-      }
-    }
-  }
-}
-
-/**
  * Gets the git remote URL for source metadata.
  */
 async function get_git_source(project_root: string): Promise<string> {
   try {
-    const { stdout } = await execAsync('git config --get remote.origin.url', { cwd: project_root });
+    const { stdout } = await execFileAsync('git', ['config', '--get', 'remote.origin.url'], {
+      cwd: project_root,
+    });
     return stdout.trim();
   } catch {
     return 'unknown';
@@ -654,7 +557,7 @@ async function get_git_source(project_root: string): Promise<string> {
  */
 async function get_git_revision(project_root: string): Promise<string> {
   try {
-    const { stdout } = await execAsync('git rev-parse HEAD', { cwd: project_root });
+    const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: project_root });
     return `sha1:${stdout.trim()}`;
   } catch {
     return 'unknown';
@@ -687,7 +590,11 @@ async function prompt_for_input(message: string, hidden = false): Promise<string
           rl.close();
           resolve(input);
         } else if (c === '\u0003') {
-          process.exit(1);
+          stdin.setRawMode?.(false);
+          stdin.removeListener('data', onData);
+          process.stdout.write('\n');
+          rl.close();
+          process.exit(130);
         } else if (c === '\u007F') {
           if (input.length > 0) input = input.slice(0, -1);
         } else {
@@ -705,35 +612,6 @@ async function prompt_for_input(message: string, hidden = false): Promise<string
 }
 
 /**
- * Creates a dockerconfigjson Secret manifest for OCI registry auth.
- */
-function create_registry_secret_manifest(
-  registry: string,
-  token: string,
-  secret_name: string,
-  namespace: string,
-): object {
-  const authString = token.includes(':')
-    ? Buffer.from(token).toString('base64')
-    : Buffer.from(`_:${token}`).toString('base64');
-
-  return {
-    apiVersion: 'v1',
-    kind: 'Secret',
-    metadata: {
-      name: secret_name,
-      namespace: namespace,
-    },
-    type: 'kubernetes.io/dockerconfigjson',
-    data: {
-      '.dockerconfigjson': Buffer.from(
-        JSON.stringify({ auths: { [registry]: { auth: authString } } }),
-      ).toString('base64'),
-    },
-  };
-}
-
-/**
  * Ensures OCI registry secret exists, creating if needed.
  * Checks env vars, prompts user for token, creates secret if needed.
  */
@@ -744,13 +622,15 @@ async function ensure_oci_cluster_secret(
   namespace: string,
   kubeconfig_path?: string,
 ): Promise<boolean> {
-  const kc_flag = kubeconfig_path ? ` --kubeconfig=${kubeconfig_path}` : '';
-
   // Check if secret exists
   try {
-    await execAsync(`kubectl get secret ${secret_name} -n ${namespace}${kc_flag}`, {
-      timeout: 5000,
-    });
+    await execFileAsync(
+      'kubectl',
+      ['get', 'secret', secret_name, '-n', namespace, ...kubeconfig_args(kubeconfig_path)],
+      {
+        timeout: 5000,
+      },
+    );
     console.log('    ✓ OCI registry secret exists');
     return true;
   } catch {
@@ -824,10 +704,12 @@ async function ensure_namespace(
   dry_run: boolean,
   kubeconfig_path?: string,
 ): Promise<boolean> {
-  const kc_flag = kubeconfig_path ? ` --kubeconfig=${kubeconfig_path}` : '';
-
   try {
-    await execAsync(`kubectl get namespace ${namespace}${kc_flag}`, { timeout: 5000 });
+    await execFileAsync(
+      'kubectl',
+      ['get', 'namespace', namespace, ...kubeconfig_args(kubeconfig_path)],
+      { timeout: 5000 },
+    );
     return true;
   } catch {
     // Need to create
@@ -839,7 +721,11 @@ async function ensure_namespace(
   }
 
   try {
-    await execAsync(`kubectl create namespace ${namespace}${kc_flag}`, { timeout: 10000 });
+    await execFileAsync(
+      'kubectl',
+      ['create', 'namespace', namespace, ...kubeconfig_args(kubeconfig_path)],
+      { timeout: 10000 },
+    );
     console.log(`    ✓ Created namespace: ${namespace}`);
     return true;
   } catch (error) {

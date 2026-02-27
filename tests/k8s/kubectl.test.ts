@@ -10,6 +10,7 @@ describe('KubectlClient', () => {
       expect(client).toBeDefined();
       expect(client.apply).toBeDefined();
       expect(client.apply_stdin).toBeDefined();
+      expect(client.diff_stdin).toBeDefined();
       expect(client.get).toBeDefined();
       expect(client.delete).toBeDefined();
       expect(client.label).toBeDefined();

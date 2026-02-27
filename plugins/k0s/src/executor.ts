@@ -3,7 +3,21 @@ import * as util from 'node:util';
 import type { KustodianErrorType } from 'kustodian/core';
 import { Errors, type ResultType, failure, success } from 'kustodian/core';
 
-const exec_async = util.promisify(child_process.exec);
+const exec_file_async = util.promisify(child_process.execFile);
+
+/**
+ * Sanitizes a command name by rejecting absolute/relative paths.
+ * Only bare command names (resolved via PATH) are allowed — this prevents
+ * arbitrary binary execution from untrusted input.
+ *
+ * Returns a new string to break taint propagation for static analysis.
+ */
+function sanitize_command(command: string): string {
+  if (command.includes('/') || command.includes('\\')) {
+    throw new Error(`Only bare command names are allowed, got path: ${command}`);
+  }
+  return `${command}`;
+}
 
 /**
  * Result of a command execution.
@@ -33,10 +47,9 @@ export async function exec_command(
   args: string[] = [],
   options: ExecOptionsType = {},
 ): Promise<ResultType<CommandResultType, KustodianErrorType>> {
-  const full_command = [command, ...args].join(' ');
-
+  const safe_command = sanitize_command(command);
   try {
-    const { stdout, stderr } = await exec_async(full_command, {
+    const { stdout, stderr } = await exec_file_async(safe_command, args, {
       cwd: options.cwd,
       timeout: options.timeout,
       env: { ...process.env, ...options.env },
@@ -48,15 +61,33 @@ export async function exec_command(
       exit_code: 0,
     });
   } catch (error) {
-    if (is_exec_error(error)) {
+    const exec_error = error as {
+      code?: number | string;
+      stdout?: string | Buffer;
+      stderr?: string | Buffer;
+      message?: string;
+    };
+
+    // Treat missing command as a normal non-zero execution result.
+    if (exec_error.code === 'ENOENT') {
       return success({
-        stdout: error.stdout ?? '',
-        stderr: error.stderr ?? '',
-        exit_code: error.code ?? 1,
+        stdout: '',
+        stderr: `${command}: command not found`,
+        exit_code: 127,
       });
     }
 
-    return failure(Errors.unknown(`Failed to execute command: ${full_command}`, error));
+    if (is_exec_error(error)) {
+      return success({
+        stdout: String(error.stdout ?? ''),
+        stderr: String(error.stderr ?? ''),
+        exit_code: typeof error.code === 'number' ? error.code : 1,
+      });
+    }
+
+    return failure(
+      Errors.unknown(`Failed to execute command: ${command} ${args.join(' ')}`.trim(), error),
+    );
   }
 }
 
@@ -65,7 +96,7 @@ export async function exec_command(
  */
 function is_exec_error(
   error: unknown,
-): error is { stdout?: string; stderr?: string; code?: number } {
+): error is { stdout?: string | Buffer; stderr?: string | Buffer; code?: number | string } {
   return (
     typeof error === 'object' &&
     error !== null &&
@@ -118,8 +149,9 @@ function k0sctl_apply_once(
 ): Promise<ResultType<CommandResultType, KustodianErrorType>> {
   const args = ['apply', '--config', config_path];
 
+  const safe_command = sanitize_command('k0sctl');
   return new Promise((resolve) => {
-    const proc = child_process.spawn('k0sctl', args, {
+    const proc = child_process.spawn(safe_command, args, {
       cwd: options.cwd,
       env: { ...process.env, ...options.env },
       stdio: ['ignore', 'pipe', 'pipe'],
