@@ -64,7 +64,7 @@ jobs:
 
           # Create OCIRepository pointing to local registry
           kubectl apply -f - <<EOF
-          apiVersion: source.toolkit.fluxcd.io/v1beta2
+          apiVersion: source.toolkit.fluxcd.io/v1
           kind: OCIRepository
           metadata:
             name: kustodian-e2e
