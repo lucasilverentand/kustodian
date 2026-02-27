@@ -94,7 +94,7 @@ jobs:
           name=$(jq -r .name package.json)
           version=$(jq -r .version package.json)
           echo "Publishing $name@$version"
-          if output=$(npm publish --provenance --access public 2>&1); then
+          if output=$(npm publish --provenance --access public --ignore-scripts 2>&1); then
             echo "✅ Published $name@$version"
           else
             if echo "$output" | grep -q "cannot publish over the previously published"; then
@@ -129,11 +129,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
-
       - uses: actions/download-artifact@v4
         with:
           name: build-output
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 'latest'
+          registry-url: 'https://npm.pkg.github.com'
 
       - name: Publish ${{ matrix.package }}
         working-directory: ${{ matrix.path }}
@@ -142,7 +145,7 @@ jobs:
           jq --arg name "${{ matrix.scoped_name }}" '.name = $name' package.json > package.json.tmp
           mv package.json.tmp package.json
           echo "Publishing ${{ matrix.scoped_name }}@$version"
-          if output=$(bun publish --access public --registry https://npm.pkg.github.com 2>&1); then
+          if output=$(npm publish --access public --ignore-scripts 2>&1); then
             echo "✅ Published ${{ matrix.scoped_name }}@$version"
           else
             if echo "$output" | grep -q "cannot publish over the previously published"; then
@@ -154,4 +157,4 @@ jobs:
             fi
           fi
         env:
-          BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
