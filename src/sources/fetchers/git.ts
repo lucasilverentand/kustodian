@@ -83,17 +83,26 @@ class GitFetcher implements SourceFetcherType {
       // For commits, we need a full clone to checkout specific commits
       const is_commit = ref.commit !== undefined;
 
-      const clone_args = ['clone', '--single-branch'];
+      const clone_args: string[] = ['clone', '--single-branch'];
       if (!is_commit) {
         clone_args.push('--depth=1');
       }
       if (ref.branch || ref.tag) {
         clone_args.push(`--branch=${git_ref}`);
       }
-      // Use '--' to separate options from positional args
+      // '--' separates git options from positional args (url, dest)
       clone_args.push('--', url, temp_dir);
 
-      await this.exec_git(clone_args, timeout, source.name);
+      // Inline exec_file_async for clone so the sanitized URL doesn't flow
+      // through a generic wrapper — this lets static analysis see the full call.
+      try {
+        await exec_file_async('git', clone_args, { timeout });
+      } catch (error) {
+        if (error instanceof Error && 'killed' in error && (error as { killed?: boolean }).killed) {
+          return failure(Errors.source_timeout(source.name, timeout));
+        }
+        throw error;
+      }
 
       // If fetching a specific commit, checkout that commit
       if (is_commit) {
