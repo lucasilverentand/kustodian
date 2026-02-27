@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.2](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.5.1...kustodian-v1.5.2) (2026-02-27)
+
+
+### Bug Fixes
+
+* skip prepublish scripts and fix GitHub Packages auth in release ([8460838](https://github.com/lucasilverentand/kustodian/commit/84608381f975d03f3dcba643503d337ea75b4d6f))
+
 ## [1.5.1](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.5.0...kustodian-v1.5.1) (2026-02-27)
 
 
