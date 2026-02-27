@@ -304,6 +304,22 @@ describe('E2E: CLI Commands', () => {
         expect(result.error.code).toBe('NOT_FOUND');
       }
     });
+
+    it('should fail for unsupported provider', async () => {
+      const cli = create_cli({ name: 'kustodian', version: '1.0.0' });
+      cli.command(diff_command);
+
+      const fixtures_path = path.join(import.meta.dir, 'fixtures', 'valid-project');
+      const result = await cli.run(
+        ['diff', '--project', fixtures_path, '--cluster', 'local', '--provider', 'aws'],
+        create_container(),
+      );
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.code).toBe('UNSUPPORTED_PROVIDER');
+      }
+    });
   });
 
   describe('CLI argument parsing', () => {
