@@ -8,11 +8,7 @@ import {
   create_k0s_provider_instance,
   resolve_k0s_provider_options,
 } from '../utils/k0s-provider.js';
-import { load_and_resolve_project } from '../utils/project.js';
-
-function sanitize_filename_part(value: string): string {
-  return value.replace(/[^a-zA-Z0-9._-]/g, '_');
-}
+import { load_and_resolve_project, sanitize_filename_part } from '../utils/project.js';
 
 /**
  * Kubeconfig command - pulls kubeconfig from a k0s cluster and merges it

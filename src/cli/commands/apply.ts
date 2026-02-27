@@ -13,14 +13,10 @@ import { confirm } from '../utils/confirm.js';
 import { resolve_defaults } from '../utils/defaults.js';
 import { build_node_list, resolve_k0s_provider_options } from '../utils/k0s-provider.js';
 import { create_registry_secret_manifest, get_oci_tag } from '../utils/oci.js';
-import { load_and_resolve_project } from '../utils/project.js';
+import { load_and_resolve_project, sanitize_filename_part } from '../utils/project.js';
 import { validate_cluster_template_requirements } from '../utils/validation.js';
 
 const execFileAsync = promisify(execFile);
-
-function sanitize_filename_part(value: string): string {
-  return value.replace(/[^a-zA-Z0-9._-]/g, '_');
-}
 
 function kubeconfig_args(kubeconfig_path?: string): string[] {
   return kubeconfig_path ? [`--kubeconfig=${kubeconfig_path}`] : [];
@@ -598,7 +594,7 @@ async function prompt_for_input(message: string, hidden = false): Promise<string
           stdin.removeListener('data', onData);
           process.stdout.write('\n');
           rl.close();
-          resolve('');
+          process.exit(130);
         } else if (c === '\u007F') {
           if (input.length > 0) input = input.slice(0, -1);
         } else {

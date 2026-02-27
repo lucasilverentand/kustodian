@@ -22,7 +22,7 @@ import {
   get_oci_tag,
   get_provider_token_from_env,
 } from '../utils/oci.js';
-import { load_and_resolve_project } from '../utils/project.js';
+import { load_and_resolve_project, sanitize_filename_part } from '../utils/project.js';
 import { validate_cluster_template_requirements } from '../utils/validation.js';
 
 /**
@@ -133,7 +133,10 @@ export const diff_command = define_command({
           return kubeconfig_result;
         }
 
-        temp_kubeconfig = path.join(tmpdir(), `kustodian-diff-kubeconfig-${cluster_name}.yaml`);
+        temp_kubeconfig = path.join(
+          tmpdir(),
+          `kustodian-diff-kubeconfig-${sanitize_filename_part(cluster_name)}.yaml`,
+        );
         await writeFile(temp_kubeconfig, kubeconfig_result.value, 'utf-8');
 
         const client_options = { kubeconfig: temp_kubeconfig };
@@ -279,7 +282,7 @@ export const diff_command = define_command({
 
         console.log('\n  → Diffing rendered workloads...');
         temp_flux_kustomization_dir = await mkdtemp(
-          path.join(tmpdir(), `kustodian-diff-${cluster_name}-`),
+          path.join(tmpdir(), `kustodian-diff-${sanitize_filename_part(cluster_name)}-`),
         );
 
         for (const generated of gen_data.kustomizations) {

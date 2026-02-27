@@ -77,19 +77,26 @@ class GitFetcher implements SourceFetcherType {
       // Clone with depth=1 for efficiency (shallow clone)
       // For commits, we need a full clone to checkout specific commits
       const is_commit = ref.commit !== undefined;
-      const clone_args = ['clone', '--single-branch', url, temp_dir];
+      // Validate URL to prevent argument injection (e.g. --upload-pack)
+      if (url.startsWith('-')) {
+        return failure(Errors.invalid_argument('source', `Invalid git URL: ${url}`));
+      }
+
+      const clone_args = ['clone', '--single-branch'];
       if (!is_commit) {
-        clone_args.splice(1, 0, '--depth=1');
+        clone_args.push('--depth=1');
       }
       if (ref.branch || ref.tag) {
-        clone_args.splice(1, 0, `--branch=${git_ref}`);
+        clone_args.push(`--branch=${git_ref}`);
       }
+      // Use '--' to separate options from positional args
+      clone_args.push('--', url, temp_dir);
 
       await this.exec_git(clone_args, timeout, source.name);
 
       // If fetching a specific commit, checkout that commit
       if (is_commit) {
-        await this.exec_git(['checkout', git_ref], timeout, source.name, temp_dir);
+        await this.exec_git(['checkout', '--', git_ref], timeout, source.name, temp_dir);
       }
 
       // Get the actual commit SHA for versioning
@@ -147,9 +154,18 @@ class GitFetcher implements SourceFetcherType {
 
     try {
       // Use ls-remote to list refs without cloning
-      const { stdout } = await exec_file_async('git', ['ls-remote', '--tags', '--heads', url], {
-        timeout: DEFAULT_TIMEOUT,
-      });
+      // Validate URL to prevent argument injection (e.g. --upload-pack)
+      if (url.startsWith('-')) {
+        return failure(Errors.invalid_argument('source', `Invalid git URL: ${url}`));
+      }
+
+      const { stdout } = await exec_file_async(
+        'git',
+        ['ls-remote', '--tags', '--heads', '--', url],
+        {
+          timeout: DEFAULT_TIMEOUT,
+        },
+      );
 
       const versions: RemoteVersionType[] = [];
 

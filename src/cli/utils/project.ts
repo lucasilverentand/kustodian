@@ -8,6 +8,13 @@ import {
   load_project,
 } from '../../loader/index.js';
 
+/**
+ * Sanitizes a string for use in file paths by replacing non-alphanumeric characters.
+ */
+export function sanitize_filename_part(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
 export interface LoadedProjectType {
   project_root: string;
   project: ProjectType;
