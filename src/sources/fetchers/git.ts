@@ -28,6 +28,24 @@ export function create_git_fetcher(): SourceFetcherType {
 class GitFetcher implements SourceFetcherType {
   readonly type = 'git' as const;
 
+  /**
+   * Validates a Git remote URL to prevent it from being interpreted as a Git option.
+   * In particular, disallow values starting with '-' such as '--upload-pack=...'.
+   */
+  private validate_git_url(url: string): void {
+    if (!url || url.trim() === '') {
+      throw Errors.invalid_argument('source.git.url', 'Git URL must not be empty');
+    }
+
+    // Prevent URLs that could be interpreted by git as options
+    if (url.startsWith('-')) {
+      throw Errors.invalid_argument(
+        'source.git.url',
+        'Git URL must not start with "-"; option-like values are not allowed',
+      );
+    }
+  }
+
   is_mutable(source: TemplateSourceType): boolean {
     if (!is_git_source(source)) return true;
     // Branches are mutable, tags and commits are immutable
@@ -43,6 +61,7 @@ class GitFetcher implements SourceFetcherType {
     }
 
     const { url, ref, path: subpath } = source.git;
+    this.validate_git_url(url);
     const timeout = options?.timeout ?? DEFAULT_TIMEOUT;
 
     // Determine the ref to fetch
