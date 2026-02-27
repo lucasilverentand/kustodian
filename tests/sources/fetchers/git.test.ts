@@ -6,35 +6,29 @@ describe('GitFetcher', () => {
 
   describe('fetch', () => {
     it('rejects URLs starting with a dash to prevent argument injection', async () => {
-      const result = await fetcher.fetch({
-        name: 'malicious',
-        git: {
-          url: '--upload-pack=malicious',
-          ref: { branch: 'main' },
-        },
-      });
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error.message).toContain('Invalid git URL');
-      }
+      await expect(
+        fetcher.fetch({
+          name: 'malicious',
+          git: {
+            url: '--upload-pack=malicious',
+            ref: { branch: 'main' },
+          },
+        }),
+      ).rejects.toThrow('must not start with "-"');
     });
   });
 
   describe('list_versions', () => {
     it('rejects URLs starting with a dash to prevent argument injection', async () => {
-      const result = await fetcher.list_versions({
-        name: 'malicious',
-        git: {
-          url: '--upload-pack=malicious',
-          ref: { branch: 'main' },
-        },
-      });
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error.message).toContain('Invalid git URL');
-      }
+      await expect(
+        fetcher.list_versions({
+          name: 'malicious',
+          git: {
+            url: '--upload-pack=malicious',
+            ref: { branch: 'main' },
+          },
+        }),
+      ).rejects.toThrow('must not start with "-"');
     });
   });
 });

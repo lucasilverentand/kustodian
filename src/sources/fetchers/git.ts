@@ -77,10 +77,6 @@ class GitFetcher implements SourceFetcherType {
       // Clone with depth=1 for efficiency (shallow clone)
       // For commits, we need a full clone to checkout specific commits
       const is_commit = ref.commit !== undefined;
-      // Validate URL to prevent argument injection (e.g. --upload-pack)
-      if (url.startsWith('-')) {
-        return failure(Errors.invalid_argument('source', `Invalid git URL: ${url}`));
-      }
 
       const clone_args = ['clone', '--single-branch'];
       if (!is_commit) {
@@ -151,14 +147,9 @@ class GitFetcher implements SourceFetcherType {
     }
 
     const { url } = source.git;
+    this.validate_git_url(url);
 
     try {
-      // Use ls-remote to list refs without cloning
-      // Validate URL to prevent argument injection (e.g. --upload-pack)
-      if (url.startsWith('-')) {
-        return failure(Errors.invalid_argument('source', `Invalid git URL: ${url}`));
-      }
-
       const { stdout } = await exec_file_async(
         'git',
         ['ls-remote', '--tags', '--heads', '--', url],
