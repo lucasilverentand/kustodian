@@ -1,34 +1,39 @@
-import { execFile } from 'node:child_process';
 import { mkdtemp, rm, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
-import { promisify } from 'node:util';
 import { is_success, success } from '../../core/index.js';
-import {
-  create_generator,
-  serialize_resource,
-  validate_template_requirements,
-} from '../../generator/index.js';
+import { create_generator, serialize_resource } from '../../generator/index.js';
 import { create_flux_client } from '../../k8s/flux.js';
+import type { K8sObjectType } from '../../k8s/kubectl.js';
 import { create_kubectl_client } from '../../k8s/kubectl.js';
-import {
-  type LoadedClusterType,
-  find_cluster,
-  find_project_root,
-  load_project,
-} from '../../loader/index.js';
-import type { NodeListType } from '../../nodes/index.js';
-import type { ClusterType } from '../../schema/index.js';
 import { define_command } from '../command.js';
 import { OCI_REGISTRY_PROVIDER } from '../utils/cluster-secrets.js';
 import { resolve_defaults } from '../utils/defaults.js';
-
-const exec_file_async = promisify(execFile);
+import {
+  type K0sProviderType,
+  build_node_list,
+  create_k0s_provider_instance,
+  resolve_k0s_provider_options,
+} from '../utils/k0s-provider.js';
+import { is_not_found_error } from '../utils/k8s-errors.js';
+import {
+  create_namespace_manifest,
+  create_registry_secret_manifest,
+  get_oci_tag,
+  get_provider_token_from_env,
+} from '../utils/oci.js';
+import { load_and_resolve_project } from '../utils/project.js';
+import { validate_cluster_template_requirements } from '../utils/validation.js';
 
 /**
  * Diff command - previews cluster changes without applying:
  * 1. Diff Flux control-plane resources with kubectl diff
  * 2. Diff rendered workloads with flux diff kustomization
+ *
+ * Exit codes follow Unix diff convention:
+ *   0 = no changes detected
+ *   1 = changes detected (not an error)
+ *   2 = error occurred
  */
 export const diff_command = define_command({
   name: 'diff',
@@ -71,46 +76,12 @@ export const diff_command = define_command({
 
     console.log('\n━━━ Kustodian Diff ━━━');
 
-    console.log('\nLoading project configuration...');
-    const root_result = await find_project_root(project_path);
-    if (!is_success(root_result)) {
-      console.error(`  ✗ Error: ${root_result.error.message}`);
-      return root_result;
-    }
-
-    const project_root = root_result.value;
-    console.log(`  → Project root: ${project_root}`);
-
-    const project_result = await load_project(project_root);
+    const project_result = await load_and_resolve_project(project_path, cluster_filter);
     if (!is_success(project_result)) {
-      console.error(`  ✗ Error: ${project_result.error.message}`);
       return project_result;
     }
 
-    const project = project_result.value;
-    console.log(`  ✓ Loaded ${project.templates.length} templates`);
-
-    let target_clusters: LoadedClusterType[];
-    if (cluster_filter) {
-      const found = find_cluster(project.clusters, cluster_filter);
-      if (!found) {
-        return {
-          success: false as const,
-          error: { code: 'NOT_FOUND', message: `Cluster '${cluster_filter}' not found` },
-        };
-      }
-      target_clusters = [found];
-    } else {
-      target_clusters = project.clusters;
-    }
-
-    if (target_clusters.length === 0) {
-      return {
-        success: false as const,
-        error: { code: 'NOT_FOUND', message: 'No clusters found in project' },
-      };
-    }
-
+    const { project_root, project, target_clusters } = project_result.value;
     let has_changes = false;
 
     for (const loaded_cluster of target_clusters) {
@@ -131,73 +102,25 @@ export const diff_command = define_command({
         };
       }
 
-      const enabled_template_refs = loaded_cluster.cluster.spec.templates || [];
-      if (enabled_template_refs.length > 0) {
-        const enabled_templates = project.templates
-          .filter((t) => enabled_template_refs.some((ref) => ref.name === t.template.metadata.name))
-          .map((t) => t.template);
-
-        const requirements_result = validate_template_requirements(
-          enabled_templates,
-          loaded_cluster.nodes,
-        );
-
-        if (!requirements_result.valid) {
-          process.exitCode = 2;
-          console.error('\n  ✗ Template requirement validation failed:');
-          for (const error of requirements_result.errors) {
-            console.error(`    - ${error.template}: ${error.message}`);
-          }
-          return {
-            success: false as const,
-            error: {
-              code: 'REQUIREMENT_VALIDATION_ERROR',
-              message: 'Template requirements not met',
-            },
-          };
-        }
+      const validation_result = validate_cluster_template_requirements(
+        loaded_cluster,
+        project.templates,
+      );
+      if (!is_success(validation_result)) {
+        process.exitCode = 2;
+        return validation_result;
       }
 
       let temp_kubeconfig: string | undefined;
       let temp_flux_kustomization_dir: string | undefined;
-      let provider: { cleanup?: () => Promise<unknown> } | undefined;
+      let provider: K0sProviderType | undefined;
 
       try {
-        const node_list: NodeListType = {
-          cluster: cluster_name,
-          nodes: loaded_cluster.nodes,
-          ...(loaded_cluster.cluster.spec.node_defaults?.label_prefix && {
-            label_prefix: loaded_cluster.cluster.spec.node_defaults.label_prefix,
-          }),
-        } as NodeListType;
-
-        const k0s_package = 'kustodian-k0s';
-        const { create_k0s_provider } = await import(k0s_package);
-        const k0s_plugin = loaded_cluster.cluster.spec.plugins?.find(
-          (p) => p.name === 'k0s' || p.name === '@kustodian/plugin-k0s',
-        );
-        const plugin_config = k0s_plugin?.config ?? {};
-
-        const provider_options: Record<string, unknown> = {};
-        if (plugin_config['k0s_version']) {
-          provider_options['k0s_version'] = plugin_config['k0s_version'];
-        }
-        if (plugin_config['telemetry_enabled'] !== undefined) {
-          provider_options['telemetry_enabled'] = plugin_config['telemetry_enabled'];
-        }
-        if (plugin_config['dynamic_config'] !== undefined) {
-          provider_options['dynamic_config'] = plugin_config['dynamic_config'];
-        }
-        if (plugin_config['sans']) {
-          provider_options['sans'] = plugin_config['sans'];
-        }
-        if (plugin_config['default_ssh']) {
-          provider_options['default_ssh'] = plugin_config['default_ssh'];
-        }
-        provider_options['cluster_name'] = loaded_cluster.cluster.metadata.code ?? cluster_name;
-
-        const provider_instance = create_k0s_provider(provider_options);
+        const node_list = build_node_list(loaded_cluster);
+        const provider_options = resolve_k0s_provider_options(loaded_cluster);
+        const provider_instance = await create_k0s_provider_instance(provider_options);
         provider = provider_instance;
+
         const validate_result = provider_instance.validate(node_list);
         if (!is_success(validate_result)) {
           process.exitCode = 2;
@@ -211,7 +134,7 @@ export const diff_command = define_command({
         }
 
         temp_kubeconfig = path.join(tmpdir(), `kustodian-diff-kubeconfig-${cluster_name}.yaml`);
-        await writeFile(temp_kubeconfig, kubeconfig_result.value as string, 'utf-8');
+        await writeFile(temp_kubeconfig, kubeconfig_result.value, 'utf-8');
 
         const client_options = { kubeconfig: temp_kubeconfig };
         const kubectl_client = create_kubectl_client(client_options);
@@ -254,7 +177,7 @@ export const diff_command = define_command({
         const tag = await get_oci_tag(loaded_cluster.cluster, project_root);
 
         let oci_has_auth = false;
-        const resources: object[] = [];
+        const resources: K8sObjectType[] = [];
 
         const secret_check = await kubectl_client.get({
           kind: 'Secret',
@@ -323,11 +246,11 @@ export const diff_command = define_command({
               secretRef: { name: oci_registry_secret_name },
             };
           }
-          resources.push(oci_repo);
+          resources.push(oci_repo as K8sObjectType);
         }
 
         for (const k of gen_data.kustomizations) {
-          resources.push(k.flux_kustomization);
+          resources.push(k.flux_kustomization as K8sObjectType);
         }
 
         if (resources.length > 0) {
@@ -418,88 +341,3 @@ export const diff_command = define_command({
     return success(undefined);
   },
 });
-
-function get_provider_token_from_env(env_vars: string[]): string | undefined {
-  for (const env_var of env_vars) {
-    const env_token = process.env[env_var];
-    if (env_token) {
-      console.log(`  → Using ${env_var} from environment`);
-      return env_token;
-    }
-  }
-  return undefined;
-}
-
-function is_not_found_error(message: string): boolean {
-  return /not\s*found/i.test(message);
-}
-
-function create_namespace_manifest(namespace: string): object {
-  return {
-    apiVersion: 'v1',
-    kind: 'Namespace',
-    metadata: {
-      name: namespace,
-    },
-  };
-}
-
-function create_registry_secret_manifest(
-  registry: string,
-  token: string,
-  secret_name: string,
-  namespace: string,
-): object {
-  const auth_string = token.includes(':')
-    ? Buffer.from(token).toString('base64')
-    : Buffer.from(`_:${token}`).toString('base64');
-
-  return {
-    apiVersion: 'v1',
-    kind: 'Secret',
-    metadata: {
-      name: secret_name,
-      namespace: namespace,
-    },
-    type: 'kubernetes.io/dockerconfigjson',
-    data: {
-      '.dockerconfigjson': Buffer.from(
-        JSON.stringify({ auths: { [registry]: { auth: auth_string } } }),
-      ).toString('base64'),
-    },
-  };
-}
-
-async function get_oci_tag(cluster: ClusterType, project_root: string): Promise<string> {
-  if (!cluster.spec.oci) {
-    return 'latest';
-  }
-
-  const strategy = cluster.spec.oci.tag_strategy || 'git-sha';
-  switch (strategy) {
-    case 'cluster':
-      return cluster.metadata.name;
-    case 'manual':
-      return cluster.spec.oci.tag || 'latest';
-    case 'version': {
-      try {
-        const { stdout } = await exec_file_async('git', ['describe', '--tags', '--abbrev=0'], {
-          cwd: project_root,
-        });
-        return stdout.trim();
-      } catch {
-        return 'latest';
-      }
-    }
-    default: {
-      try {
-        const { stdout } = await exec_file_async('git', ['rev-parse', '--short', 'HEAD'], {
-          cwd: project_root,
-        });
-        return `sha1-${stdout.trim()}`;
-      } catch {
-        return 'latest';
-      }
-    }
-  }
-}
