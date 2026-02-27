@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.1](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.5.0...kustodian-v1.5.1) (2026-02-27)
+
+
+### Bug Fixes
+
+* move kustodian from peerDependencies to devDependencies in plugins ([60c356d](https://github.com/lucasilverentand/kustodian/commit/60c356dd3fd606a0150cd8a7deaa927cbce754c1))
+* remove circular peerDependencies from plugins ([9df7a21](https://github.com/lucasilverentand/kustodian/commit/9df7a213c06f3d6be1ec7b9b885dc9278b3c47ad))
+
 ## [1.5.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.4.0...kustodian-v1.5.0) (2026-02-13)
 
 
