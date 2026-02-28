@@ -164,10 +164,6 @@
                       "default": {
                         "type": "string",
                         "minLength": 1
-                      },
-                      "create": {
-                        "type": "boolean",
-                        "default": true
                       }
                     },
                     "required": ["default"],

@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import type { KustodianErrorType } from '../core/index.js';
 import { type ResultType, failure, success } from '../core/index.js';
 
+import YAML from 'yaml';
 import { exec_command } from './exec.js';
 
 /**
@@ -49,6 +50,19 @@ export interface KubeconfigManagerType {
    * Merges a kubeconfig into the default kubeconfig.
    */
   merge(new_kubeconfig: string): Promise<ResultType<void, KustodianErrorType>>;
+
+  /**
+   * Renames kubeconfig entries to use cluster-scoped names.
+   *
+   * Naming convention:
+   *   Context:  <cluster_name>
+   *   Cluster:  <cluster_name>
+   *   User:     <cluster_name>-admin
+   */
+  rename_entries(
+    kubeconfig_path: string,
+    cluster_name: string,
+  ): Promise<ResultType<void, KustodianErrorType>>;
 }
 
 /**
@@ -216,6 +230,55 @@ export function create_kubeconfig_manager(): KubeconfigManagerType {
         return failure({
           code: 'KUBECONFIG_WRITE_ERROR',
           message: `Failed to write merged kubeconfig: ${(error as Error).message}`,
+        });
+      }
+    },
+
+    async rename_entries(kubeconfig_path, cluster_name) {
+      try {
+        const content = await fs.readFile(kubeconfig_path, 'utf-8');
+        // biome-ignore lint: kubeconfig is an untyped YAML document
+        const config = YAML.parse(content) as any;
+
+        if (!config || typeof config !== 'object') {
+          return failure({
+            code: 'KUBECONFIG_PARSE_ERROR',
+            message: 'Failed to parse kubeconfig YAML',
+          });
+        }
+
+        const user_name = `${cluster_name}-admin`;
+
+        if (Array.isArray(config.clusters)) {
+          for (const entry of config.clusters) {
+            entry.name = cluster_name;
+          }
+        }
+
+        if (Array.isArray(config.users)) {
+          for (const entry of config.users) {
+            entry.name = user_name;
+          }
+        }
+
+        if (Array.isArray(config.contexts)) {
+          for (const entry of config.contexts) {
+            entry.name = cluster_name;
+            if (entry.context) {
+              entry.context.cluster = cluster_name;
+              entry.context.user = user_name;
+            }
+          }
+        }
+
+        config['current-context'] = cluster_name;
+
+        await fs.writeFile(kubeconfig_path, YAML.stringify(config), 'utf-8');
+        return success(undefined);
+      } catch (error) {
+        return failure({
+          code: 'KUBECONFIG_WRITE_ERROR',
+          message: `Failed to rename kubeconfig entries: ${(error as Error).message}`,
         });
       }
     },

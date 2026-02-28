@@ -7,6 +7,7 @@ import { api_version_schema, metadata_schema, values_schema } from './common.js'
  */
 export const cluster_metadata_schema = metadata_schema.extend({
   code: z.string().min(1).optional(),
+  context: z.string().min(1).optional(),
   description: z.string().optional(),
   environment: z.string().min(1).optional(),
   region: z.string().min(1).optional(),

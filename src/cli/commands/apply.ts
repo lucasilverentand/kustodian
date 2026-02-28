@@ -18,8 +18,11 @@ import { validate_cluster_template_requirements } from '../utils/validation.js';
 
 const execFileAsync = promisify(execFile);
 
-function kubeconfig_args(kubeconfig_path?: string): string[] {
-  return kubeconfig_path ? [`--kubeconfig=${kubeconfig_path}`] : [];
+function client_extra_args(options: { kubeconfig?: string; context?: string }): string[] {
+  const args: string[] = [];
+  if (options.kubeconfig) args.push(`--kubeconfig=${options.kubeconfig}`);
+  if (options.context) args.push(`--context=${options.context}`);
+  return args;
 }
 
 /**
@@ -218,10 +221,24 @@ export const apply_command = define_command({
             const { writeFile } = await import('node:fs/promises');
             await writeFile(temp_kubeconfig, kubeconfig_result.value as string, 'utf-8');
 
-            // Merge into ~/.kube/config for user convenience
-            console.log('  → Merging kubeconfig into ~/.kube/config...');
+            // Rename kubeconfig entries to cluster-scoped names
+            console.log('  → Renaming kubeconfig entries...');
             const { create_kubeconfig_manager } = await import('../../k8s/kubeconfig.js');
             const kubeconfig_manager = create_kubeconfig_manager();
+            const rename_result = await kubeconfig_manager.rename_entries(
+              temp_kubeconfig,
+              cluster_name,
+            );
+            if (!is_success(rename_result)) {
+              console.error(
+                `  ✗ Failed to rename kubeconfig entries: ${rename_result.error.message}`,
+              );
+              return rename_result;
+            }
+            console.log(`    ✓ Context: ${cluster_name}, User: ${cluster_name}-admin`);
+
+            // Merge into ~/.kube/config for user convenience
+            console.log('  → Merging kubeconfig into ~/.kube/config...');
             const merge_result = await kubeconfig_manager.merge(temp_kubeconfig);
 
             if (!is_success(merge_result)) {
@@ -240,7 +257,7 @@ export const apply_command = define_command({
                   'node',
                   '--all',
                   '--timeout=300s',
-                  ...kubeconfig_args(temp_kubeconfig),
+                  ...client_extra_args({ kubeconfig: temp_kubeconfig }),
                 ],
                 { timeout: 320000 },
               );
@@ -263,8 +280,13 @@ export const apply_command = define_command({
           console.log('\n[2/3] Skipping bootstrap (using existing cluster)');
         }
 
-        // Create kubectl/flux clients targeting the temp kubeconfig (or default for skip-bootstrap)
-        const client_options = temp_kubeconfig ? { kubeconfig: temp_kubeconfig } : {};
+        // Create kubectl/flux clients targeting the temp kubeconfig (or cluster context for skip-bootstrap)
+        const context = loaded_cluster.cluster.metadata.context;
+        const client_options = temp_kubeconfig
+          ? { kubeconfig: temp_kubeconfig }
+          : context
+            ? { context }
+            : {};
         const kubectl_client = create_kubectl_client(client_options);
         const flux_client = create_flux_client(client_options);
 
@@ -341,7 +363,7 @@ export const apply_command = define_command({
               dry_run,
               OCI_REGISTRY_SECRET_NAME,
               FLUX_NAMESPACE,
-              temp_kubeconfig,
+              client_options,
             );
           }
         }
@@ -449,7 +471,7 @@ export const apply_command = define_command({
                     git_revision,
                     '--ignore-paths',
                     ignore_paths,
-                    ...kubeconfig_args(temp_kubeconfig),
+                    ...client_extra_args(client_options),
                   ],
                   { timeout: 120000 },
                 );
@@ -658,13 +680,13 @@ async function ensure_oci_cluster_secret(
   dry_run: boolean,
   secret_name: string,
   namespace: string,
-  kubeconfig_path?: string,
+  client_options: { kubeconfig?: string; context?: string },
 ): Promise<boolean> {
   // Check if secret exists
   try {
     await execFileAsync(
       'kubectl',
-      ['get', 'secret', secret_name, '-n', namespace, ...kubeconfig_args(kubeconfig_path)],
+      ['get', 'secret', secret_name, '-n', namespace, ...client_extra_args(client_options)],
       {
         timeout: 5000,
       },
@@ -683,7 +705,7 @@ async function ensure_oci_cluster_secret(
   }
 
   // Ensure namespace exists
-  const ns_ok = await ensure_namespace(namespace, dry_run, kubeconfig_path);
+  const ns_ok = await ensure_namespace(namespace, dry_run, client_options);
   if (!ns_ok) {
     return false;
   }
@@ -698,7 +720,7 @@ async function ensure_oci_cluster_secret(
   // Apply secret via kubectl client
   try {
     const { serialize_resource } = await import('../../generator/index.js');
-    const client = create_kubectl_client(kubeconfig_path ? { kubeconfig: kubeconfig_path } : {});
+    const client = create_kubectl_client(client_options);
     const result = await client.apply_stdin(serialize_resource(secret));
     if (!is_success(result)) {
       throw new Error(result.error.message);
@@ -740,12 +762,12 @@ async function get_provider_token(provider: ClusterSecretProvider): Promise<stri
 async function ensure_namespace(
   namespace: string,
   dry_run: boolean,
-  kubeconfig_path?: string,
+  client_options: { kubeconfig?: string; context?: string },
 ): Promise<boolean> {
   try {
     await execFileAsync(
       'kubectl',
-      ['get', 'namespace', namespace, ...kubeconfig_args(kubeconfig_path)],
+      ['get', 'namespace', namespace, ...client_extra_args(client_options)],
       { timeout: 5000 },
     );
     return true;
@@ -761,7 +783,7 @@ async function ensure_namespace(
   try {
     await execFileAsync(
       'kubectl',
-      ['create', 'namespace', namespace, ...kubeconfig_args(kubeconfig_path)],
+      ['create', 'namespace', namespace, ...client_extra_args(client_options)],
       { timeout: 10000 },
     );
     console.log(`    ✓ Created namespace: ${namespace}`);

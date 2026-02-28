@@ -94,9 +94,18 @@ export const kubeconfig_command = define_command({
     );
     await writeFile(temp_kubeconfig, kubeconfig_result.value, 'utf-8');
 
+    // Rename kubeconfig entries to cluster-scoped names
+    console.log('  → Renaming kubeconfig entries...');
+    const kubeconfig_manager = create_kubeconfig_manager();
+    const rename_result = await kubeconfig_manager.rename_entries(temp_kubeconfig, cluster_name);
+    if (!is_success(rename_result)) {
+      console.error(`  ✗ Failed to rename kubeconfig entries: ${rename_result.error.message}`);
+      return rename_result;
+    }
+    console.log(`    ✓ Context: ${cluster_name}, User: ${cluster_name}-admin`);
+
     // Merge into ~/.kube/config
     console.log('  → Merging into ~/.kube/config...');
-    const kubeconfig_manager = create_kubeconfig_manager();
     const merge_result = await kubeconfig_manager.merge(temp_kubeconfig);
 
     // Clean up temp file
@@ -116,7 +125,7 @@ export const kubeconfig_command = define_command({
     console.log('    ✓ Kubeconfig merged');
 
     console.log(`\n  ✓ Kubeconfig for '${cluster_name}' is ready`);
-    console.log('\n  Tip: kubectl config use-context <context-name>');
+    console.log(`\n  Tip: kubectl config use-context ${cluster_name}`);
 
     return success(undefined);
   },
