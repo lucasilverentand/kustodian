@@ -10,7 +10,6 @@ spec:
       wait: true
       namespace:
         default: web-app
-        create: true
       depends_on:
         - database/app
       substitutions:

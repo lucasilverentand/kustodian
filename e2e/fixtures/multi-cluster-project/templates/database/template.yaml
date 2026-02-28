@@ -10,7 +10,6 @@ spec:
       wait: true
       namespace:
         default: database
-        create: true
       substitutions:
         - name: storage_size
           default: 5Gi

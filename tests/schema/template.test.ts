@@ -51,7 +51,6 @@ describe('Template Schema', () => {
               path: './operator',
               namespace: {
                 default: 'my-app',
-                create: true,
               },
               depends_on: [],
               substitutions: [{ name: 'replicas', default: '2' }, { name: 'image_tag' }],

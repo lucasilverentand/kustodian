@@ -96,8 +96,7 @@ Namespace configuration.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `default` | String | No | - | Target namespace |
-| `create` | Boolean | No | `true` | Create namespace if missing |
+| `default` | String | Yes | - | Namespace used for `${namespace}` substitution and health check defaults |
 
 #### kustomization.depends_on
 
@@ -166,7 +165,6 @@ spec:
       path: ./prometheus/crds
       namespace:
         default: monitoring
-        create: true
       health_checks:
         - kind: CustomResourceDefinition
           name: prometheuses.monitoring.coreos.com

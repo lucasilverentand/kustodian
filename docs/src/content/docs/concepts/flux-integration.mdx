@@ -26,7 +26,6 @@ spec:
   path: ./templates/nginx/manifests
   prune: true
   wait: true
-  targetNamespace: nginx
   postBuild:
     substitute:
       REPLICA_COUNT: "3"
@@ -196,10 +195,9 @@ spec:
     - name: app
       namespace:
         default: my-app
-        create: true
 ```
 
-This sets `targetNamespace` and generates a namespace resource if `create: true`.
+The namespace value is available as `${namespace}` in substitutions and is used as the default for health checks. It is **not** set as `targetNamespace` on the Flux Kustomization — resources must set their own namespace in their manifests.
 
 ## Variable Substitution
 

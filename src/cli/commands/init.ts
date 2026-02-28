@@ -90,7 +90,6 @@ export const init_command = define_command({
             path: './web',
             namespace: {
               default: 'nginx',
-              create: true,
             },
             prune: true,
             wait: true,

@@ -21,7 +21,6 @@ import {
   resolve_kustomization,
 } from './flux.js';
 import { get_template_config, resolve_kustomization_state } from './kustomization-resolution.js';
-import { generate_namespace_resources } from './namespace.js';
 import { serialize_resource, serialize_resources, write_generation_result } from './output.js';
 import { resolve_external_substitutions } from './substitution.js';
 import type {
@@ -372,7 +371,6 @@ export function create_generator(
 
 // Re-export commonly used utilities
 export { serialize_resource, serialize_resources };
-export { generate_namespace_resources };
 export {
   DEFAULT_INTERVAL,
   DEFAULT_RETRY_INTERVAL,

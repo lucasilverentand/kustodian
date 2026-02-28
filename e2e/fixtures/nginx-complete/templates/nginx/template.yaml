@@ -8,7 +8,6 @@ spec:
       path: ./web
       namespace:
         default: nginx
-        create: true
       prune: true
       wait: true
       timeout: 5m

@@ -290,11 +290,10 @@ export function is_plugin_substitution(sub: SubstitutionType): boolean {
 }
 
 /**
- * Namespace configuration with fallback behavior.
+ * Namespace configuration for substitution and health check defaults.
  */
 export const namespace_config_schema = z.object({
   default: z.string().min(1),
-  create: z.boolean().optional().default(true),
 });
 
 export type NamespaceConfigType = z.infer<typeof namespace_config_schema>;

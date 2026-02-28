@@ -38,7 +38,6 @@ A template packages a Kubernetes application for deployment across multiple clus
          path: ./manifests
          namespace:
            default: my-app
-           create: true
    ```
 
 3. **Add your Kubernetes manifests**
@@ -87,7 +86,6 @@ A template packages a Kubernetes application for deployment across multiple clus
          path: ./manifests
          namespace:
            default: my-app
-           create: true
          substitutions:
            - name: REPLICA_COUNT
              default: "1"
@@ -153,7 +151,6 @@ spec:
       path: ./database
       namespace:
         default: my-stack
-        create: true
       health_checks:
         - kind: StatefulSet
           name: postgres
