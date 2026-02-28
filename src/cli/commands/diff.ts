@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { is_success, success } from '../../core/index.js';
 import { create_generator, serialize_resource } from '../../generator/index.js';
 import { create_flux_client } from '../../k8s/flux.js';
+import { create_kubeconfig_manager } from '../../k8s/kubeconfig.js';
 import type { K8sObjectType } from '../../k8s/kubectl.js';
 import { create_kubectl_client } from '../../k8s/kubectl.js';
 import { define_command } from '../command.js';
@@ -138,6 +139,17 @@ export const diff_command = define_command({
           `kustodian-diff-kubeconfig-${sanitize_filename_part(cluster_name)}.yaml`,
         );
         await writeFile(temp_kubeconfig, kubeconfig_result.value, 'utf-8');
+
+        // Rename kubeconfig entries to cluster-scoped names
+        const kubeconfig_manager = create_kubeconfig_manager();
+        const rename_result = await kubeconfig_manager.rename_entries(
+          temp_kubeconfig,
+          cluster_name,
+        );
+        if (!is_success(rename_result)) {
+          process.exitCode = 2;
+          return rename_result;
+        }
 
         const client_options = { kubeconfig: temp_kubeconfig };
         const kubectl_client = create_kubectl_client(client_options);
