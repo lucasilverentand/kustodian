@@ -388,6 +388,7 @@ export const apply_command = define_command({
               template_paths,
               flux_reconciliation_interval: defaults.flux_reconciliation_interval,
               flux_reconciliation_timeout: defaults.flux_reconciliation_timeout,
+              flux_reconciliation_retry_interval: defaults.flux_reconciliation_retry_interval,
             });
 
             const gen_result = await generator.generate(
@@ -415,6 +416,7 @@ export const apply_command = define_command({
               for (const k of gen_data.kustomizations) {
                 console.log(`  → Kustomization: ${k.name} (${k.path})`);
               }
+              console.log('  [dry-run] Would trigger Flux reconciliation');
             } else {
               // Push to OCI registry
               console.log('  → Pushing to OCI registry...');
@@ -506,7 +508,43 @@ export const apply_command = define_command({
                 };
               }
 
-              console.log('\n  ✓ Deployment complete - Flux will reconcile from OCI');
+              // Trigger immediate reconciliation
+              console.log('  → Triggering Flux reconciliation...');
+
+              // Reconcile the OCI source first so it picks up the new artifact
+              if (gen_data.oci_repository) {
+                const source_result = await flux_client.reconcile({
+                  kind: 'OCIRepository',
+                  name: gen_data.oci_repository.metadata.name,
+                  namespace: FLUX_NAMESPACE,
+                });
+                const oci_name = gen_data.oci_repository.metadata.name;
+                if (is_success(source_result)) {
+                  console.log(`    ✓ Reconciled OCIRepository/${oci_name}`);
+                } else {
+                  console.log(
+                    `    ⚠ Failed to reconcile OCIRepository: ${source_result.error.message}`,
+                  );
+                }
+              }
+
+              // Then reconcile each Kustomization
+              for (const k of gen_data.kustomizations) {
+                const k_result = await flux_client.reconcile({
+                  kind: 'Kustomization',
+                  name: k.name,
+                  namespace: FLUX_NAMESPACE,
+                });
+                if (is_success(k_result)) {
+                  console.log(`    ✓ Reconciled Kustomization/${k.name}`);
+                } else {
+                  console.log(
+                    `    ⚠ Failed to reconcile Kustomization/${k.name}: ${k_result.error.message}`,
+                  );
+                }
+              }
+
+              console.log('\n  ✓ Deployment complete');
             }
           } else {
             console.error('  ✗ Error: Cluster must have spec.oci configured');
