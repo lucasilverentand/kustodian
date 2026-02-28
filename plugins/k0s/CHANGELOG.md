@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.4](https://github.com/lucasilverentand/kustodian/compare/kustodian-k0s-v1.2.3...kustodian-k0s-v1.2.4) (2026-02-28)
+
+
+### Bug Fixes
+
+* sanitize command names and git URLs to address CodeQL alerts ([071fcd2](https://github.com/lucasilverentand/kustodian/commit/071fcd2eb3a865e9085bd7c2b26b23c1a61aa853))
+
 ## [1.2.3](https://github.com/lucasilverentand/kustodian/compare/kustodian-k0s-v1.2.2...kustodian-k0s-v1.2.3) (2026-02-27)
 
 
