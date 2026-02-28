@@ -146,6 +146,28 @@ export const cluster_secret_config_schema = z.object({
 export type ClusterSecretConfigType = z.infer<typeof cluster_secret_config_schema>;
 
 /**
+ * Doppler secret provider configuration.
+ * Used to bootstrap a Doppler service token into the cluster for external-secrets.
+ */
+export const doppler_secret_schema = z.object({
+  project: z.string().min(1),
+  config: z.string().min(1),
+  cluster_secret: cluster_secret_config_schema.optional(),
+});
+
+export type DopplerSecretType = z.infer<typeof doppler_secret_schema>;
+
+/**
+ * Secret providers configuration.
+ * Extensible: add new providers as optional fields alongside doppler.
+ */
+export const secrets_config_schema = z.object({
+  doppler: doppler_secret_schema.optional(),
+});
+
+export type SecretsConfigType = z.infer<typeof secrets_config_schema>;
+
+/**
  * Resource requirements for a Flux controller container.
  */
 export const flux_resource_requirements_schema = z.object({
@@ -252,6 +274,7 @@ export const cluster_spec_schema = z
     values: values_schema.optional(),
     templates: z.array(template_config_schema).optional(),
     plugins: z.array(plugin_config_schema).optional(),
+    secrets: secrets_config_schema.optional(),
     node_defaults: node_defaults_schema.optional(),
     nodes: z.array(z.string()).optional(),
   })

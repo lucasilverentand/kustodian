@@ -35,6 +35,17 @@ export const OCI_REGISTRY_PROVIDER: ClusterSecretProvider = {
   skip_warning: 'OCI registry will be unauthenticated - Flux may fail to pull artifacts',
 };
 
+export const DOPPLER_PROVIDER: ClusterSecretProvider = {
+  display_name: 'Doppler',
+  default_namespace: 'external-secrets',
+  default_secret_name: 'doppler-token',
+  default_key: 'serviceToken',
+  env_vars: ['DOPPLER_TOKEN'],
+  token_help_url: 'https://docs.doppler.com/docs/service-tokens',
+  prompt_text: 'Enter Doppler service token (or Enter to skip): ',
+  skip_warning: 'Doppler ClusterSecretStore will not work without a service token',
+};
+
 /**
  * Merges user-provided cluster_secret config with provider defaults.
  */
