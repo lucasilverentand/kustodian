@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.7.0...kustodian-v1.8.0) (2026-02-28)
+
+
+### Features
+
+* add Doppler secret provider to apply command ([7c6f799](https://github.com/lucasilverentand/kustodian/commit/7c6f799997e36cbaa653afbe2217f29f8189e485))
+
 ## [1.7.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.6.1...kustodian-v1.7.0) (2026-02-28)
 
 
