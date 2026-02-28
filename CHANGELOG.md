@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.1](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.6.0...kustodian-v1.6.1) (2026-02-28)
+
+
+### Bug Fixes
+
+* remove targetNamespace and namespace creation from generator ([7347795](https://github.com/lucasilverentand/kustodian/commit/7347795390d80c14a0aa572971bdb54676c13e41))
+
 ## [1.6.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.5.2...kustodian-v1.6.0) (2026-02-28)
 
 
