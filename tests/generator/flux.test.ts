@@ -413,6 +413,77 @@ describe('Flux Generator', () => {
       expect(flux.spec.wait).toBe(true);
     });
 
+    it('should always set retryInterval defaulting to 1m', () => {
+      // Arrange
+      const template: TemplateType = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Template',
+        metadata: { name: 'app' },
+        spec: {
+          kustomizations: [{ name: 'main', path: './main', prune: true, wait: true }],
+        },
+      };
+      const kustomization = template.spec.kustomizations[0] as KustomizationType;
+      const resolved = resolve_kustomization(template, kustomization);
+
+      // Act
+      const flux = generate_flux_kustomization(resolved);
+
+      // Assert
+      expect(flux.spec.retryInterval).toBe('1m');
+    });
+
+    it('should use kustomization-level retry_interval over default', () => {
+      // Arrange
+      const template: TemplateType = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Template',
+        metadata: { name: 'app' },
+        spec: {
+          kustomizations: [
+            { name: 'main', path: './main', prune: true, wait: true, retry_interval: '30s' },
+          ],
+        },
+      };
+      const kustomization = template.spec.kustomizations[0] as KustomizationType;
+      const resolved = resolve_kustomization(template, kustomization);
+
+      // Act
+      const flux = generate_flux_kustomization(resolved);
+
+      // Assert
+      expect(flux.spec.retryInterval).toBe('30s');
+    });
+
+    it('should use custom retry_interval param', () => {
+      // Arrange
+      const template: TemplateType = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Template',
+        metadata: { name: 'app' },
+        spec: {
+          kustomizations: [{ name: 'main', path: './main', prune: true, wait: true }],
+        },
+      };
+      const kustomization = template.spec.kustomizations[0] as KustomizationType;
+      const resolved = resolve_kustomization(template, kustomization);
+
+      // Act
+      const flux = generate_flux_kustomization(
+        resolved,
+        'flux-system',
+        'GitRepository',
+        undefined,
+        undefined,
+        '10m',
+        '5m',
+        '2m',
+      );
+
+      // Assert
+      expect(flux.spec.retryInterval).toBe('2m');
+    });
+
     it('should use custom git repository name', () => {
       // Arrange
       const template: TemplateType = {

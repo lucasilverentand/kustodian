@@ -16,6 +16,8 @@ export const project_defaults_schema = z.object({
   flux_reconciliation_interval: z.string().min(1).optional(),
   /** Default timeout for Flux reconciliation */
   flux_reconciliation_timeout: z.string().min(1).optional(),
+  /** Default retry interval for failed Flux reconciliations */
+  flux_reconciliation_retry_interval: z.string().min(1).optional(),
 });
 
 export type ProjectDefaultsType = z.infer<typeof project_defaults_schema>;

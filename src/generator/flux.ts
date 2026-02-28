@@ -9,6 +9,7 @@ import type {
   TemplateType,
 } from '../schema/index.js';
 
+import YAML from 'yaml';
 import { generate_preservation_patches, get_preserved_resource_types } from './preservation.js';
 import { collect_all_substitution_values } from './substitution.js';
 import type {
@@ -30,6 +31,11 @@ export const DEFAULT_INTERVAL = '10m';
  * Default timeout for Flux reconciliation.
  */
 export const DEFAULT_TIMEOUT = '5m';
+
+/**
+ * Default retry interval for failed Flux reconciliations.
+ */
+export const DEFAULT_RETRY_INTERVAL = '1m';
 
 /**
  * Generates a Flux Kustomization name from template and kustomization.
@@ -216,6 +222,7 @@ export function generate_flux_kustomization(
   template_source_path?: string,
   interval: string = DEFAULT_INTERVAL,
   timeout: string = DEFAULT_TIMEOUT,
+  retry_interval: string = DEFAULT_RETRY_INTERVAL,
 ): FluxKustomizationType {
   const { template, kustomization, values, namespace } = resolved;
   const name = generate_flux_name(template.metadata.name, kustomization.name);
@@ -254,10 +261,8 @@ export function generate_flux_kustomization(
     spec.timeout = timeout;
   }
 
-  // Add retry interval if specified
-  if (kustomization.retry_interval) {
-    spec.retryInterval = kustomization.retry_interval;
-  }
+  // Always set retry interval (kustomization-level overrides the default)
+  spec.retryInterval = kustomization.retry_interval || retry_interval;
 
   // Add dependencies
   const depends_on = generate_depends_on(template.metadata.name, kustomization.depends_on);
@@ -338,13 +343,23 @@ function get_effective_controller_settings(
     return {};
   }
 
-  const global_concurrent = controllers.concurrent;
-  const global_requeue = controllers.requeue_dependency;
   const controller_settings = controllers[controller_key];
 
+  // feature_gates: merge global + per-controller (per-controller wins on key conflicts)
+  const global_gates = controllers.feature_gates;
+  const controller_gates = controller_settings?.feature_gates;
+  let merged_gates: Record<string, boolean> | undefined;
+  if (global_gates || controller_gates) {
+    merged_gates = { ...global_gates, ...controller_gates };
+  }
+
   return {
-    concurrent: controller_settings?.concurrent ?? global_concurrent,
-    requeue_dependency: controller_settings?.requeue_dependency ?? global_requeue,
+    concurrent: controller_settings?.concurrent ?? controllers.concurrent,
+    requeue_dependency: controller_settings?.requeue_dependency ?? controllers.requeue_dependency,
+    max_retry_delay: controller_settings?.max_retry_delay ?? controllers.max_retry_delay,
+    feature_gates: merged_gates,
+    resources: controller_settings?.resources ?? controllers.resources,
+    tmpfs: controller_settings?.tmpfs ?? controllers.tmpfs,
   };
 }
 
@@ -367,6 +382,33 @@ function build_controller_patch_ops(settings: FluxControllerSettingsType): Kusto
       op: 'add',
       path: '/spec/template/spec/containers/0/args/-',
       value: `--requeue-dependency=${settings.requeue_dependency}`,
+    });
+  }
+
+  if (settings.max_retry_delay !== undefined) {
+    ops.push({
+      op: 'add',
+      path: '/spec/template/spec/containers/0/args/-',
+      value: `--max-retry-delay=${settings.max_retry_delay}`,
+    });
+  }
+
+  if (settings.feature_gates && Object.keys(settings.feature_gates).length > 0) {
+    const gates_value = Object.entries(settings.feature_gates)
+      .map(([key, value]) => `${key}=${value}`)
+      .join(',');
+    ops.push({
+      op: 'add',
+      path: '/spec/template/spec/containers/0/args/-',
+      value: `--feature-gates=${gates_value}`,
+    });
+  }
+
+  if (settings.resources) {
+    ops.push({
+      op: 'add',
+      path: '/spec/template/spec/containers/0/resources',
+      value: settings.resources,
     });
   }
 
@@ -399,6 +441,18 @@ export function generate_flux_controller_patches(
     const settings = get_effective_controller_settings(flux_config, key);
     const ops = build_controller_patch_ops(settings);
 
+    // Add kustomize-controller-specific flags
+    if (key === 'kustomize_controller') {
+      const kustomize_settings = flux_config.controllers?.[key];
+      if (kustomize_settings?.no_remote_bases) {
+        ops.push({
+          op: 'add',
+          path: '/spec/template/spec/containers/0/args/-',
+          value: '--no-remote-bases=true',
+        });
+      }
+    }
+
     if (ops.length > 0) {
       patches.push({
         patch: JSON.stringify(ops),
@@ -408,7 +462,58 @@ export function generate_flux_controller_patches(
         },
       });
     }
+
+    // Add tmpfs strategic merge patch as a separate entry
+    if (settings.tmpfs) {
+      patches.push({
+        patch: build_tmpfs_patch(name),
+        target: {
+          kind: 'Deployment',
+          name,
+        },
+      });
+    }
   }
 
   return patches.length > 0 ? patches : undefined;
+}
+
+/**
+ * Builds a strategic merge patch YAML string that replaces /tmp with a RAM-backed emptyDir.
+ */
+function build_tmpfs_patch(controller_name: ControllerNameType): string {
+  const patch = {
+    apiVersion: 'apps/v1',
+    kind: 'Deployment',
+    metadata: {
+      name: controller_name,
+    },
+    spec: {
+      template: {
+        spec: {
+          volumes: [
+            {
+              name: 'tmp',
+              emptyDir: {
+                medium: 'Memory',
+              },
+            },
+          ],
+          containers: [
+            {
+              name: 'manager',
+              volumeMounts: [
+                {
+                  name: 'tmp',
+                  mountPath: '/tmp',
+                },
+              ],
+            },
+          ],
+        },
+      },
+    },
+  };
+
+  return YAML.stringify(patch, { indent: 2, lineWidth: 0 });
 }

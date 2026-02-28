@@ -19,6 +19,7 @@ describe('resolve_defaults', () => {
     expect(defaults.oci_registry_secret_name).toBe('kustodian-oci-registry');
     expect(defaults.flux_reconciliation_interval).toBe('10m');
     expect(defaults.flux_reconciliation_timeout).toBe('5m');
+    expect(defaults.flux_reconciliation_retry_interval).toBe('1m');
   });
 
   it('should use project defaults when provided', () => {
@@ -111,5 +112,58 @@ describe('resolve_defaults', () => {
     expect(defaults.flux_namespace).toBe('gitops-system'); // From project
     expect(defaults.oci_repository_name).toBe('cluster-oci'); // From cluster
     expect(defaults.oci_registry_secret_name).toBe('kustodian-oci-registry'); // Schema
+  });
+
+  it('should cascade flux_reconciliation_retry_interval from project defaults', () => {
+    const cluster: ClusterType = {
+      apiVersion: 'kustodian.io/v1',
+      kind: 'Cluster',
+      metadata: { name: 'test' },
+      spec: { git: { owner: 'org', repository: 'repo', branch: 'main' } },
+    };
+
+    const project: ProjectConfigType = {
+      apiVersion: 'kustodian.io/v1',
+      kind: 'Project',
+      metadata: { name: 'my-project' },
+      spec: {
+        defaults: {
+          flux_reconciliation_retry_interval: '30s',
+        },
+      },
+    };
+
+    const defaults = resolve_defaults(cluster, project);
+
+    expect(defaults.flux_reconciliation_retry_interval).toBe('30s');
+  });
+
+  it('should cascade flux_reconciliation_retry_interval with cluster override', () => {
+    const cluster: ClusterType = {
+      apiVersion: 'kustodian.io/v1',
+      kind: 'Cluster',
+      metadata: { name: 'test' },
+      spec: {
+        git: { owner: 'org', repository: 'repo', branch: 'main' },
+        defaults: {
+          flux_reconciliation_retry_interval: '2m',
+        },
+      },
+    };
+
+    const project: ProjectConfigType = {
+      apiVersion: 'kustodian.io/v1',
+      kind: 'Project',
+      metadata: { name: 'my-project' },
+      spec: {
+        defaults: {
+          flux_reconciliation_retry_interval: '30s',
+        },
+      },
+    };
+
+    const defaults = resolve_defaults(cluster, project);
+
+    expect(defaults.flux_reconciliation_retry_interval).toBe('2m');
   });
 });

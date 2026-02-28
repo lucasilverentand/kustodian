@@ -145,14 +145,39 @@ export const cluster_secret_config_schema = z.object({
 export type ClusterSecretConfigType = z.infer<typeof cluster_secret_config_schema>;
 
 /**
+ * Resource requirements for a Flux controller container.
+ */
+export const flux_resource_requirements_schema = z.object({
+  limits: z.object({ cpu: z.string().optional(), memory: z.string().optional() }).optional(),
+  requests: z.object({ cpu: z.string().optional(), memory: z.string().optional() }).optional(),
+});
+
+export type FluxResourceRequirementsType = z.infer<typeof flux_resource_requirements_schema>;
+
+/**
  * Flux controller settings that can be applied to individual controllers.
  */
 export const flux_controller_settings_schema = z.object({
   concurrent: z.number().int().positive().optional(),
   requeue_dependency: z.string().optional(),
+  max_retry_delay: z.string().optional(),
+  feature_gates: z.record(z.string(), z.boolean()).optional(),
+  resources: flux_resource_requirements_schema.optional(),
+  tmpfs: z.boolean().optional(),
 });
 
 export type FluxControllerSettingsType = z.infer<typeof flux_controller_settings_schema>;
+
+/**
+ * Flux kustomize-controller settings with additional kustomize-specific options.
+ */
+export const flux_kustomize_controller_settings_schema = flux_controller_settings_schema.extend({
+  no_remote_bases: z.boolean().optional(),
+});
+
+export type FluxKustomizeControllerSettingsType = z.infer<
+  typeof flux_kustomize_controller_settings_schema
+>;
 
 /**
  * Flux controllers configuration.
@@ -161,7 +186,11 @@ export type FluxControllerSettingsType = z.infer<typeof flux_controller_settings
 export const flux_controllers_config_schema = z.object({
   concurrent: z.number().int().positive().optional(),
   requeue_dependency: z.string().optional(),
-  kustomize_controller: flux_controller_settings_schema.optional(),
+  max_retry_delay: z.string().optional(),
+  feature_gates: z.record(z.string(), z.boolean()).optional(),
+  resources: flux_resource_requirements_schema.optional(),
+  tmpfs: z.boolean().optional(),
+  kustomize_controller: flux_kustomize_controller_settings_schema.optional(),
   helm_controller: flux_controller_settings_schema.optional(),
   source_controller: flux_controller_settings_schema.optional(),
 });
@@ -192,6 +221,8 @@ export const defaults_config_schema = z.object({
   flux_reconciliation_interval: z.string().min(1).optional(),
   /** Timeout for Flux reconciliation */
   flux_reconciliation_timeout: z.string().min(1).optional(),
+  /** Retry interval for failed Flux reconciliations */
+  flux_reconciliation_retry_interval: z.string().min(1).optional(),
 });
 
 export type DefaultsConfigType = z.infer<typeof defaults_config_schema>;

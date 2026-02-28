@@ -144,6 +144,48 @@
                     "requeue_dependency": {
                       "type": "string"
                     },
+                    "max_retry_delay": {
+                      "type": "string"
+                    },
+                    "feature_gates": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "boolean"
+                      }
+                    },
+                    "resources": {
+                      "type": "object",
+                      "properties": {
+                        "limits": {
+                          "type": "object",
+                          "properties": {
+                            "cpu": {
+                              "type": "string"
+                            },
+                            "memory": {
+                              "type": "string"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "requests": {
+                          "type": "object",
+                          "properties": {
+                            "cpu": {
+                              "type": "string"
+                            },
+                            "memory": {
+                              "type": "string"
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "tmpfs": {
+                      "type": "boolean"
+                    },
                     "kustomize_controller": {
                       "type": "object",
                       "properties": {
@@ -153,6 +195,51 @@
                         },
                         "requeue_dependency": {
                           "type": "string"
+                        },
+                        "max_retry_delay": {
+                          "type": "string"
+                        },
+                        "feature_gates": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "boolean"
+                          }
+                        },
+                        "resources": {
+                          "type": "object",
+                          "properties": {
+                            "limits": {
+                              "type": "object",
+                              "properties": {
+                                "cpu": {
+                                  "type": "string"
+                                },
+                                "memory": {
+                                  "type": "string"
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "requests": {
+                              "type": "object",
+                              "properties": {
+                                "cpu": {
+                                  "type": "string"
+                                },
+                                "memory": {
+                                  "type": "string"
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "tmpfs": {
+                          "type": "boolean"
+                        },
+                        "no_remote_bases": {
+                          "type": "boolean"
                         }
                       },
                       "additionalProperties": false
@@ -166,6 +253,48 @@
                         },
                         "requeue_dependency": {
                           "type": "string"
+                        },
+                        "max_retry_delay": {
+                          "type": "string"
+                        },
+                        "feature_gates": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "boolean"
+                          }
+                        },
+                        "resources": {
+                          "type": "object",
+                          "properties": {
+                            "limits": {
+                              "type": "object",
+                              "properties": {
+                                "cpu": {
+                                  "type": "string"
+                                },
+                                "memory": {
+                                  "type": "string"
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "requests": {
+                              "type": "object",
+                              "properties": {
+                                "cpu": {
+                                  "type": "string"
+                                },
+                                "memory": {
+                                  "type": "string"
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "tmpfs": {
+                          "type": "boolean"
                         }
                       },
                       "additionalProperties": false
@@ -179,6 +308,48 @@
                         },
                         "requeue_dependency": {
                           "type": "string"
+                        },
+                        "max_retry_delay": {
+                          "type": "string"
+                        },
+                        "feature_gates": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "boolean"
+                          }
+                        },
+                        "resources": {
+                          "type": "object",
+                          "properties": {
+                            "limits": {
+                              "type": "object",
+                              "properties": {
+                                "cpu": {
+                                  "type": "string"
+                                },
+                                "memory": {
+                                  "type": "string"
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "requests": {
+                              "type": "object",
+                              "properties": {
+                                "cpu": {
+                                  "type": "string"
+                                },
+                                "memory": {
+                                  "type": "string"
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "tmpfs": {
+                          "type": "boolean"
                         }
                       },
                       "additionalProperties": false
@@ -209,6 +380,10 @@
                   "minLength": 1
                 },
                 "flux_reconciliation_timeout": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "flux_reconciliation_retry_interval": {
                   "type": "string",
                   "minLength": 1
                 }

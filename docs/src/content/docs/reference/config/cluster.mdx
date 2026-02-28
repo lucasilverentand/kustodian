@@ -13,6 +13,13 @@ kind: Cluster
 metadata:
   name: <cluster-name>
 spec:
+  defaults:
+    flux_namespace: <string>
+    oci_repository_name: <string>
+    oci_registry_secret_name: <string>
+    flux_reconciliation_interval: <duration>
+    flux_reconciliation_timeout: <duration>
+    flux_reconciliation_retry_interval: <duration>
   flux:
     source_ref:
       kind: <source-kind>
@@ -23,6 +30,43 @@ spec:
     wait: <boolean>
     timeout: <duration>
     retry_interval: <duration>
+    controllers:
+      concurrent: <integer>
+      requeue_dependency: <duration>
+      max_retry_delay: <duration>
+      feature_gates:
+        <GateName>: <boolean>
+      resources:
+        limits:
+          cpu: <string>
+          memory: <string>
+        requests:
+          cpu: <string>
+          memory: <string>
+      tmpfs: <boolean>
+      kustomize_controller:
+        concurrent: <integer>
+        requeue_dependency: <duration>
+        max_retry_delay: <duration>
+        no_remote_bases: <boolean>
+        feature_gates:
+          <GateName>: <boolean>
+        resources: ...
+        tmpfs: <boolean>
+      helm_controller:
+        concurrent: <integer>
+        requeue_dependency: <duration>
+        max_retry_delay: <duration>
+        feature_gates: ...
+        resources: ...
+        tmpfs: <boolean>
+      source_controller:
+        concurrent: <integer>
+        requeue_dependency: <duration>
+        max_retry_delay: <duration>
+        feature_gates: ...
+        resources: ...
+        tmpfs: <boolean>
   templates:
     - <template-name>
     - name: <template-name>
@@ -136,6 +180,46 @@ Timeout for reconciliation.
 | **Default** | `1m` |
 
 Retry interval on failure.
+
+### spec.defaults
+
+Cluster-level defaults that override project defaults. All values are optional — fallback to project defaults, then schema defaults.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `flux_namespace` | String | `flux-system` | Flux system namespace |
+| `oci_repository_name` | String | `kustodian-oci` | Flux OCIRepository resource name |
+| `oci_registry_secret_name` | String | `kustodian-oci-registry` | OCI registry auth secret name |
+| `flux_reconciliation_interval` | String (duration) | `10m` | Reconciliation interval |
+| `flux_reconciliation_timeout` | String (duration) | `5m` | Reconciliation timeout |
+| `flux_reconciliation_retry_interval` | String (duration) | `1m` | Retry interval for failed reconciliations |
+
+### spec.flux.controllers
+
+Tune Flux controller deployments. Settings can be applied globally or per-controller. Global settings are inherited by all controllers unless overridden.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `concurrent` | Integer | Number of concurrent reconciliations |
+| `requeue_dependency` | String (duration) | Requeue interval when waiting on dependencies |
+| `max_retry_delay` | String (duration) | Maximum delay between retries |
+| `feature_gates` | Object (map of string → boolean) | Flux feature gates passed as `--feature-gates` |
+| `resources` | Object | Container resource requests/limits |
+| `tmpfs` | Boolean | Mount `/tmp` as RAM-backed emptyDir (speeds up kustomize builds) |
+| `kustomize_controller` | Object | Kustomize-controller-specific settings |
+| `helm_controller` | Object | Helm-controller-specific settings |
+| `source_controller` | Object | Source-controller-specific settings |
+
+Per-controller objects accept the same fields as the global level (`concurrent`, `requeue_dependency`, `max_retry_delay`, `feature_gates`, `resources`, `tmpfs`). The `kustomize_controller` also accepts:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `no_remote_bases` | Boolean | `false` | Disable remote bases in Kustomize overlays |
+
+**Merging behavior:**
+- `feature_gates` — per-controller merges with global (per-controller wins on key conflicts)
+- `resources` — per-controller replaces global entirely
+- `tmpfs` — per-controller overrides global
 
 ### spec.templates
 

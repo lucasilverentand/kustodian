@@ -10,6 +10,7 @@ import type { ClusterType, TemplateConfigType, TemplateType } from '../schema/in
 
 import {
   DEFAULT_INTERVAL,
+  DEFAULT_RETRY_INTERVAL,
   DEFAULT_TIMEOUT,
   generate_depends_on,
   generate_flux_controller_patches,
@@ -46,6 +47,8 @@ export interface GeneratorOptionsType {
   flux_reconciliation_interval?: string;
   /** Timeout for Flux reconciliation */
   flux_reconciliation_timeout?: string;
+  /** Retry interval for failed reconciliations */
+  flux_reconciliation_retry_interval?: string;
 }
 
 /**
@@ -133,6 +136,7 @@ export function create_generator(
   const template_paths = options.template_paths;
   const flux_reconciliation_interval = options.flux_reconciliation_interval ?? '10m';
   const flux_reconciliation_timeout = options.flux_reconciliation_timeout ?? '5m';
+  const flux_reconciliation_retry_interval = options.flux_reconciliation_retry_interval ?? '1m';
 
   const hooks: GeneratorHookHandlerType[] = [];
 
@@ -272,6 +276,7 @@ export function create_generator(
             template_source_path,
             flux_reconciliation_interval,
             flux_reconciliation_timeout,
+            flux_reconciliation_retry_interval,
           );
 
           // Override namespace to configured value
@@ -370,6 +375,7 @@ export { serialize_resource, serialize_resources };
 export { generate_namespace_resources };
 export {
   DEFAULT_INTERVAL,
+  DEFAULT_RETRY_INTERVAL,
   DEFAULT_TIMEOUT,
   generate_depends_on,
   generate_flux_kustomization,

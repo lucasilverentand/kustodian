@@ -10,6 +10,7 @@ const SCHEMA_DEFAULTS = {
   oci_registry_secret_name: 'kustodian-oci-registry',
   flux_reconciliation_interval: '10m',
   flux_reconciliation_timeout: '5m',
+  flux_reconciliation_retry_interval: '1m',
 } as const;
 
 /**
@@ -21,6 +22,7 @@ export interface ResolvedDefaultsType {
   oci_registry_secret_name: string;
   flux_reconciliation_interval: string;
   flux_reconciliation_timeout: string;
+  flux_reconciliation_retry_interval: string;
 }
 
 /**
@@ -65,5 +67,10 @@ export function resolve_defaults(
       cluster_defaults.flux_reconciliation_timeout ||
       project_defaults.flux_reconciliation_timeout ||
       SCHEMA_DEFAULTS.flux_reconciliation_timeout,
+
+    flux_reconciliation_retry_interval:
+      cluster_defaults.flux_reconciliation_retry_interval ||
+      project_defaults.flux_reconciliation_retry_interval ||
+      SCHEMA_DEFAULTS.flux_reconciliation_retry_interval,
   };
 }

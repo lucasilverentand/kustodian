@@ -164,6 +164,7 @@ export const diff_command = define_command({
           template_paths,
           flux_reconciliation_interval: defaults.flux_reconciliation_interval,
           flux_reconciliation_timeout: defaults.flux_reconciliation_timeout,
+          flux_reconciliation_retry_interval: defaults.flux_reconciliation_retry_interval,
         });
 
         const gen_result = await generator.generate(

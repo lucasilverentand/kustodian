@@ -68,9 +68,65 @@ spec:
     retry_interval: 1m # Retry interval on failure
 ```
 
+Kustodian sets `retryInterval` on every generated Kustomization (default `1m`). This means failed reconciliations retry quickly instead of waiting for the full `interval` to elapse. You can override the default in `spec.defaults`:
+
+```yaml
+spec:
+  defaults:
+    flux_reconciliation_retry_interval: 30s  # retry every 30s on failure
+```
+
 <Aside type="tip">
   Use shorter intervals for development clusters and longer intervals for production to reduce API server load.
 </Aside>
+
+## Controller Tuning
+
+Flux controllers accept flags that affect how they process the reconciliation queue. Kustodian can patch these flags into the controller Deployments:
+
+```yaml
+spec:
+  flux:
+    controllers:
+      concurrent: 10             # all controllers reconcile 10 items at once
+      requeue_dependency: 5s     # check dependency readiness every 5s
+      max_retry_delay: 5m        # cap exponential backoff at 5m
+      feature_gates:
+        CancelHealthCheckOnNewRevision: true
+      tmpfs: true                # RAM-backed /tmp for faster kustomize builds
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 1Gi
+      kustomize_controller:
+        concurrent: 20           # override: kustomize-controller gets 20
+        no_remote_bases: true    # disable fetching remote Kustomize bases
+        resources:               # heavier limits for the kustomize build workload
+          limits:
+            cpu: 2000m
+            memory: 2Gi
+      source_controller:
+        concurrent: 5            # source-controller gets 5
+```
+
+Global settings (`concurrent`, `requeue_dependency`, `max_retry_delay`, `feature_gates`, `resources`, `tmpfs`) apply to all controllers. Per-controller blocks override the global values. The `no_remote_bases` flag is specific to the kustomize-controller.
+
+### Feature Gates
+
+Pass Flux feature gates as `--feature-gates` to every controller. Per-controller gates merge with global gates (per-controller wins on key conflicts):
+
+```yaml
+feature_gates:
+  CancelHealthCheckOnNewRevision: true   # Flux v2.7+ — cancel stale health checks
+```
+
+### tmpfs
+
+Mount `/tmp` as a RAM-backed `emptyDir` volume. This speeds up kustomize builds significantly on I/O-constrained nodes (e.g., Raspberry Pis with SD cards). Generated as a strategic merge patch on the controller Deployment.
+
+### Resources
+
+Set container resource requests and limits. Per-controller resources **replace** global resources entirely (no merging of individual fields).
 
 ## Dependencies
 
