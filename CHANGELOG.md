@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.6.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.5.2...kustodian-v1.6.0) (2026-02-28)
+
+
+### Features
+
+* add tmpfs, feature gates, and resource limits to flux controller tuning ([67f3a7c](https://github.com/lucasilverentand/kustodian/commit/67f3a7c0a9f8e538b1623d10915ffd9036379c52))
+* clean orphaned files from templates/ during generation ([ceb104a](https://github.com/lucasilverentand/kustodian/commit/ceb104ad6a464094b4a0e1ac3ebc6116da9ad8b7))
+* restore preview command for manifest inspection ([cc60990](https://github.com/lucasilverentand/kustodian/commit/cc6099067bc7b94ecad2431e3ce8788f0a9a9159))
+* trigger flux reconcile after apply deploys resources ([cdd9641](https://github.com/lucasilverentand/kustodian/commit/cdd96419f7f14341af303294a6c3e1a6c162f6b9))
+
+
+### Bug Fixes
+
+* address PR review remarks for security and correctness ([055d924](https://github.com/lucasilverentand/kustodian/commit/055d9240aa0f8ddd9968514215dd3be0de50b7ba))
+* consolidate git URL validation and update tests ([69e0d7e](https://github.com/lucasilverentand/kustodian/commit/69e0d7e1bbc4ed944c9b7e363a780e8d0efe0e1e))
+* increase exec test timeouts for slow CI runners ([d06d3ad](https://github.com/lucasilverentand/kustodian/commit/d06d3ad3c458b34b0843da469f1e7ce941287f58))
+* inline all git exec calls to eliminate CodeQL second-order injection alert ([8f21b0b](https://github.com/lucasilverentand/kustodian/commit/8f21b0bb74a7aa28237c42e341e7fe316279796c))
+* inline git clone exec to break CodeQL taint flow ([fd855ce](https://github.com/lucasilverentand/kustodian/commit/fd855ce821a6b6f1896a687becbcd4d40a74cef8))
+* remove indentation from MDX TabItem tags to fix docs build ([40d78eb](https://github.com/lucasilverentand/kustodian/commit/40d78eb64be601a6cae96794f9550d2febbb456c))
+* sanitize command names and git URLs to address CodeQL alerts ([071fcd2](https://github.com/lucasilverentand/kustodian/commit/071fcd2eb3a865e9085bd7c2b26b23c1a61aa853))
+* update OCIRepository apiVersion from v1beta2 to v1 ([5532e52](https://github.com/lucasilverentand/kustodian/commit/5532e525f439f226b4d47ec1274c872830177fed))
+
 ## [1.5.2](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.5.1...kustodian-v1.5.2) (2026-02-27)
 
 
