@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.8.0...kustodian-v1.9.0) (2026-02-28)
+
+
+### Features
+
+* make cluster secrets generic instead of provider-specific ([ca3f7dc](https://github.com/lucasilverentand/kustodian/commit/ca3f7dc0126458ec873b58b352f4d916c2824388))
+
 ## [1.8.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.7.0...kustodian-v1.8.0) (2026-02-28)
 
 
