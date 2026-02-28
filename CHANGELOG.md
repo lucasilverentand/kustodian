@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.6.1...kustodian-v1.7.0) (2026-02-28)
+
+
+### Features
+
+* add kubectl context targeting and cluster-scoped kubeconfig naming ([#163](https://github.com/lucasilverentand/kustodian/issues/163)) ([6ca9544](https://github.com/lucasilverentand/kustodian/commit/6ca9544fb33d735efafc22ae0c332876039cf5f3)), closes [#162](https://github.com/lucasilverentand/kustodian/issues/162)
+
 ## [1.6.1](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.6.0...kustodian-v1.6.1) (2026-02-28)
 
 
