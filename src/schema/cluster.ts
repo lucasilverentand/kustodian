@@ -146,26 +146,19 @@ export const cluster_secret_config_schema = z.object({
 export type ClusterSecretConfigType = z.infer<typeof cluster_secret_config_schema>;
 
 /**
- * Doppler secret provider configuration.
- * Used to bootstrap a Doppler service token into the cluster for external-secrets.
+ * Generic cluster secret definition.
+ * Each entry describes an Opaque secret to bootstrap into the cluster,
+ * with the token value read from the specified environment variable.
  */
-export const doppler_secret_schema = z.object({
-  project: z.string().min(1),
-  config: z.string().min(1),
-  cluster_secret: cluster_secret_config_schema.optional(),
+export const cluster_secret_entry_schema = z.object({
+  name: z.string().min(1),
+  namespace: z.string().min(1).optional().default('default'),
+  key: z.string().min(1).optional().default('token'),
+  env_var: z.string().min(1),
+  annotations: z.record(z.string()).optional(),
 });
 
-export type DopplerSecretType = z.infer<typeof doppler_secret_schema>;
-
-/**
- * Secret providers configuration.
- * Extensible: add new providers as optional fields alongside doppler.
- */
-export const secrets_config_schema = z.object({
-  doppler: doppler_secret_schema.optional(),
-});
-
-export type SecretsConfigType = z.infer<typeof secrets_config_schema>;
+export type ClusterSecretEntryType = z.infer<typeof cluster_secret_entry_schema>;
 
 /**
  * Resource requirements for a Flux controller container.
@@ -274,7 +267,7 @@ export const cluster_spec_schema = z
     values: values_schema.optional(),
     templates: z.array(template_config_schema).optional(),
     plugins: z.array(plugin_config_schema).optional(),
-    secrets: secrets_config_schema.optional(),
+    secrets: z.array(cluster_secret_entry_schema).optional(),
     node_defaults: node_defaults_schema.optional(),
     nodes: z.array(z.string()).optional(),
   })

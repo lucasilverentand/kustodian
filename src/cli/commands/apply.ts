@@ -9,13 +9,7 @@ import { create_kubectl_client } from '../../k8s/kubectl.js';
 
 import { serialize_resource } from '../../generator/index.js';
 import { define_command } from '../command.js';
-import {
-  type ClusterSecretProvider,
-  DOPPLER_PROVIDER,
-  OCI_REGISTRY_PROVIDER,
-  type ResolvedSecretConfig,
-  resolve_config,
-} from '../utils/cluster-secrets.js';
+import { type ClusterSecretProvider, OCI_REGISTRY_PROVIDER } from '../utils/cluster-secrets.js';
 import { confirm } from '../utils/confirm.js';
 import { resolve_defaults } from '../utils/defaults.js';
 import { build_node_list, resolve_k0s_provider_options } from '../utils/k0s-provider.js';
@@ -360,12 +354,13 @@ export const apply_command = define_command({
         if (!skip_templates) {
           console.log('\n[4/5] Configuring cluster secrets...');
 
-          // Handle Doppler secret provider
-          if (loaded_cluster.cluster.spec.secrets?.doppler) {
-            const doppler = loaded_cluster.cluster.spec.secrets.doppler;
-            const config = resolve_config(DOPPLER_PROVIDER, doppler.cluster_secret);
-            console.log('  → Checking Doppler secret...');
-            await ensure_cluster_secret(DOPPLER_PROVIDER, config, dry_run, client_options);
+          // Handle cluster secrets
+          const secrets = loaded_cluster.cluster.spec.secrets;
+          if (secrets?.length) {
+            for (const secret of secrets) {
+              console.log(`  → Checking ${secret.name} secret...`);
+              await ensure_cluster_secret(secret, dry_run, client_options);
+            }
           } else {
             console.log('  → No secret providers configured');
           }
@@ -748,12 +743,11 @@ async function ensure_oci_cluster_secret(
 }
 
 /**
- * Ensures a generic cluster secret exists for a given provider.
- * Checks if it already exists, prompts for token if needed, creates the secret.
+ * Ensures a cluster secret exists, creating it if needed.
+ * Reads the token from the configured env var, or prompts the user.
  */
 async function ensure_cluster_secret(
-  provider: ClusterSecretProvider,
-  config: ResolvedSecretConfig,
+  entry: import('../../schema/cluster.js').ClusterSecretEntryType,
   dry_run: boolean,
   client_options: { kubeconfig?: string; context?: string },
 ): Promise<boolean> {
@@ -761,30 +755,43 @@ async function ensure_cluster_secret(
   try {
     await execFileAsync(
       'kubectl',
-      ['get', 'secret', config.name, '-n', config.namespace, ...client_extra_args(client_options)],
+      ['get', 'secret', entry.name, '-n', entry.namespace, ...client_extra_args(client_options)],
       { timeout: 5000 },
     );
-    console.log(`    ✓ ${provider.display_name} secret exists`);
+    console.log(`    ✓ ${entry.name} secret exists`);
     return true;
   } catch {
     // Need to create
   }
 
-  const token = await get_provider_token(provider);
+  // Read token from env var or prompt
+  const env_token = process.env[entry.env_var];
+  let token: string | undefined;
+  if (env_token) {
+    console.log(`    → Using ${entry.env_var} from environment`);
+    token = env_token;
+  } else {
+    console.log(`    → ${entry.env_var} not set`);
+    const input = await prompt_for_input(
+      `    Enter token for ${entry.name} (or Enter to skip): `,
+      true,
+    );
+    token = input || undefined;
+  }
+
   if (!token) {
-    console.log(`    → No ${provider.display_name} token provided, skipping secret creation`);
-    console.log(`    ⚠ ${provider.skip_warning}`);
+    console.log(`    → Skipping ${entry.name} secret creation`);
     return false;
   }
 
   // Ensure namespace exists
-  const ns_ok = await ensure_namespace(config.namespace, dry_run, client_options);
+  const ns_ok = await ensure_namespace(entry.namespace, dry_run, client_options);
   if (!ns_ok) {
     return false;
   }
 
   if (dry_run) {
-    console.log(`    [dry-run] Would create secret: ${config.name} in ${config.namespace}`);
+    console.log(`    [dry-run] Would create secret: ${entry.name} in ${entry.namespace}`);
     return true;
   }
 
@@ -794,13 +801,13 @@ async function ensure_cluster_secret(
       apiVersion: 'v1',
       kind: 'Secret',
       metadata: {
-        name: config.name,
-        namespace: config.namespace,
-        ...(config.annotations && { annotations: config.annotations }),
+        name: entry.name,
+        namespace: entry.namespace,
+        ...(entry.annotations && { annotations: entry.annotations }),
       },
       type: 'Opaque',
       stringData: {
-        [config.key]: token,
+        [entry.key]: token,
       },
     };
 
@@ -810,11 +817,11 @@ async function ensure_cluster_secret(
       throw new Error(result.error.message);
     }
 
-    console.log(`    ✓ Created secret: ${config.name} in ${config.namespace}`);
+    console.log(`    ✓ Created secret: ${entry.name} in ${entry.namespace}`);
     return true;
   } catch (error) {
     const err = error as Error;
-    console.error(`    ✗ Failed to create ${provider.display_name} secret: ${err.message}`);
+    console.error(`    ✗ Failed to create secret ${entry.name}: ${err.message}`);
     return false;
   }
 }
