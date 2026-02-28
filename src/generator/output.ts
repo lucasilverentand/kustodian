@@ -231,7 +231,71 @@ export async function write_generation_result(
 
   written_files.push(kustomization_path);
 
+  // Clean orphaned files from templates directory
+  const orphans = await clean_orphaned_files(result.output_dir, written_files);
+  if (orphans.length > 0) {
+    console.log(`Cleaned ${orphans.length} orphaned file(s) from templates/`);
+  }
+
   return success(written_files);
+}
+
+/**
+ * Removes files from `{output_dir}/templates/` that were not part of the current generation.
+ * Also removes empty template directories left behind after deletions.
+ */
+export async function clean_orphaned_files(
+  output_dir: string,
+  written_files: string[],
+): Promise<string[]> {
+  const templates_dir = path.join(output_dir, 'templates');
+  const written_set = new Set(written_files.map((f) => path.resolve(f)));
+  const deleted: string[] = [];
+
+  let template_names: string[];
+  try {
+    template_names = await fs.readdir(templates_dir);
+  } catch {
+    // templates/ doesn't exist yet (first run) — nothing to clean
+    return deleted;
+  }
+
+  for (const template_name of template_names) {
+    const template_path = path.join(templates_dir, template_name);
+    const template_stat = await fs.stat(template_path).catch(() => null);
+    if (!template_stat?.isDirectory()) continue;
+
+    let file_names: string[];
+    try {
+      file_names = await fs.readdir(template_path);
+    } catch {
+      continue;
+    }
+
+    for (const file_name of file_names) {
+      const file_path = path.resolve(path.join(template_path, file_name));
+      const file_stat = await fs.stat(file_path).catch(() => null);
+      if (!file_stat?.isFile()) continue;
+
+      if (!written_set.has(file_path)) {
+        try {
+          await fs.unlink(file_path);
+          deleted.push(file_path);
+        } catch (error) {
+          console.warn(`Failed to remove orphaned file ${file_path}:`, error);
+        }
+      }
+    }
+
+    // Remove the template directory if it's now empty
+    try {
+      await fs.rmdir(template_path);
+    } catch {
+      // Directory not empty — expected, ignore
+    }
+  }
+
+  return deleted;
 }
 
 /**

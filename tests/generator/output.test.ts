@@ -4,6 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 
 import {
+  clean_orphaned_files,
   get_extension,
   serialize_resource,
   serialize_resources,
@@ -442,6 +443,196 @@ describe('Output Module', () => {
         const zebra_index = root_kustomization.indexOf('z-template/zebra');
         expect(alpha_index).toBeLessThan(zebra_index);
       }
+    });
+
+    it('should remove orphaned files from a previous generation', async () => {
+      // Arrange: simulate a previous run that wrote an extra kustomization
+      const templates_dir = path.join(temp_dir, 'templates');
+      const old_template_dir = path.join(templates_dir, 'old-template');
+      await fs.mkdir(old_template_dir, { recursive: true });
+      await fs.writeFile(path.join(old_template_dir, 'stale-app.yaml'), 'old content');
+
+      const generation_result: GenerationResultType = {
+        cluster: 'production',
+        output_dir: temp_dir,
+        kustomizations: [
+          {
+            name: 'new-app',
+            template: 'current-template',
+            path: './templates/current-template/new-app',
+            flux_kustomization: {
+              apiVersion: 'kustomize.toolkit.fluxcd.io/v1',
+              kind: 'Kustomization',
+              metadata: { name: 'new-app', namespace: 'flux-system' },
+              spec: {
+                interval: '10m',
+                path: './templates/current-template/new-app',
+                prune: true,
+                wait: true,
+                sourceRef: { kind: 'GitRepository', name: 'flux-system' },
+              },
+            },
+          },
+        ],
+      };
+
+      // Act
+      const result = await write_generation_result(generation_result);
+
+      // Assert
+      expect(result.success).toBe(true);
+
+      // The stale file should be gone
+      const stale_exists = await fs
+        .access(path.join(old_template_dir, 'stale-app.yaml'))
+        .then(() => true)
+        .catch(() => false);
+      expect(stale_exists).toBe(false);
+
+      // The empty old-template directory should also be removed
+      const old_dir_exists = await fs
+        .access(old_template_dir)
+        .then(() => true)
+        .catch(() => false);
+      expect(old_dir_exists).toBe(false);
+
+      // The new file should exist
+      const new_file = path.join(templates_dir, 'current-template', 'new-app.yaml');
+      const new_exists = await fs
+        .access(new_file)
+        .then(() => true)
+        .catch(() => false);
+      expect(new_exists).toBe(true);
+    });
+
+    it('should not remove files that are part of the current generation', async () => {
+      // Arrange: pre-create a file that will also be written by the generation
+      const templates_dir = path.join(temp_dir, 'templates', 'my-template');
+      await fs.mkdir(templates_dir, { recursive: true });
+      await fs.writeFile(path.join(templates_dir, 'keep-me.yaml'), 'old version');
+
+      const generation_result: GenerationResultType = {
+        cluster: 'production',
+        output_dir: temp_dir,
+        kustomizations: [
+          {
+            name: 'keep-me',
+            template: 'my-template',
+            path: './templates/my-template/keep-me',
+            flux_kustomization: {
+              apiVersion: 'kustomize.toolkit.fluxcd.io/v1',
+              kind: 'Kustomization',
+              metadata: { name: 'keep-me', namespace: 'flux-system' },
+              spec: {
+                interval: '10m',
+                path: './templates/my-template/keep-me',
+                prune: true,
+                wait: true,
+                sourceRef: { kind: 'GitRepository', name: 'flux-system' },
+              },
+            },
+          },
+        ],
+      };
+
+      // Act
+      const result = await write_generation_result(generation_result);
+
+      // Assert
+      expect(result.success).toBe(true);
+      const content = await fs.readFile(path.join(templates_dir, 'keep-me.yaml'), 'utf-8');
+      expect(content).toContain('name: keep-me'); // overwritten with new content
+    });
+  });
+
+  describe('clean_orphaned_files', () => {
+    let temp_dir: string;
+
+    beforeEach(async () => {
+      temp_dir = await fs.mkdtemp(path.join(os.tmpdir(), 'kustodian-test-'));
+    });
+
+    afterEach(async () => {
+      await fs.rm(temp_dir, { recursive: true, force: true });
+    });
+
+    it('should return empty array when templates directory does not exist', async () => {
+      const deleted = await clean_orphaned_files(temp_dir, []);
+      expect(deleted).toEqual([]);
+    });
+
+    it('should delete files not in the written set', async () => {
+      // Arrange
+      const template_dir = path.join(temp_dir, 'templates', 'test-template');
+      await fs.mkdir(template_dir, { recursive: true });
+      const orphan_path = path.join(template_dir, 'orphan.yaml');
+      await fs.writeFile(orphan_path, 'orphan content');
+
+      // Act
+      const deleted = await clean_orphaned_files(temp_dir, []);
+
+      // Assert
+      expect(deleted).toContain(path.resolve(orphan_path));
+      const exists = await fs
+        .access(orphan_path)
+        .then(() => true)
+        .catch(() => false);
+      expect(exists).toBe(false);
+    });
+
+    it('should keep files that are in the written set', async () => {
+      // Arrange
+      const template_dir = path.join(temp_dir, 'templates', 'test-template');
+      await fs.mkdir(template_dir, { recursive: true });
+      const kept_path = path.join(template_dir, 'kept.yaml');
+      await fs.writeFile(kept_path, 'kept content');
+
+      // Act
+      const deleted = await clean_orphaned_files(temp_dir, [kept_path]);
+
+      // Assert
+      expect(deleted).toEqual([]);
+      const content = await fs.readFile(kept_path, 'utf-8');
+      expect(content).toBe('kept content');
+    });
+
+    it('should remove empty directories after deleting orphans', async () => {
+      // Arrange
+      const template_dir = path.join(temp_dir, 'templates', 'empty-after');
+      await fs.mkdir(template_dir, { recursive: true });
+      await fs.writeFile(path.join(template_dir, 'orphan.yaml'), 'content');
+
+      // Act
+      await clean_orphaned_files(temp_dir, []);
+
+      // Assert
+      const dir_exists = await fs
+        .access(template_dir)
+        .then(() => true)
+        .catch(() => false);
+      expect(dir_exists).toBe(false);
+    });
+
+    it('should not remove directories that still have files', async () => {
+      // Arrange
+      const template_dir = path.join(temp_dir, 'templates', 'partial');
+      await fs.mkdir(template_dir, { recursive: true });
+      const kept = path.join(template_dir, 'kept.yaml');
+      const orphan = path.join(template_dir, 'orphan.yaml');
+      await fs.writeFile(kept, 'kept');
+      await fs.writeFile(orphan, 'orphan');
+
+      // Act
+      const deleted = await clean_orphaned_files(temp_dir, [kept]);
+
+      // Assert
+      expect(deleted).toContain(path.resolve(orphan));
+      // Directory should still exist because kept.yaml is still there
+      const dir_exists = await fs
+        .access(template_dir)
+        .then(() => true)
+        .catch(() => false);
+      expect(dir_exists).toBe(true);
     });
   });
 });
