@@ -7,6 +7,7 @@ import { apply_command } from './commands/apply.js';
 import { diff_command } from './commands/diff.js';
 import { init_command } from './commands/init.js';
 import { kubeconfig_command } from './commands/kubeconfig.js';
+import { preview_command } from './commands/preview.js';
 import { sources_command } from './commands/sources.js';
 import { update_command } from './commands/update.js';
 import { validate_command } from './commands/validate.js';
@@ -22,6 +23,7 @@ const all_commands = [
   validate_command,
   apply_command,
   diff_command,
+  preview_command,
   update_command,
   kubeconfig_command,
   sources_command,

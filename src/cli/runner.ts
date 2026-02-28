@@ -280,6 +280,8 @@ export function format_help(config: CLIConfigType, commands: CommandType[]): str
   lines.push(`  ${config.name} validate --cluster production`);
   lines.push(`  ${config.name} apply --dry-run`);
   lines.push(`  ${config.name} apply --cluster production`);
+  lines.push(`  ${config.name} preview`);
+  lines.push(`  ${config.name} preview --cluster production --output-dir ./out`);
   lines.push(`  ${config.name} kubeconfig --cluster production`);
   lines.push(`  ${config.name} update --dry-run`);
   lines.push(`  ${config.name} update --cluster production`);
