@@ -538,43 +538,30 @@ export const apply_command = define_command({
                 };
               }
 
-              // Trigger immediate reconciliation
+              // Trigger reconciliation without waiting for it to complete
               console.log('  → Triggering Flux reconciliation...');
 
-              // Reconcile the OCI source first so it picks up the new artifact
               if (gen_data.oci_repository) {
-                const source_result = await flux_client.reconcile({
+                flux_client.reconcile({
                   kind: 'OCIRepository',
                   name: gen_data.oci_repository.metadata.name,
                   namespace: FLUX_NAMESPACE,
                 });
-                const oci_name = gen_data.oci_repository.metadata.name;
-                if (is_success(source_result)) {
-                  console.log(`    ✓ Reconciled OCIRepository/${oci_name}`);
-                } else {
-                  console.log(
-                    `    ⚠ Failed to reconcile OCIRepository: ${source_result.error.message}`,
-                  );
-                }
+                console.log(
+                  `    ✓ Triggered OCIRepository/${gen_data.oci_repository.metadata.name}`,
+                );
               }
 
-              // Then reconcile each Kustomization
               for (const k of gen_data.kustomizations) {
-                const k_result = await flux_client.reconcile({
+                flux_client.reconcile({
                   kind: 'Kustomization',
                   name: k.name,
                   namespace: FLUX_NAMESPACE,
                 });
-                if (is_success(k_result)) {
-                  console.log(`    ✓ Reconciled Kustomization/${k.name}`);
-                } else {
-                  console.log(
-                    `    ⚠ Failed to reconcile Kustomization/${k.name}: ${k_result.error.message}`,
-                  );
-                }
+                console.log(`    ✓ Triggered Kustomization/${k.name}`);
               }
 
-              console.log('\n  ✓ Deployment complete');
+              console.log('\n  ✓ Deployment complete (reconciliation in progress)');
             }
           } else {
             console.error('  ✗ Error: Cluster must have spec.oci configured');
