@@ -6,7 +6,9 @@
     "composite": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "kustodian": ["../../dist/cli/index.d.ts"],
+      "kustodian/*": ["../../dist/*/index.d.ts"]
     }
   },
   "include": ["src/**/*", "yaml-types.d.ts"],
