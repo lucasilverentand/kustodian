@@ -11,7 +11,9 @@ import { diff_command } from './commands/diff.js';
 import { init_command } from './commands/init.js';
 import { kubeconfig_command } from './commands/kubeconfig.js';
 import { preview_command } from './commands/preview.js';
+import { rollback_command } from './commands/rollback.js';
 import { sources_command } from './commands/sources.js';
+import { status_command } from './commands/status.js';
 import { update_command } from './commands/update.js';
 import { validate_command } from './commands/validate.js';
 import { create_container } from './container.js';
@@ -31,6 +33,8 @@ const core_commands = [
   update_command,
   kubeconfig_command,
   sources_command,
+  status_command,
+  rollback_command,
 ];
 
 async function main() {

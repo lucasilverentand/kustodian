@@ -286,6 +286,9 @@ export function format_help(config: CLIConfigType, commands: CommandType[]): str
   lines.push(`  ${config.name} update --dry-run`);
   lines.push(`  ${config.name} update --cluster production`);
   lines.push(`  ${config.name} sources fetch`);
+  lines.push(`  ${config.name} status --cluster production`);
+  lines.push(`  ${config.name} rollback --cluster production --revision abc123`);
+  lines.push(`  ${config.name} rollback --cluster production --suspend`);
 
   return lines.join('\n');
 }

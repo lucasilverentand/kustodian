@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.10.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.9.0...kustodian-v1.10.0) (2026-03-01)
+
+
+### Features
+
+* fire-and-forget flux reconciliation after apply ([b8d82ad](https://github.com/lucasilverentand/kustodian/commit/b8d82ad6d0896d34bb7251711b6a979ab791f4c8))
+
+
+### Bug Fixes
+
+* add kustodian-k0s as workspace dependency for dynamic import resolution ([13961ae](https://github.com/lucasilverentand/kustodian/commit/13961ae3e5c671c41befb957000124ad7a08dcbd))
+
 ## [1.9.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.8.0...kustodian-v1.9.0) (2026-02-28)
 
 
