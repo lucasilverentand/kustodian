@@ -1,4 +1,6 @@
 import { is_success, success } from '../../core/index.js';
+import type { ClusterFluxStatusType } from '../../k8s/flux-operator.js';
+import { create_flux_operator } from '../../k8s/flux-operator.js';
 import { create_flux_client } from '../../k8s/flux.js';
 import { create_kubectl_client } from '../../k8s/kubectl.js';
 
@@ -7,32 +9,100 @@ import { resolve_defaults } from '../utils/defaults.js';
 import { load_and_resolve_project } from '../utils/project.js';
 
 /**
- * Flux Kustomization status condition.
+ * Formats and prints a ClusterFluxStatusType to the console.
  */
-interface FluxConditionType {
-  type: string;
-  status: string;
-  reason?: string;
-  message?: string;
-  lastTransitionTime?: string;
-}
+export function print_cluster_status(
+  cluster_name: string,
+  status: ClusterFluxStatusType,
+  oci_repo_name?: string,
+): void {
+  console.log(`\n━━━ Status: ${cluster_name} ━━━\n`);
 
-/**
- * Flux Kustomization status from the cluster.
- */
-interface FluxKustomizationStatusType {
-  metadata: {
-    name: string;
-    namespace: string;
-  };
-  spec: {
-    suspend?: boolean;
-  };
-  status?: {
-    conditions?: FluxConditionType[];
-    lastAppliedRevision?: string;
-    lastAttemptedRevision?: string;
-  };
+  // Flux installation
+  console.log('Flux CD:');
+  if (!status.flux_installed) {
+    console.log('  ✗ Flux is not installed');
+    return;
+  }
+
+  console.log(`  ✓ Installed${status.flux_version ? ` (v${status.flux_version})` : ''}`);
+  for (const component of status.components) {
+    console.log(`  ${component.ready ? '✓' : '✗'} ${component.name}`);
+  }
+
+  // OCIRepository
+  console.log('\nSources:');
+  if (status.oci_repository) {
+    const oci = status.oci_repository;
+    const icon = oci.suspended ? '⏸' : oci.ready ? '✓' : '✗';
+    const text = oci.suspended
+      ? 'Suspended'
+      : oci.ready
+        ? 'Ready'
+        : oci.ready_reason || 'Not Ready';
+    console.log(`  ${icon} OCIRepository/${oci.name}: ${text}`);
+    if (oci.revision) {
+      console.log(`    Revision: ${oci.revision}`);
+    }
+    if (!oci.ready && !oci.suspended && oci.ready_message) {
+      console.log(`    Message: ${oci.ready_message}`);
+    }
+  } else {
+    console.log(`  - OCIRepository/${oci_repo_name || 'unknown'}: not found`);
+  }
+
+  // Kustomizations
+  console.log('\nKustomizations:');
+  if (status.kustomizations.length === 0) {
+    console.log('  - No Kustomizations found');
+    return;
+  }
+
+  for (const ks of status.kustomizations) {
+    const icon = ks.suspended ? '⏸' : ks.ready ? '✓' : '✗';
+    let text: string;
+    if (ks.suspended) {
+      text = 'Suspended';
+    } else if (ks.ready) {
+      text = ks.healthy === false ? 'Ready (unhealthy)' : 'Ready';
+    } else {
+      text = ks.ready_reason || 'Not Ready';
+    }
+
+    console.log(`  ${icon} ${ks.name}: ${text}`);
+
+    if (ks.last_applied_revision) {
+      const rev = ks.last_applied_revision;
+      console.log(`    Applied: ${rev.length > 60 ? `${rev.slice(0, 60)}...` : rev}`);
+    }
+    if (!ks.ready && !ks.suspended && ks.ready_message) {
+      const msg = ks.ready_message;
+      console.log(`    Error: ${msg.length > 120 ? `${msg.slice(0, 120)}...` : msg}`);
+    }
+    if (ks.healthy === false && !ks.suspended && ks.healthy_message) {
+      const msg = ks.healthy_message;
+      console.log(`    Health: ${msg.length > 120 ? `${msg.slice(0, 120)}...` : msg}`);
+    }
+    if (ks.has_failed_revision && ks.last_attempted_revision) {
+      const rev = ks.last_attempted_revision;
+      console.log(`    Failed revision: ${rev.length > 60 ? `${rev.slice(0, 60)}...` : rev}`);
+    }
+  }
+
+  // Summary
+  console.log('\nSummary:');
+  console.log(`  Total: ${status.summary.total} Kustomizations`);
+  if (status.summary.healthy > 0) console.log(`  ✓ Healthy: ${status.summary.healthy}`);
+  if (status.summary.unhealthy > 0) console.log(`  ✗ Unhealthy: ${status.summary.unhealthy}`);
+  if (status.summary.suspended > 0) console.log(`  ⏸ Suspended: ${status.summary.suspended}`);
+
+  if (status.summary.unhealthy > 0) {
+    console.log(
+      '\nTip: Use `kustodian rollback --cluster <name> --suspend` to pause reconciliation',
+    );
+  }
+
+  console.log('');
 }
 
 /**
@@ -85,182 +155,23 @@ export const status_command = define_command({
 
     const cluster_name = loaded_cluster.cluster.metadata.name;
     const defaults = resolve_defaults(loaded_cluster.cluster, project.config);
-    const FLUX_NAMESPACE = defaults.flux_namespace;
 
-    // Create clients
+    // Create operator
     const context = loaded_cluster.cluster.metadata.context;
     const client_options = context ? { context } : {};
-    const kubectl_client = create_kubectl_client(client_options);
-    const flux_client = create_flux_client(client_options);
-
-    console.log(`\n━━━ Status: ${cluster_name} ━━━\n`);
-
-    // Check Flux installation
-    console.log('Flux CD:');
-    const flux_check = await flux_client.check();
-    if (!is_success(flux_check)) {
-      console.log('  ✗ Unable to check Flux status');
-      return flux_check;
-    }
-
-    const flux_status = flux_check.value;
-    if (!flux_status.installed) {
-      console.log('  ✗ Flux is not installed');
-      return success(undefined);
-    }
-
-    console.log(`  ✓ Installed${flux_status.version ? ` (v${flux_status.version})` : ''}`);
-    for (const component of flux_status.components) {
-      console.log(`  ${component.ready ? '✓' : '✗'} ${component.name}`);
-    }
-
-    // Get OCIRepository status
-    console.log('\nSources:');
-    const oci_repo_name = defaults.oci_repository_name;
-    const oci_result = await kubectl_client.get({
-      kind: 'OCIRepository',
-      name: oci_repo_name,
-      namespace: FLUX_NAMESPACE,
+    const operator = create_flux_operator({
+      flux_client: create_flux_client(client_options),
+      kubectl_client: create_kubectl_client(client_options),
+      flux_namespace: defaults.flux_namespace,
     });
 
-    if (is_success(oci_result) && oci_result.value.length > 0) {
-      const oci_repo = oci_result.value[0] as unknown as {
-        metadata: { name: string };
-        spec: { suspend?: boolean };
-        status?: { conditions?: FluxConditionType[]; artifact?: { revision?: string } };
-      };
-      const oci_ready = oci_repo.status?.conditions?.find((c) => c.type === 'Ready');
-      const suspended = oci_repo.spec?.suspend;
-      const revision = oci_repo.status?.artifact?.revision;
-
-      const status_icon = suspended ? '⏸' : oci_ready?.status === 'True' ? '✓' : '✗';
-      const status_text = suspended
-        ? 'Suspended'
-        : oci_ready?.status === 'True'
-          ? 'Ready'
-          : oci_ready?.reason || 'Not Ready';
-      console.log(`  ${status_icon} OCIRepository/${oci_repo.metadata.name}: ${status_text}`);
-      if (revision) {
-        console.log(`    Revision: ${revision}`);
-      }
-      if (oci_ready?.status !== 'True' && !suspended && oci_ready?.message) {
-        console.log(`    Message: ${oci_ready.message}`);
-      }
-    } else {
-      console.log(`  - OCIRepository/${oci_repo_name}: not found`);
+    const status_result = await operator.get_status(defaults.oci_repository_name);
+    if (!is_success(status_result)) {
+      console.error(`  ✗ Unable to check Flux status: ${status_result.error.message}`);
+      return status_result;
     }
 
-    // Get all Kustomizations in the flux namespace
-    console.log('\nKustomizations:');
-    const ks_result = await kubectl_client.get({
-      kind: 'Kustomization.kustomize.toolkit.fluxcd.io',
-      name: '',
-      namespace: FLUX_NAMESPACE,
-    });
-
-    if (!is_success(ks_result) || ks_result.value.length === 0) {
-      console.log('  - No Kustomizations found');
-      return success(undefined);
-    }
-
-    let healthy_count = 0;
-    let unhealthy_count = 0;
-    let suspended_count = 0;
-
-    for (const raw_ks of ks_result.value) {
-      const ks = raw_ks as unknown as FluxKustomizationStatusType;
-      const ready_condition = ks.status?.conditions?.find((c) => c.type === 'Ready');
-      const healthy_condition = ks.status?.conditions?.find((c) => c.type === 'Healthy');
-      const suspended = ks.spec?.suspend;
-
-      const is_ready = ready_condition?.status === 'True';
-      const is_healthy = healthy_condition?.status === 'True';
-
-      if (suspended) {
-        suspended_count++;
-      } else if (is_ready) {
-        healthy_count++;
-      } else {
-        unhealthy_count++;
-      }
-
-      // Status icon
-      let icon: string;
-      if (suspended) {
-        icon = '⏸';
-      } else if (is_ready && is_healthy) {
-        icon = '✓';
-      } else if (is_ready) {
-        icon = '✓';
-      } else {
-        icon = '✗';
-      }
-
-      // Status text
-      let status_text: string;
-      if (suspended) {
-        status_text = 'Suspended';
-      } else if (is_ready) {
-        status_text = 'Ready';
-        if (healthy_condition && !is_healthy) {
-          status_text += ' (unhealthy)';
-        }
-      } else {
-        status_text = ready_condition?.reason || 'Not Ready';
-      }
-
-      console.log(`  ${icon} ${ks.metadata.name}: ${status_text}`);
-
-      // Show revision info
-      if (ks.status?.lastAppliedRevision) {
-        const rev = ks.status.lastAppliedRevision;
-        const short_rev = rev.length > 60 ? `${rev.slice(0, 60)}...` : rev;
-        console.log(`    Applied: ${short_rev}`);
-      }
-
-      // Show error details for unhealthy resources
-      if (!is_ready && !suspended && ready_condition?.message) {
-        const msg = ready_condition.message;
-        const short_msg = msg.length > 120 ? `${msg.slice(0, 120)}...` : msg;
-        console.log(`    Error: ${short_msg}`);
-      }
-
-      // Show health check failures
-      if (healthy_condition && !is_healthy && !suspended) {
-        const msg = healthy_condition.message;
-        if (msg) {
-          const short_msg = msg.length > 120 ? `${msg.slice(0, 120)}...` : msg;
-          console.log(`    Health: ${short_msg}`);
-        }
-      }
-
-      // Show if attempted revision differs from applied (failed update)
-      if (
-        ks.status?.lastAttemptedRevision &&
-        ks.status?.lastAppliedRevision &&
-        ks.status.lastAttemptedRevision !== ks.status.lastAppliedRevision
-      ) {
-        const rev = ks.status.lastAttemptedRevision;
-        const short_rev = rev.length > 60 ? `${rev.slice(0, 60)}...` : rev;
-        console.log(`    Failed revision: ${short_rev}`);
-      }
-    }
-
-    // Summary
-    console.log('\nSummary:');
-    const total = healthy_count + unhealthy_count + suspended_count;
-    console.log(`  Total: ${total} Kustomizations`);
-    if (healthy_count > 0) console.log(`  ✓ Healthy: ${healthy_count}`);
-    if (unhealthy_count > 0) console.log(`  ✗ Unhealthy: ${unhealthy_count}`);
-    if (suspended_count > 0) console.log(`  ⏸ Suspended: ${suspended_count}`);
-
-    if (unhealthy_count > 0) {
-      console.log(
-        '\nTip: Use `kustodian rollback --cluster <name> --suspend` to pause reconciliation',
-      );
-    }
-
-    console.log('');
+    print_cluster_status(cluster_name, status_result.value, defaults.oci_repository_name);
     return success(undefined);
   },
 });
