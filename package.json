@@ -51,8 +51,14 @@
   },
   "files": [
     "dist",
+    "ci-setup.sh",
     "package.json"
   ],
+  "kustodian": {
+    "ci": {
+      "setup": "./ci-setup.sh"
+    }
+  },
   "workspaces": [
     "plugins/*"
   ],

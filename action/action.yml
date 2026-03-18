@@ -49,6 +49,10 @@ runs:
           bun install --frozen-lockfile 2>/dev/null || bun install
         fi
 
+    - name: Setup plugin dependencies
+      shell: bash
+      run: bun run "${{ github.action_path }}/run-plugin-setup.ts" "${{ inputs.project-path }}"
+
     - name: Generate PR manifests
       shell: bash
       working-directory: ${{ inputs.project-path }}
