@@ -12,8 +12,14 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "ci-setup.sh"
   ],
+  "kustodian": {
+    "ci": {
+      "setup": "./ci-setup.sh"
+    }
+  },
   "scripts": {
     "test": "bun test",
     "test:watch": "bun test --watch",
