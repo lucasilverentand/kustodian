@@ -3,20 +3,17 @@ import { is_success, success } from '../../core/index.js';
 import { create_kubeconfig_manager } from '../../k8s/kubeconfig.js';
 
 import { define_command } from '../command.js';
-import {
-  build_node_list,
-  create_k0s_provider_instance,
-  resolve_k0s_provider_options,
-} from '../utils/k0s-provider.js';
+import { PLUGIN_REGISTRY_ID } from '../services.js';
 import { load_and_resolve_project, sanitize_filename_part } from '../utils/project.js';
+import { build_node_list, resolve_provider } from '../utils/provider.js';
 
 /**
- * Kubeconfig command - pulls kubeconfig from a k0s cluster and merges it
+ * Kubeconfig command - pulls kubeconfig from a cluster and merges it
  * into the local ~/.kube/config.
  */
 export const kubeconfig_command = define_command({
   name: 'kubeconfig',
-  description: 'Pull and merge kubeconfig from a k0s cluster',
+  description: 'Pull and merge kubeconfig from a cluster',
   options: [
     {
       name: 'cluster',
@@ -26,14 +23,22 @@ export const kubeconfig_command = define_command({
       required: true,
     },
     {
+      name: 'provider',
+      short: 'P',
+      description: 'Cluster provider',
+      type: 'string',
+      default_value: 'k0s',
+    },
+    {
       name: 'project',
       short: 'p',
       description: 'Path to project root',
       type: 'string',
     },
   ],
-  handler: async (ctx) => {
+  handler: async (ctx, container) => {
     const cluster_filter = ctx.options['cluster'] as string | undefined;
+    const provider_name = ctx.options['provider'] as string;
     const project_path = (ctx.options['project'] as string) || process.cwd();
 
     if (!cluster_filter) {
@@ -63,10 +68,21 @@ export const kubeconfig_command = define_command({
     console.log(`  → Cluster: ${cluster_name}`);
     console.log(`  → Nodes: ${loaded_cluster.nodes.length}`);
 
-    // Build NodeListType and provider
+    // Resolve provider from plugin registry
+    const registry_result = container.resolve(PLUGIN_REGISTRY_ID);
+    if (!is_success(registry_result)) {
+      console.error('  ✗ Plugin registry not available');
+      return registry_result;
+    }
+    const provider_result = resolve_provider(registry_result.value, loaded_cluster, provider_name);
+    if (!is_success(provider_result)) {
+      console.error(`  ✗ Provider '${provider_name}' not found: ${provider_result.error.message}`);
+      return provider_result;
+    }
+    const provider = provider_result.value;
+
+    // Build NodeListType
     const node_list = build_node_list(loaded_cluster);
-    const provider_options = resolve_k0s_provider_options(loaded_cluster, { include_all: false });
-    const provider = await create_k0s_provider_instance(provider_options);
 
     // Validate
     console.log('\n  → Validating cluster configuration...');
@@ -77,7 +93,7 @@ export const kubeconfig_command = define_command({
     }
 
     // Pull kubeconfig
-    console.log('  → Pulling kubeconfig via k0sctl...');
+    console.log(`  → Pulling kubeconfig via ${provider_name}...`);
     const kubeconfig_result = await provider.get_kubeconfig(node_list);
     if (!is_success(kubeconfig_result)) {
       console.error(`  ✗ Failed to get kubeconfig: ${kubeconfig_result.error.message}`);

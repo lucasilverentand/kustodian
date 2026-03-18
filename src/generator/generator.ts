@@ -1,11 +1,6 @@
 import type { KustodianErrorType } from '../core/index.js';
 import { type ResultType, is_success, success } from '../core/index.js';
-import type {
-  GeneratedResourceType,
-  LegacyPluginRegistryType,
-  PluginContextType,
-  PluginRegistryType,
-} from '../plugins/index.js';
+import type { GeneratedResourceType, PluginRegistryType } from '../plugins/index.js';
 import type { ClusterType, TemplateConfigType, TemplateType } from '../schema/index.js';
 
 import {
@@ -107,7 +102,7 @@ export interface GeneratorType {
   generate_plugin_resources(
     cluster: ClusterType,
     templates: ResolvedTemplateType[],
-  ): ResultType<GeneratedResourceType[], KustodianErrorType>;
+  ): Promise<ResultType<GeneratedResourceType[], KustodianErrorType>>;
 
   /**
    * Writes generation result to disk.
@@ -119,12 +114,10 @@ export interface GeneratorType {
  * Creates a new Generator instance.
  *
  * @param options - Generator configuration options
- * @param legacy_registry - Legacy plugin registry (deprecated, for backward compatibility)
- * @param registry - New plugin registry with substitution provider support
+ * @param registry - Plugin registry with generators and substitution providers
  */
 export function create_generator(
   options: GeneratorOptionsType = {},
-  legacy_registry?: LegacyPluginRegistryType,
   registry?: PluginRegistryType,
 ): GeneratorType {
   const flux_namespace = options.flux_namespace ?? 'flux-system';
@@ -332,27 +325,28 @@ export function create_generator(
       return success(result);
     },
 
-    generate_plugin_resources(cluster, templates) {
-      if (!legacy_registry) {
+    async generate_plugin_resources(cluster, templates) {
+      if (!registry) {
         return success([]);
       }
 
       const all_resources: GeneratedResourceType[] = [];
 
-      // Generate resources from legacy plugins
-      for (const generator of legacy_registry.get_resource_generators()) {
+      for (const generator of registry.get_generators()) {
         for (const resolved of templates) {
           if (!resolved.enabled) {
             continue;
           }
 
-          const ctx: PluginContextType = {
+          const ctx = {
             cluster,
             template: resolved.template,
+            config: {},
+            all_objects: new Map<string, unknown[]>(),
           };
 
-          const result = generator.generate(ctx);
-          if (!result.success) {
+          const result = await generator.generate(resolved.template, ctx);
+          if (!is_success(result)) {
             return result;
           }
 

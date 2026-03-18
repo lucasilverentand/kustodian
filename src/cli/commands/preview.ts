@@ -7,11 +7,12 @@ import { create_generator } from '../../generator/generator.js';
 import { write_generation_result } from '../../generator/output.js';
 import type { OutputFormatType } from '../../generator/output.js';
 import type { LoadedClusterType } from '../../loader/index.js';
-import type { NodeListType } from '../../nodes/index.js';
-
 import { define_command } from '../command.js';
+import type { ContainerType } from '../container.js';
+import { PLUGIN_REGISTRY_ID } from '../services.js';
 import { resolve_defaults } from '../utils/defaults.js';
 import { load_and_resolve_project } from '../utils/project.js';
+import { build_node_list, resolve_provider_options } from '../utils/provider.js';
 
 function detect_editor(): string {
   try {
@@ -23,81 +24,47 @@ function detect_editor(): string {
 }
 
 /**
- * Generates the k0s provider config preview and writes it to the output directory.
+ * Generates the provider config preview and writes it to the output directory.
  * Returns the written file path, or undefined if not applicable.
  */
-async function generate_k0s_preview(
+async function generate_provider_preview(
   loaded_cluster: LoadedClusterType,
   output_dir: string,
+  container: ContainerType,
 ): Promise<string | undefined> {
-  const cluster_name = loaded_cluster.cluster.metadata.name;
-
-  // Build NodeListType from loaded cluster
-  const node_list: NodeListType = {
-    cluster: cluster_name,
-    nodes: loaded_cluster.nodes,
-    ...(loaded_cluster.cluster.spec.node_defaults?.label_prefix && {
-      label_prefix: loaded_cluster.cluster.spec.node_defaults.label_prefix,
-    }),
-  } as NodeListType;
-
-  // Load k0s provider with plugin config
-  let create_k0s_provider: (options?: Record<string, unknown>) => {
-    get_config_preview?: (
-      node_list: NodeListType,
-    ) => { success: true; value: string } | { success: false; error: { message: string } };
-  };
-  try {
-    const k0s_package = 'kustodian-k0s';
-    const k0s_module = await import(k0s_package);
-    create_k0s_provider = k0s_module.create_k0s_provider;
-  } catch {
-    // k0s package not available, skip
+  // Try to resolve the provider from the plugin registry
+  const registry_result = container.resolve(PLUGIN_REGISTRY_ID);
+  if (!is_success(registry_result)) {
     return undefined;
   }
 
-  // Extract k0s plugin config from cluster spec
-  const k0s_plugin = loaded_cluster.cluster.spec.plugins?.find(
-    (p) => p.name === 'k0s' || p.name === '@kustodian/plugin-k0s',
-  );
-  const plugin_config = k0s_plugin?.config ?? {};
-
-  const provider_options: Record<string, unknown> = {};
-  if (plugin_config['k0s_version']) {
-    provider_options['k0s_version'] = plugin_config['k0s_version'];
-  }
-  if (plugin_config['telemetry_enabled'] !== undefined) {
-    provider_options['telemetry_enabled'] = plugin_config['telemetry_enabled'];
-  }
-  if (plugin_config['dynamic_config'] !== undefined) {
-    provider_options['dynamic_config'] = plugin_config['dynamic_config'];
-  }
-  if (plugin_config['sans']) {
-    provider_options['sans'] = plugin_config['sans'];
-  }
-  if (plugin_config['default_ssh']) {
-    provider_options['default_ssh'] = plugin_config['default_ssh'];
-  }
-  provider_options['cluster_name'] = loaded_cluster.cluster.metadata.code ?? cluster_name;
-
-  const provider = create_k0s_provider(provider_options);
-
-  if (!provider.get_config_preview) {
+  // Use the first available provider (typically k0s)
+  const available_providers = registry_result.value.get_providers();
+  const provider_name = available_providers[0]?.name;
+  if (!provider_name) {
     return undefined;
   }
 
+  const options = resolve_provider_options(loaded_cluster, provider_name);
+  const provider = registry_result.value.create_provider(provider_name, options);
+
+  if (!provider?.get_config_preview) {
+    return undefined;
+  }
+
+  const node_list = build_node_list(loaded_cluster);
   const preview_result = provider.get_config_preview(node_list);
   if (!preview_result.success) {
     return undefined;
   }
 
-  // Write k0sctl config to output directory
-  const k0s_dir = path.join(output_dir, 'k0s');
-  fs.mkdirSync(k0s_dir, { recursive: true });
-  const k0s_file = path.join(k0s_dir, 'k0sctl.yaml');
-  fs.writeFileSync(k0s_file, preview_result.value, 'utf-8');
+  // Write config to output directory
+  const provider_dir = path.join(output_dir, provider_name);
+  fs.mkdirSync(provider_dir, { recursive: true });
+  const config_file = path.join(provider_dir, `${provider_name}ctl.yaml`);
+  fs.writeFileSync(config_file, preview_result.value, 'utf-8');
 
-  return k0s_file;
+  return config_file;
 }
 
 /**
@@ -105,7 +72,7 @@ async function generate_k0s_preview(
  */
 export const preview_command = define_command({
   name: 'preview',
-  description: 'Preview generated manifests (Flux + k0s) for a cluster',
+  description: 'Preview generated manifests (Flux + provider config) for a cluster',
   options: [
     {
       name: 'cluster',
@@ -139,7 +106,7 @@ export const preview_command = define_command({
       default_value: 'yaml',
     },
   ],
-  handler: async (ctx) => {
+  handler: async (ctx, container) => {
     const cluster_filter = ctx.options['cluster'] as string | undefined;
     const template_filter = ctx.options['template'] as string | undefined;
     const project_path = (ctx.options['project'] as string) || process.cwd();
@@ -248,11 +215,15 @@ export const preview_command = define_command({
       const written_files = write_result.value;
       total_written += written_files.length;
 
-      // Generate k0s manifest if cluster has nodes
+      // Generate provider config preview if cluster has nodes
       if (loaded_cluster.nodes.length > 0) {
-        const k0s_file = await generate_k0s_preview(loaded_cluster, output_dir);
-        if (k0s_file) {
-          written_files.push(k0s_file);
+        const provider_file = await generate_provider_preview(
+          loaded_cluster,
+          output_dir,
+          container,
+        );
+        if (provider_file) {
+          written_files.push(provider_file);
           total_written += 1;
         }
       }

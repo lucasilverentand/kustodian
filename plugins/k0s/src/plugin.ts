@@ -7,27 +7,25 @@ import type {
   PluginCommandContributionType,
   PluginHookContributionType,
   PluginManifestType,
+  PluginProviderContributionType,
 } from 'kustodian/plugins';
 
 import { create_k0s_provider } from './provider.js';
-import type { K0sProviderOptionsType } from './types.js';
 
 /**
  * k0s plugin manifest.
  */
 const manifest: PluginManifestType = {
-  name: '@kustodian/plugin-k0s',
+  name: 'kustodian-k0s',
   version: '0.1.0',
   description: 'k0s cluster provider for Kustodian',
-  capabilities: ['commands', 'hooks'],
+  capabilities: ['commands', 'hooks', 'providers'],
 };
 
 /**
  * Creates the k0s plugin.
  */
-export function create_k0s_plugin(options: K0sProviderOptionsType = {}): KustodianPluginType {
-  const provider = create_k0s_provider(options);
-
+export function create_k0s_plugin(): KustodianPluginType {
   return {
     manifest,
 
@@ -49,7 +47,6 @@ export function create_k0s_plugin(options: K0sProviderOptionsType = {}): Kustodi
             description: 'Show k0s provider information',
             handler: async () => {
               console.log('k0s cluster provider');
-              console.log('Provider name:', provider.name);
               return success(undefined);
             },
           },
@@ -64,9 +61,17 @@ export function create_k0s_plugin(options: K0sProviderOptionsType = {}): Kustodi
           event: 'bootstrap:before',
           priority: 100,
           handler: async (_event: HookEventType, ctx: HookContextType) => {
-            // Could add k0s-specific pre-bootstrap validation here
             return success(ctx);
           },
+        },
+      ];
+    },
+
+    get_providers(): PluginProviderContributionType[] {
+      return [
+        {
+          name: 'k0s',
+          factory: (options) => create_k0s_provider(options),
         },
       ];
     },
