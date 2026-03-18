@@ -7,15 +7,11 @@ import { create_flux_client } from '../../k8s/flux.js';
 import { create_kubeconfig_manager } from '../../k8s/kubeconfig.js';
 import type { K8sObjectType } from '../../k8s/kubectl.js';
 import { create_kubectl_client } from '../../k8s/kubectl.js';
+import type { ClusterProviderType } from '../../plugins/index.js';
 import { define_command } from '../command.js';
+import { PLUGIN_REGISTRY_ID } from '../services.js';
 import { OCI_REGISTRY_PROVIDER } from '../utils/cluster-secrets.js';
 import { resolve_defaults } from '../utils/defaults.js';
-import {
-  type K0sProviderType,
-  build_node_list,
-  create_k0s_provider_instance,
-  resolve_k0s_provider_options,
-} from '../utils/k0s-provider.js';
 import { is_not_found_error } from '../utils/k8s-errors.js';
 import {
   create_namespace_manifest,
@@ -24,6 +20,7 @@ import {
   get_provider_token_from_env,
 } from '../utils/oci.js';
 import { load_and_resolve_project, sanitize_filename_part } from '../utils/project.js';
+import { build_node_list, resolve_provider } from '../utils/provider.js';
 import { validate_cluster_template_requirements } from '../utils/validation.js';
 
 /**
@@ -60,20 +57,10 @@ export const diff_command = define_command({
       type: 'string',
     },
   ],
-  handler: async (ctx) => {
+  handler: async (ctx, container) => {
     const cluster_filter = ctx.options['cluster'] as string | undefined;
     const provider_name = ctx.options['provider'] as string;
     const project_path = (ctx.options['project'] as string) || process.cwd();
-
-    if (provider_name !== 'k0s') {
-      return {
-        success: false as const,
-        error: {
-          code: 'UNSUPPORTED_PROVIDER',
-          message: `Provider '${provider_name}' is not supported for diff`,
-        },
-      };
-    }
 
     console.log('\n━━━ Kustodian Diff ━━━');
 
@@ -114,21 +101,35 @@ export const diff_command = define_command({
 
       let temp_kubeconfig: string | undefined;
       let temp_flux_kustomization_dir: string | undefined;
-      let provider: K0sProviderType | undefined;
+      let provider: ClusterProviderType | undefined;
 
       try {
-        const node_list = build_node_list(loaded_cluster);
-        const provider_options = resolve_k0s_provider_options(loaded_cluster);
-        const provider_instance = await create_k0s_provider_instance(provider_options);
-        provider = provider_instance;
+        // Resolve provider from plugin registry
+        const registry_result = container.resolve(PLUGIN_REGISTRY_ID);
+        if (!is_success(registry_result)) {
+          process.exitCode = 2;
+          return registry_result;
+        }
+        const provider_result = resolve_provider(
+          registry_result.value,
+          loaded_cluster,
+          provider_name,
+        );
+        if (!is_success(provider_result)) {
+          process.exitCode = 2;
+          return provider_result;
+        }
+        provider = provider_result.value;
 
-        const validate_result = provider_instance.validate(node_list);
+        const node_list = build_node_list(loaded_cluster);
+
+        const validate_result = provider.validate(node_list);
         if (!is_success(validate_result)) {
           process.exitCode = 2;
           return validate_result;
         }
 
-        const kubeconfig_result = await provider_instance.get_kubeconfig(node_list);
+        const kubeconfig_result = await provider.get_kubeconfig(node_list);
         if (!is_success(kubeconfig_result)) {
           process.exitCode = 2;
           return kubeconfig_result;
@@ -138,7 +139,7 @@ export const diff_command = define_command({
           tmpdir(),
           `kustodian-diff-kubeconfig-${sanitize_filename_part(cluster_name)}.yaml`,
         );
-        await writeFile(temp_kubeconfig, kubeconfig_result.value, 'utf-8');
+        await writeFile(temp_kubeconfig, kubeconfig_result.value as string, 'utf-8');
 
         // Rename kubeconfig entries to cluster-scoped names
         const kubeconfig_manager = create_kubeconfig_manager();

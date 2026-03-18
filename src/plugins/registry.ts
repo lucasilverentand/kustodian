@@ -2,15 +2,22 @@ import type { KustodianErrorType } from '../core/index.js';
 import { Errors, type ResultType, failure, is_success, success } from '../core/index.js';
 
 import type { PluginGeneratorType } from './generators.js';
+import type {
+  GitOpsCheckOptionsType,
+  GitOpsEngineType,
+  PluginGitOpsEngineContributionType,
+} from './gitops-engine.js';
 import { type HookDispatcherType, create_hook_dispatcher } from './hooks.js';
 import { type ObjectTypeRegistryType, create_object_type_registry } from './object-types.js';
 import type { SubstitutionProviderType } from './substitution-providers.js';
 import type {
+  ClusterProviderType,
   KustodianPluginType,
   LoadedPluginType,
   PluginActivationContextType,
   PluginCommandContributionType,
   PluginManifestType,
+  PluginProviderContributionType,
 } from './types.js';
 
 /**
@@ -81,6 +88,31 @@ export interface PluginRegistryType {
    * Gets a substitution provider for a specific type.
    */
   get_substitution_provider(type: string): SubstitutionProviderType | undefined;
+
+  /**
+   * Gets all provider contributions from plugins.
+   */
+  get_providers(): PluginProviderContributionType[];
+
+  /**
+   * Creates a cluster provider by name with the given options.
+   * Returns undefined if no plugin provides a provider with that name.
+   */
+  create_provider(name: string, options: Record<string, unknown>): ClusterProviderType | undefined;
+
+  /**
+   * Gets all GitOps engine contributions from plugins.
+   */
+  get_gitops_engines(): PluginGitOpsEngineContributionType[];
+
+  /**
+   * Creates a GitOps engine by name.
+   * Returns undefined if no plugin provides an engine with that name.
+   */
+  create_gitops_engine(
+    name: string,
+    options?: GitOpsCheckOptionsType,
+  ): GitOpsEngineType | undefined;
 }
 
 /**
@@ -94,6 +126,8 @@ export function create_plugin_registry(): PluginRegistryType {
   const commands: PluginCommandContributionType[] = [];
   const generators: PluginGeneratorType[] = [];
   const substitution_providers: SubstitutionProviderType[] = [];
+  const providers: PluginProviderContributionType[] = [];
+  const gitops_engines: PluginGitOpsEngineContributionType[] = [];
   const hook_dispatcher = create_hook_dispatcher();
   const object_type_registry = create_object_type_registry();
 
@@ -140,6 +174,18 @@ export function create_plugin_registry(): PluginRegistryType {
       if (plugin.get_substitution_providers) {
         const plugin_substitution_providers = plugin.get_substitution_providers();
         substitution_providers.push(...plugin_substitution_providers);
+      }
+
+      // Collect provider contributions
+      if (plugin.get_providers) {
+        const plugin_providers = plugin.get_providers();
+        providers.push(...plugin_providers);
+      }
+
+      // Collect GitOps engine contributions
+      if (plugin.get_gitops_engines) {
+        const plugin_engines = plugin.get_gitops_engines();
+        gitops_engines.push(...plugin_engines);
       }
 
       return success(undefined);
@@ -228,83 +274,29 @@ export function create_plugin_registry(): PluginRegistryType {
     get_substitution_provider(type) {
       return substitution_providers.find((p) => p.type === type);
     },
-  };
-}
 
-// ============================================================
-// Legacy exports for backward compatibility
-// ============================================================
+    get_providers() {
+      return [...providers];
+    },
 
-import type {
-  LegacyPluginType,
-  ResourceGeneratorPluginType,
-  SecretProviderPluginType,
-  TransformerPluginType,
-  ValidatorPluginType,
-} from './types.js';
-import {
-  is_resource_generator,
-  is_secret_provider,
-  is_transformer,
-  is_validator,
-} from './types.js';
-
-/**
- * @deprecated Use PluginRegistryType instead
- */
-export interface LegacyPluginRegistryType {
-  register(plugin: LegacyPluginType): ResultType<void, KustodianErrorType>;
-  get(name: string): LegacyPluginType | undefined;
-  get_secret_providers(): SecretProviderPluginType[];
-  get_secret_provider_by_scheme(scheme: string): SecretProviderPluginType | undefined;
-  get_resource_generators(): ResourceGeneratorPluginType[];
-  get_validators(): ValidatorPluginType[];
-  get_transformers(): TransformerPluginType[];
-  list(): string[];
-}
-
-/**
- * @deprecated Use create_plugin_registry instead
- */
-export function create_legacy_plugin_registry(): LegacyPluginRegistryType {
-  const plugins = new Map<string, LegacyPluginType>();
-
-  return {
-    register(plugin) {
-      const name = plugin.manifest.name;
-      if (plugins.has(name)) {
-        return failure(Errors.already_exists('Plugin', name));
+    create_provider(name, options) {
+      const contribution = providers.find((p) => p.name === name);
+      if (!contribution) {
+        return undefined;
       }
-      plugins.set(name, plugin);
-      return success(undefined);
+      return contribution.factory(options);
     },
 
-    get(name) {
-      return plugins.get(name);
+    get_gitops_engines() {
+      return [...gitops_engines];
     },
 
-    get_secret_providers() {
-      return Array.from(plugins.values()).filter(is_secret_provider);
-    },
-
-    get_secret_provider_by_scheme(scheme) {
-      return this.get_secret_providers().find((p) => p.scheme === scheme);
-    },
-
-    get_resource_generators() {
-      return Array.from(plugins.values()).filter(is_resource_generator);
-    },
-
-    get_validators() {
-      return Array.from(plugins.values()).filter(is_validator);
-    },
-
-    get_transformers() {
-      return Array.from(plugins.values()).filter(is_transformer);
-    },
-
-    list() {
-      return Array.from(plugins.keys());
+    create_gitops_engine(name, options) {
+      const contribution = gitops_engines.find((e) => e.name === name);
+      if (!contribution) {
+        return undefined;
+      }
+      return contribution.factory(options);
     },
   };
 }

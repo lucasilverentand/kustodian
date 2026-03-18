@@ -3,17 +3,11 @@ import { z } from 'zod';
 import { success } from '../../src/core/index.js';
 
 import type { PluginGeneratorType } from '../../src/plugins/generators.js';
-import {
-  create_legacy_plugin_registry,
-  create_plugin_registry,
-} from '../../src/plugins/registry.js';
+import { create_plugin_registry } from '../../src/plugins/registry.js';
 import type {
   KustodianPluginType,
   LoadedPluginType,
   PluginManifestType,
-  ResourceGeneratorPluginType,
-  SecretProviderPluginType,
-  ValidatorPluginType,
 } from '../../src/plugins/types.js';
 
 describe('Plugin Registry', () => {
@@ -284,126 +278,6 @@ describe('Plugin Registry', () => {
         'deactivate-second',
         'deactivate-first',
       ]);
-    });
-  });
-});
-
-describe('Legacy Plugin Registry', () => {
-  const create_mock_secret_provider = (name: string, scheme: string): SecretProviderPluginType => ({
-    manifest: { name, version: '1.0.0', type: 'secret-provider' },
-    scheme,
-    parse_ref: () => ({ success: true, value: {} }),
-    generate: () => ({
-      success: true,
-      value: { api_version: 'v1', kind: 'Secret', metadata: { name: 'test' } },
-    }),
-  });
-
-  const create_mock_generator = (name: string): ResourceGeneratorPluginType => ({
-    manifest: { name, version: '1.0.0', type: 'resource-generator' },
-    generate: () => ({ success: true, value: [] }),
-  });
-
-  const create_mock_validator = (name: string): ValidatorPluginType => ({
-    manifest: { name, version: '1.0.0', type: 'validator' },
-    validate: () => ({ success: true, value: undefined }),
-  });
-
-  describe('register', () => {
-    it('should register a legacy plugin', () => {
-      const registry = create_legacy_plugin_registry();
-      const plugin = create_mock_secret_provider('vault', 'vault://');
-
-      const result = registry.register(plugin);
-
-      expect(result.success).toBe(true);
-      expect(registry.get('vault')).toBe(plugin);
-    });
-
-    it('should reject duplicate plugin names', () => {
-      const registry = create_legacy_plugin_registry();
-      const plugin1 = create_mock_secret_provider('test', 'test://');
-      const plugin2 = create_mock_generator('test');
-
-      registry.register(plugin1);
-      const result = registry.register(plugin2);
-
-      expect(result.success).toBe(false);
-    });
-  });
-
-  describe('get_secret_providers', () => {
-    it('should return only secret provider plugins', () => {
-      const registry = create_legacy_plugin_registry();
-      registry.register(create_mock_secret_provider('vault', 'vault://'));
-      registry.register(create_mock_generator('custom-auth'));
-      registry.register(create_mock_secret_provider('sops', 'sops://'));
-
-      const providers = registry.get_secret_providers();
-
-      expect(providers).toHaveLength(2);
-      expect(providers.map((p) => p.manifest.name)).toContain('vault');
-      expect(providers.map((p) => p.manifest.name)).toContain('sops');
-    });
-  });
-
-  describe('get_secret_provider_by_scheme', () => {
-    it('should return provider by scheme', () => {
-      const registry = create_legacy_plugin_registry();
-      registry.register(create_mock_secret_provider('vault', 'vault://'));
-      registry.register(create_mock_secret_provider('sops', 'sops://'));
-
-      const provider = registry.get_secret_provider_by_scheme('sops://');
-
-      expect(provider?.manifest.name).toBe('sops');
-    });
-
-    it('should return undefined for unknown scheme', () => {
-      const registry = create_legacy_plugin_registry();
-
-      const provider = registry.get_secret_provider_by_scheme('unknown://');
-
-      expect(provider).toBeUndefined();
-    });
-  });
-
-  describe('get_resource_generators', () => {
-    it('should return only resource generator plugins', () => {
-      const registry = create_legacy_plugin_registry();
-      registry.register(create_mock_secret_provider('vault', 'vault://'));
-      registry.register(create_mock_generator('custom-auth'));
-
-      const generators = registry.get_resource_generators();
-
-      expect(generators).toHaveLength(1);
-      expect(generators[0]?.manifest.name).toBe('custom-auth');
-    });
-  });
-
-  describe('get_validators', () => {
-    it('should return only validator plugins', () => {
-      const registry = create_legacy_plugin_registry();
-      registry.register(create_mock_generator('gen'));
-      registry.register(create_mock_validator('security'));
-
-      const validators = registry.get_validators();
-
-      expect(validators).toHaveLength(1);
-      expect(validators[0]?.manifest.name).toBe('security');
-    });
-  });
-
-  describe('list', () => {
-    it('should list all registered plugin names', () => {
-      const registry = create_legacy_plugin_registry();
-      registry.register(create_mock_secret_provider('vault', 'vault://'));
-      registry.register(create_mock_generator('custom-auth'));
-
-      const names = registry.list();
-
-      expect(names).toHaveLength(2);
-      expect(names).toContain('vault');
-      expect(names).toContain('custom-auth');
     });
   });
 });

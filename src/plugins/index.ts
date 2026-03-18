@@ -3,6 +3,9 @@
 // Generator interface
 export * from './generators.js';
 
+// GitOps engine interface
+export * from './gitops-engine.js';
+
 // Hook system
 export * from './hooks.js';
 // Plugin loader

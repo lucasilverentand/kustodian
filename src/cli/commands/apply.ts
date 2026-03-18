@@ -9,12 +9,13 @@ import { create_kubectl_client } from '../../k8s/kubectl.js';
 
 import { serialize_resource } from '../../generator/index.js';
 import { define_command } from '../command.js';
+import { PLUGIN_REGISTRY_ID } from '../services.js';
 import { type ClusterSecretProvider, OCI_REGISTRY_PROVIDER } from '../utils/cluster-secrets.js';
 import { confirm } from '../utils/confirm.js';
 import { resolve_defaults } from '../utils/defaults.js';
-import { build_node_list, resolve_k0s_provider_options } from '../utils/k0s-provider.js';
 import { create_registry_secret_manifest, get_oci_tag } from '../utils/oci.js';
 import { load_and_resolve_project, sanitize_filename_part } from '../utils/project.js';
+import { build_node_list, resolve_provider } from '../utils/provider.js';
 import { validate_cluster_template_requirements } from '../utils/validation.js';
 
 const execFileAsync = promisify(execFile);
@@ -81,7 +82,7 @@ export const apply_command = define_command({
       default_value: false,
     },
   ],
-  handler: async (ctx) => {
+  handler: async (ctx, container) => {
     const cluster_filter = ctx.options['cluster'] as string | undefined;
     const provider_name = ctx.options['provider'] as string;
     const project_path = (ctx.options['project'] as string) || process.cwd();
@@ -168,11 +169,24 @@ export const apply_command = define_command({
           // Build NodeListType for bootstrap workflow
           const node_list = build_node_list(loaded_cluster);
 
-          // Load k0s provider with plugin config
-          const provider_options = resolve_k0s_provider_options(loaded_cluster);
-          const k0s_package = 'kustodian-k0s';
-          const { create_k0s_provider } = await import(k0s_package);
-          const provider = create_k0s_provider(provider_options);
+          // Resolve provider from plugin registry
+          const registry_result = container.resolve(PLUGIN_REGISTRY_ID);
+          if (!is_success(registry_result)) {
+            console.error('  ✗ Plugin registry not available');
+            return registry_result;
+          }
+          const provider_result = resolve_provider(
+            registry_result.value,
+            loaded_cluster,
+            provider_name,
+          );
+          if (!is_success(provider_result)) {
+            console.error(
+              `  ✗ Provider '${provider_name}' not found: ${provider_result.error.message}`,
+            );
+            return provider_result;
+          }
+          const provider = provider_result.value;
 
           console.log('  → Validating cluster configuration...');
           const validate_result = provider.validate(node_list);

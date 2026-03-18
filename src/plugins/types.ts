@@ -3,6 +3,7 @@ import type { NodeListType } from '../nodes/index.js';
 import type { ClusterType, TemplateType } from '../schema/index.js';
 
 import type { PluginGeneratorType } from './generators.js';
+import type { PluginGitOpsEngineContributionType } from './gitops-engine.js';
 import type { PluginHookContributionType } from './hooks.js';
 import type { PluginObjectTypeType } from './object-types.js';
 import type { SubstitutionProviderType } from './substitution-providers.js';
@@ -139,7 +140,29 @@ export interface CommandType {
 /**
  * Plugin capabilities indicating what a plugin can provide.
  */
-export type PluginCapabilityType = 'commands' | 'hooks' | 'generators' | 'object-types';
+export type PluginCapabilityType =
+  | 'commands'
+  | 'hooks'
+  | 'generators'
+  | 'object-types'
+  | 'providers'
+  | 'gitops-engines';
+
+/**
+ * Provider factory type.
+ * Creates a cluster provider with the given options (typically from cluster plugin config).
+ */
+export type ProviderFactoryType = (options: Record<string, unknown>) => ClusterProviderType;
+
+/**
+ * Provider contribution from a plugin.
+ */
+export interface PluginProviderContributionType {
+  /** Provider name (e.g., "k0s", "talos") */
+  name: string;
+  /** Factory function to create provider instances with cluster-specific options */
+  factory: ProviderFactoryType;
+}
 
 /**
  * Plugin manifest with metadata.
@@ -223,6 +246,19 @@ export interface KustodianPluginType {
    * (e.g., 'sops', 'vault', 'aws-secrets') that can resolve values during generation.
    */
   get_substitution_providers?(): SubstitutionProviderType[];
+
+  /**
+   * Returns cluster providers contributed by this plugin.
+   * Provider plugins supply factory functions that create ClusterProviderType instances
+   * with cluster-specific options.
+   */
+  get_providers?(): PluginProviderContributionType[];
+
+  /**
+   * Returns GitOps engine contributions from this plugin.
+   * GitOps engines handle continuous deployment on Kubernetes clusters (e.g., Flux CD, Argo CD).
+   */
+  get_gitops_engines?(): PluginGitOpsEngineContributionType[];
 }
 
 /**
@@ -273,102 +309,4 @@ export interface PluginLocationInfoType {
 export interface LoadedPluginType {
   plugin: KustodianPluginType;
   location: PluginLocationInfoType;
-}
-
-// ============================================================
-// Legacy types for backward compatibility
-// ============================================================
-
-/**
- * @deprecated Use PluginCapabilityType instead
- */
-export type PluginTypeType = 'secret-provider' | 'resource-generator' | 'validator' | 'transformer';
-
-/**
- * @deprecated Use PluginManifestType instead
- */
-export interface LegacyPluginManifestType {
-  name: string;
-  version: string;
-  type: PluginTypeType;
-  description?: string;
-}
-
-/**
- * @deprecated Secret provider plugin interface.
- */
-export interface SecretProviderPluginType {
-  readonly manifest: LegacyPluginManifestType;
-  readonly scheme: string;
-  parse_ref(ref: string): ResultType<Record<string, string>, KustodianErrorType>;
-  generate(
-    ref: Record<string, string>,
-    ctx: PluginContextType,
-  ): ResultType<GeneratedResourceType, KustodianErrorType>;
-}
-
-/**
- * @deprecated Resource generator plugin interface.
- */
-export interface ResourceGeneratorPluginType {
-  readonly manifest: LegacyPluginManifestType;
-  generate(ctx: PluginContextType): ResultType<GeneratedResourceType[], KustodianErrorType>;
-}
-
-/**
- * @deprecated Validator plugin interface.
- */
-export interface ValidatorPluginType {
-  readonly manifest: LegacyPluginManifestType;
-  validate(ctx: PluginContextType): ResultType<void, KustodianErrorType>;
-}
-
-/**
- * @deprecated Transformer plugin interface.
- */
-export interface TransformerPluginType {
-  readonly manifest: LegacyPluginManifestType;
-  transform(
-    resource: GeneratedResourceType,
-    ctx: PluginContextType,
-  ): ResultType<GeneratedResourceType, KustodianErrorType>;
-}
-
-/**
- * @deprecated Union type of legacy plugin types.
- */
-export type LegacyPluginType =
-  | SecretProviderPluginType
-  | ResourceGeneratorPluginType
-  | ValidatorPluginType
-  | TransformerPluginType;
-
-/**
- * @deprecated Type guard for secret provider plugins.
- */
-export function is_secret_provider(plugin: LegacyPluginType): plugin is SecretProviderPluginType {
-  return plugin.manifest.type === 'secret-provider';
-}
-
-/**
- * @deprecated Type guard for resource generator plugins.
- */
-export function is_resource_generator(
-  plugin: LegacyPluginType,
-): plugin is ResourceGeneratorPluginType {
-  return plugin.manifest.type === 'resource-generator';
-}
-
-/**
- * @deprecated Type guard for validator plugins.
- */
-export function is_validator(plugin: LegacyPluginType): plugin is ValidatorPluginType {
-  return plugin.manifest.type === 'validator';
-}
-
-/**
- * @deprecated Type guard for transformer plugins.
- */
-export function is_transformer(plugin: LegacyPluginType): plugin is TransformerPluginType {
-  return plugin.manifest.type === 'transformer';
 }

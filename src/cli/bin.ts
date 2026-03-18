@@ -3,6 +3,9 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { is_success } from '../core/index.js';
+import { create_plugin_loader } from '../plugins/loader.js';
+import { create_plugin_registry } from '../plugins/registry.js';
 import { apply_command } from './commands/apply.js';
 import { diff_command } from './commands/diff.js';
 import { init_command } from './commands/init.js';
@@ -13,12 +16,13 @@ import { update_command } from './commands/update.js';
 import { validate_command } from './commands/validate.js';
 import { create_container } from './container.js';
 import { create_cli, format_command_help, format_help } from './runner.js';
+import { PLUGIN_REGISTRY_ID } from './services.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf-8'));
 const VERSION = pkg.version;
 
-const all_commands = [
+const core_commands = [
   init_command,
   validate_command,
   apply_command,
@@ -37,6 +41,38 @@ async function main() {
     console.log(`kustodian v${VERSION}`);
     process.exit(0);
   }
+
+  // Create container
+  const container = create_container();
+
+  // Discover and load plugins
+  const registry = create_plugin_registry();
+  const loader = create_plugin_loader();
+
+  const discover_result = await loader.discover();
+  if (is_success(discover_result)) {
+    const locations = discover_result.value;
+    for (const location of locations) {
+      const load_result = await loader.load_from_path(location.resolved_path);
+      if (is_success(load_result)) {
+        registry.register(load_result.value);
+      }
+    }
+
+    // Activate all plugins
+    await registry.activate_all({
+      container,
+      config: {},
+      cwd: process.cwd(),
+    });
+  }
+
+  // Register plugin registry in the container
+  container.register_instance(PLUGIN_REGISTRY_ID, registry);
+
+  // Merge core commands with plugin-contributed commands
+  const plugin_commands = registry.get_commands().map((c) => c.command);
+  const all_commands = [...core_commands, ...plugin_commands];
 
   // Handle --help or no args (top-level)
   if (args.length === 0 || (args.length === 1 && (args[0] === '--help' || args[0] === '-h'))) {
@@ -85,13 +121,10 @@ async function main() {
     description: 'A GitOps templating framework for Kubernetes with Flux CD',
   });
 
-  // Register commands
+  // Register all commands
   for (const cmd of all_commands) {
     cli.command(cmd);
   }
-
-  // Create container
-  const container = create_container();
 
   // Run CLI
   const result = await cli.run(args, container);

@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import {
-  build_node_list,
-  resolve_k0s_provider_options,
-} from '../../../src/cli/utils/k0s-provider.js';
+import { build_node_list, resolve_provider_options } from '../../../src/cli/utils/provider.js';
 import type { LoadedClusterType } from '../../../src/loader/index.js';
 
 function make_loaded_cluster(
@@ -16,7 +13,7 @@ function make_loaded_cluster(
   return {
     path: '/fake/path',
     cluster: {
-      apiVersion: 'kustodian.io/v1alpha1',
+      apiVersion: 'kustodian.io/v1',
       kind: 'Cluster',
       metadata: {
         name: overrides.name ?? 'test-cluster',
@@ -59,8 +56,8 @@ describe('build_node_list', () => {
   });
 });
 
-describe('resolve_k0s_provider_options', () => {
-  it('should include all options by default', () => {
+describe('resolve_provider_options', () => {
+  it('should pass through all plugin config for matching provider', () => {
     const loaded = make_loaded_cluster({
       plugins: [
         {
@@ -76,7 +73,7 @@ describe('resolve_k0s_provider_options', () => {
       ],
     });
 
-    const options = resolve_k0s_provider_options(loaded);
+    const options = resolve_provider_options(loaded, 'k0s');
 
     expect(options['k0s_version']).toBe('1.30.0');
     expect(options['telemetry_enabled']).toBe(false);
@@ -86,45 +83,33 @@ describe('resolve_k0s_provider_options', () => {
     expect(options['cluster_name']).toBe('test-cluster');
   });
 
-  it('should exclude extra options when include_all is false', () => {
-    const loaded = make_loaded_cluster({
-      plugins: [
-        {
-          name: 'k0s',
-          config: {
-            k0s_version: '1.30.0',
-            telemetry_enabled: false,
-            dynamic_config: true,
-            sans: ['10.0.0.1'],
-            default_ssh: { user: 'root' },
-          },
-        },
-      ],
-    });
-
-    const options = resolve_k0s_provider_options(loaded, { include_all: false });
-
-    expect(options['k0s_version']).toBe('1.30.0');
-    expect(options['default_ssh']).toEqual({ user: 'root' });
-    expect(options['cluster_name']).toBe('test-cluster');
-    // These should NOT be present
-    expect(options['telemetry_enabled']).toBeUndefined();
-    expect(options['dynamic_config']).toBeUndefined();
-    expect(options['sans']).toBeUndefined();
-  });
-
   it('should use metadata.code as cluster_name when available', () => {
     const loaded = make_loaded_cluster({ name: 'full-name', code: 'short' });
-    const options = resolve_k0s_provider_options(loaded);
+    const options = resolve_provider_options(loaded, 'k0s');
 
     expect(options['cluster_name']).toBe('short');
   });
 
   it('should handle missing plugin config gracefully', () => {
     const loaded = make_loaded_cluster();
-    const options = resolve_k0s_provider_options(loaded);
+    const options = resolve_provider_options(loaded, 'k0s');
 
     expect(options['cluster_name']).toBe('test-cluster');
     expect(options['k0s_version']).toBeUndefined();
+  });
+
+  it('should match @kustodian/plugin- prefixed names', () => {
+    const loaded = make_loaded_cluster({
+      plugins: [
+        {
+          name: '@kustodian/plugin-talos',
+          config: { talos_version: '1.6.0' },
+        },
+      ],
+    });
+
+    const options = resolve_provider_options(loaded, 'talos');
+
+    expect(options['talos_version']).toBe('1.6.0');
   });
 });

@@ -309,15 +309,23 @@ describe('E2E: CLI Commands', () => {
       const cli = create_cli({ name: 'kustodian', version: '1.0.0' });
       cli.command(diff_command);
 
+      const container = create_container();
+
+      // Register an empty plugin registry so provider resolution can run
+      const { create_plugin_registry } = await import('../src/plugins/registry.js');
+      const { PLUGIN_REGISTRY_ID } = await import('../src/cli/services.js');
+      const registry = create_plugin_registry();
+      container.register_instance(PLUGIN_REGISTRY_ID, registry);
+
       const fixtures_path = path.join(import.meta.dir, 'fixtures', 'valid-project');
       const result = await cli.run(
         ['diff', '--project', fixtures_path, '--cluster', 'local', '--provider', 'aws'],
-        create_container(),
+        container,
       );
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.code).toBe('UNSUPPORTED_PROVIDER');
+        expect(result.error.code).toBe('NOT_FOUND');
       }
     });
   });
