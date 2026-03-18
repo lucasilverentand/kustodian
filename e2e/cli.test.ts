@@ -323,9 +323,6 @@ describe('E2E: CLI Commands', () => {
         container,
       );
 
-      // Reset process.exitCode set by the diff command's error path
-      process.exitCode = undefined;
-
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.code).toBe('NOT_FOUND');

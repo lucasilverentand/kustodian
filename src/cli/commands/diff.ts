@@ -99,28 +99,25 @@ export const diff_command = define_command({
         return validation_result;
       }
 
+      // Resolve provider from plugin registry (before try block — no cleanup needed)
+      const registry_result = container.resolve(PLUGIN_REGISTRY_ID);
+      if (!is_success(registry_result)) {
+        return registry_result;
+      }
+      const provider_result = resolve_provider(
+        registry_result.value,
+        loaded_cluster,
+        provider_name,
+      );
+      if (!is_success(provider_result)) {
+        return provider_result;
+      }
+
       let temp_kubeconfig: string | undefined;
       let temp_flux_kustomization_dir: string | undefined;
-      let provider: ClusterProviderType | undefined;
+      const provider: ClusterProviderType = provider_result.value;
 
       try {
-        // Resolve provider from plugin registry
-        const registry_result = container.resolve(PLUGIN_REGISTRY_ID);
-        if (!is_success(registry_result)) {
-          process.exitCode = 2;
-          return registry_result;
-        }
-        const provider_result = resolve_provider(
-          registry_result.value,
-          loaded_cluster,
-          provider_name,
-        );
-        if (!is_success(provider_result)) {
-          process.exitCode = 2;
-          return provider_result;
-        }
-        provider = provider_result.value;
-
         const node_list = build_node_list(loaded_cluster);
 
         const validate_result = provider.validate(node_list);
