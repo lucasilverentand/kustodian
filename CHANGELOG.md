@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.11.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.10.0...kustodian-v1.11.0) (2026-03-19)
+
+
+### Features
+
+* add status and rollback commands ([#168](https://github.com/lucasilverentand/kustodian/issues/168)) ([32d8fba](https://github.com/lucasilverentand/kustodian/commit/32d8fba2bf245674d840fc54c4468595d102b2ab))
+
+
+### Bug Fixes
+
+* reconcile OCI source only instead of individual kustomizations ([#174](https://github.com/lucasilverentand/kustodian/issues/174)) ([cbe5d94](https://github.com/lucasilverentand/kustodian/commit/cbe5d94d01bcf1eea7f5629ada3dff2262af7aa4)), closes [#173](https://github.com/lucasilverentand/kustodian/issues/173)
+
 ## [1.10.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.9.0...kustodian-v1.10.0) (2026-03-01)
 
 
