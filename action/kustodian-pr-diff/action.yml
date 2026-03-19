@@ -1,4 +1,4 @@
-name: 'Kustodian Manifest Diff'
+name: 'Kustodian PR Diff'
 description: 'Generate Kubernetes manifest diffs on pull requests and post as PR comments'
 author: 'Luca Silverentand'
 
@@ -22,6 +22,10 @@ inputs:
     description: 'Kustodian version to install (e.g., "1.9.0" or "latest")'
     required: false
     default: 'latest'
+  retention-days:
+    description: 'Number of days to retain the HTML diff report artifact'
+    required: false
+    default: '30'
 
 outputs:
   has-changes:
@@ -110,8 +114,9 @@ runs:
       id: upload-html
       uses: actions/upload-artifact@v4
       with:
-        name: manifest-diff-report
+        name: kustodian-pr-diff-report
         path: /tmp/kustodian-diff-report/
+        retention-days: ${{ inputs.retention-days }}
 
     - name: Comment on PR
       if: github.event_name == 'pull_request'
@@ -120,7 +125,8 @@ runs:
         github-token: ${{ inputs.github-token }}
         script: |
           const fs = require('fs');
-          const marker = '<!-- kustodian-manifest-diff -->';
+          const marker = '<!-- kustodian-pr-diff -->';
+          const legacyMarker = '<!-- kustodian-manifest-diff -->';
 
           let body = marker + '\n';
           body += fs.readFileSync('/tmp/kustodian-comment.md', 'utf-8');
@@ -139,7 +145,7 @@ runs:
             issue_number: context.issue.number,
           });
 
-          const existing = comments.find(c => c.body?.includes(marker));
+          const existing = comments.find(c => c.body?.includes(marker) || c.body?.includes(legacyMarker));
 
           if (existing) {
             await github.rest.issues.updateComment({

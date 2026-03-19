@@ -1,0 +1,245 @@
+name: 'Kustodian'
+description: 'Run kustodian CLI commands in GitHub Actions (validate, apply, diff, status, update)'
+author: 'Luca Silverentand'
+
+branding:
+  icon: 'layers'
+  color: 'purple'
+
+inputs:
+  command:
+    description: 'Kustodian command to run: validate, apply, diff, status, update'
+    required: true
+  cluster:
+    description: 'Cluster name (required for apply, diff, status; optional for validate, update)'
+    required: false
+    default: ''
+  project-path:
+    description: 'Path to kustodian project root'
+    required: false
+    default: '.'
+  dry-run:
+    description: 'Preview changes without applying (apply, update)'
+    required: false
+    default: 'false'
+  skip-bootstrap:
+    description: 'Skip bootstrap phase (apply)'
+    required: false
+    default: 'true'
+  skip-flux:
+    description: 'Skip Flux installation phase (apply)'
+    required: false
+    default: 'false'
+  skip-templates:
+    description: 'Skip template deployment phase (apply)'
+    required: false
+    default: 'false'
+  substitution:
+    description: 'Filter to specific substitution by name (update)'
+    required: false
+    default: ''
+  format:
+    description: 'Output format: yaml or json (update --json)'
+    required: false
+    default: ''
+  kubeconfig:
+    description: 'Base64-encoded kubeconfig (apply, diff, status)'
+    required: false
+    default: ''
+  oci-registry:
+    description: 'OCI registry URL (apply)'
+    required: false
+    default: 'ghcr.io'
+  oci-username:
+    description: 'Registry username (apply)'
+    required: false
+    default: ${{ github.actor }}
+  oci-password:
+    description: 'Registry password/token (apply)'
+    required: false
+    default: ''
+  kustodian-version:
+    description: 'Kustodian version to install (e.g., "1.9.0" or "latest")'
+    required: false
+    default: 'latest'
+
+outputs:
+  success:
+    description: 'Whether the command succeeded (true/false)'
+    value: ${{ steps.run.outputs.success }}
+  output:
+    description: 'Command stdout (truncated to 50KB for step output limits)'
+    value: ${{ steps.run.outputs.output }}
+  exit-code:
+    description: 'Command exit code'
+    value: ${{ steps.run.outputs.exit_code }}
+  # validate-specific
+  valid:
+    description: 'Whether validation passed (validate)'
+    value: ${{ steps.run.outputs.valid }}
+  # apply-specific
+  oci-artifact:
+    description: 'Pushed OCI artifact URL (apply)'
+    value: ${{ steps.run.outputs.oci_artifact }}
+  # diff-specific
+  has-changes:
+    description: 'Whether changes were detected (diff)'
+    value: ${{ steps.run.outputs.has_changes }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Validate inputs
+      shell: bash
+      run: |
+        VALID_COMMANDS="validate apply diff status update"
+        if ! echo "$VALID_COMMANDS" | grep -qw "${{ inputs.command }}"; then
+          echo "::error::Invalid command '${{ inputs.command }}'. Must be one of: ${VALID_COMMANDS}"
+          exit 1
+        fi
+
+        # Require cluster for commands that need it
+        case "${{ inputs.command }}" in
+          apply|diff|status)
+            if [ -z "${{ inputs.cluster }}" ]; then
+              echo "::error::The 'cluster' input is required for the '${{ inputs.command }}' command"
+              exit 1
+            fi
+            ;;
+        esac
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+
+    - name: Install kustodian
+      shell: bash
+      run: bun install -g kustodian@${{ inputs.kustodian-version }}
+
+    - name: Install project dependencies
+      shell: bash
+      working-directory: ${{ inputs.project-path }}
+      run: |
+        if [ -f "package.json" ]; then
+          bun install --frozen-lockfile 2>/dev/null || bun install
+        fi
+
+    - name: Setup Flux CLI
+      if: inputs.command == 'apply' || inputs.command == 'diff' || inputs.command == 'status'
+      uses: fluxcd/flux2/action@main
+
+    - name: Configure kubeconfig
+      if: inputs.kubeconfig != ''
+      shell: bash
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ inputs.kubeconfig }}" | base64 -d > ~/.kube/config
+        chmod 600 ~/.kube/config
+        echo "KUBECONFIG=${HOME}/.kube/config" >> "$GITHUB_ENV"
+
+    - name: Login to OCI registry
+      if: inputs.command == 'apply' && inputs.oci-password != ''
+      shell: bash
+      run: |
+        echo "${{ inputs.oci-password }}" | flux oci login "${{ inputs.oci-registry }}" \
+          --username="${{ inputs.oci-username }}" \
+          --password-stdin
+
+    - name: Run kustodian ${{ inputs.command }}
+      id: run
+      shell: bash
+      working-directory: ${{ inputs.project-path }}
+      run: |
+        # Build the command
+        CMD="kustodian ${{ inputs.command }}"
+
+        # Common flags
+        if [ -n "${{ inputs.cluster }}" ]; then
+          CMD="${CMD} --cluster ${{ inputs.cluster }}"
+        fi
+
+        # Command-specific flags
+        case "${{ inputs.command }}" in
+          apply)
+            if [ "${{ inputs.dry-run }}" = "true" ]; then
+              CMD="${CMD} --dry-run"
+            fi
+            if [ "${{ inputs.skip-bootstrap }}" = "true" ]; then
+              CMD="${CMD} --skip-bootstrap"
+            fi
+            if [ "${{ inputs.skip-flux }}" = "true" ]; then
+              CMD="${CMD} --skip-flux"
+            fi
+            if [ "${{ inputs.skip-templates }}" = "true" ]; then
+              CMD="${CMD} --skip-templates"
+            fi
+            ;;
+          update)
+            if [ "${{ inputs.dry-run }}" = "true" ]; then
+              CMD="${CMD} --dry-run"
+            fi
+            if [ -n "${{ inputs.substitution }}" ]; then
+              CMD="${CMD} --substitution ${{ inputs.substitution }}"
+            fi
+            if [ "${{ inputs.format }}" = "json" ]; then
+              CMD="${CMD} --json"
+            fi
+            ;;
+        esac
+
+        echo "Running: ${CMD}"
+        echo "::group::kustodian ${{ inputs.command }} output"
+
+        EXIT_CODE=0
+        OUTPUT=$(eval "${CMD}" 2>&1) || EXIT_CODE=$?
+
+        echo "${OUTPUT}"
+        echo "::endgroup::"
+
+        echo "exit_code=${EXIT_CODE}" >> "$GITHUB_OUTPUT"
+
+        # Truncate output for step output (50KB limit)
+        TRUNCATED=$(echo "${OUTPUT}" | head -c 50000)
+        {
+          echo "output<<KUSTODIAN_EOF"
+          echo "${TRUNCATED}"
+          echo "KUSTODIAN_EOF"
+        } >> "$GITHUB_OUTPUT"
+
+        # Command-specific outputs
+        case "${{ inputs.command }}" in
+          validate)
+            if [ "${EXIT_CODE}" -eq 0 ]; then
+              echo "valid=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "valid=false" >> "$GITHUB_OUTPUT"
+            fi
+            ;;
+          apply)
+            OCI_URL=$(echo "${OUTPUT}" | grep -oE 'oci://[^ ]+' | head -1 || true)
+            if [ -n "${OCI_URL}" ]; then
+              echo "oci_artifact=${OCI_URL}" >> "$GITHUB_OUTPUT"
+            fi
+            ;;
+          diff)
+            if [ "${EXIT_CODE}" -eq 1 ]; then
+              # diff exit code 1 = changes detected (not an error)
+              echo "has_changes=true" >> "$GITHUB_OUTPUT"
+              EXIT_CODE=0
+            else
+              echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            fi
+            ;;
+        esac
+
+        # Set success output
+        if [ "${EXIT_CODE}" -eq 0 ]; then
+          echo "success=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "success=false" >> "$GITHUB_OUTPUT"
+          exit "${EXIT_CODE}"
+        fi
+
+    - name: Cleanup kubeconfig
+      if: always() && inputs.kubeconfig != ''
+      shell: bash
+      run: rm -f ~/.kube/config

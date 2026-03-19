@@ -1,0 +1,53 @@
+# PR Diff — compares rendered Kubernetes manifests between base and head.
+#
+# Usage in downstream kustodian repos:
+#
+#   name: PR Diff
+#   on:
+#     pull_request:
+#       branches: [main]
+#   permissions:
+#     contents: read
+#     pull-requests: write
+#     actions: read
+#   jobs:
+#     diff:
+#       runs-on: ubuntu-latest
+#       steps:
+#         - uses: actions/checkout@v4
+#         - uses: lucasilverentand/kustodian/action/kustodian-pr-diff@main
+#           with:
+#             github-token: ${{ secrets.GITHUB_TOKEN }}
+
+name: PR Diff
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'templates/**'
+      - 'clusters/**'
+      - 'kustodian.yaml'
+      - 'src/generator/**'
+      - 'src/loader/**'
+      - 'src/schema/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+  actions: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pr-diff:
+    name: PR Diff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./action/kustodian-pr-diff
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}

@@ -155,7 +155,7 @@ const html = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kustodian Manifest Diff</title>
+<title>Kustodian PR Diff</title>
 <style>
   :root {
     --bg: #0d1117;
@@ -314,7 +314,7 @@ const html = `<!DOCTYPE html>
 </head>
 <body>
   <header>
-    <h1>Kustodian Manifest Diff</h1>
+    <h1>Kustodian PR Diff</h1>
     <p class="subtitle">Kubernetes manifest changes between base and PR branch</p>
     <div class="stats">
       ${stats_chips}
@@ -360,7 +360,7 @@ const file_rows = changes
   .join('\n');
 
 const comment_md = changes.length
-  ? `### Kustodian Manifest Diff
+  ? `### Kustodian PR Diff
 
 **${changes.length}** file${changes.length !== 1 ? 's' : ''} changed: **${added.length}** added, **${modified.length}** modified, **${removed.length}** removed
 
@@ -372,7 +372,7 @@ const comment_md = changes.length
 ${file_rows}
 
 </details>`
-  : '### Kustodian Manifest Diff\n\nNo manifest changes detected.';
+  : '### Kustodian PR Diff\n\nNo manifest changes detected.';
 
 writeFileSync(output_comment, comment_md, 'utf-8');
 
