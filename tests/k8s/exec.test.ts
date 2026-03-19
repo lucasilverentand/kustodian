@@ -2,8 +2,8 @@ import { describe, expect, it } from 'bun:test';
 
 import { check_command, exec_command, exec_command_stdin } from '../../src/k8s/exec.js';
 
-// Increase timeout for CI environments (macOS runners can be slow to spawn processes)
-const TIMEOUT = 15_000;
+// Increase timeout for CI environments (macOS runners + bun 1.3.5 can be very slow to spawn processes)
+const TIMEOUT = 30_000;
 
 describe('exec', () => {
   describe('exec_command', () => {
