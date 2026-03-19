@@ -552,15 +552,6 @@ export const apply_command = define_command({
                 );
               }
 
-              for (const k of gen_data.kustomizations) {
-                flux_client.reconcile({
-                  kind: 'Kustomization',
-                  name: k.name,
-                  namespace: FLUX_NAMESPACE,
-                });
-                console.log(`    ✓ Triggered Kustomization/${k.name}`);
-              }
-
               console.log('\n  ✓ Deployment complete (reconciliation in progress)');
             }
           } else {
