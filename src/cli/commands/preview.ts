@@ -7,10 +7,14 @@ import { create_generator } from '../../generator/generator.js';
 import { write_generation_result } from '../../generator/output.js';
 import type { OutputFormatType } from '../../generator/output.js';
 import type { LoadedClusterType } from '../../loader/index.js';
-import type { NodeListType } from '../../nodes/index.js';
 
 import { define_command } from '../command.js';
 import { resolve_defaults } from '../utils/defaults.js';
+import {
+  build_node_list,
+  create_k0s_provider_instance,
+  resolve_k0s_provider_options,
+} from '../utils/k0s-provider.js';
 import { load_and_resolve_project } from '../utils/project.js';
 
 function detect_editor(): string {
@@ -30,64 +34,20 @@ async function generate_k0s_preview(
   loaded_cluster: LoadedClusterType,
   output_dir: string,
 ): Promise<string | undefined> {
-  const cluster_name = loaded_cluster.cluster.metadata.name;
-
-  // Build NodeListType from loaded cluster
-  const node_list: NodeListType = {
-    cluster: cluster_name,
-    nodes: loaded_cluster.nodes,
-    ...(loaded_cluster.cluster.spec.node_defaults?.label_prefix && {
-      label_prefix: loaded_cluster.cluster.spec.node_defaults.label_prefix,
-    }),
-  } as NodeListType;
-
-  // Load k0s provider with plugin config
-  let create_k0s_provider: (options?: Record<string, unknown>) => {
-    get_config_preview?: (
-      node_list: NodeListType,
-    ) => { success: true; value: string } | { success: false; error: { message: string } };
-  };
-  try {
-    const k0s_package = 'kustodian-k0s';
-    const k0s_module = await import(k0s_package);
-    create_k0s_provider = k0s_module.create_k0s_provider;
-  } catch {
-    // k0s package not available, skip
+  const node_list = build_node_list(loaded_cluster);
+  const provider_options = resolve_k0s_provider_options(loaded_cluster);
+  const provider_result = await create_k0s_provider_instance(provider_options);
+  if (!is_success(provider_result)) {
     return undefined;
   }
 
-  // Extract k0s plugin config from cluster spec
-  const k0s_plugin = loaded_cluster.cluster.spec.plugins?.find(
-    (p) => p.name === 'k0s' || p.name === '@kustodian/plugin-k0s',
-  );
-  const plugin_config = k0s_plugin?.config ?? {};
-
-  const provider_options: Record<string, unknown> = {};
-  if (plugin_config['k0s_version']) {
-    provider_options['k0s_version'] = plugin_config['k0s_version'];
-  }
-  if (plugin_config['telemetry_enabled'] !== undefined) {
-    provider_options['telemetry_enabled'] = plugin_config['telemetry_enabled'];
-  }
-  if (plugin_config['dynamic_config'] !== undefined) {
-    provider_options['dynamic_config'] = plugin_config['dynamic_config'];
-  }
-  if (plugin_config['sans']) {
-    provider_options['sans'] = plugin_config['sans'];
-  }
-  if (plugin_config['default_ssh']) {
-    provider_options['default_ssh'] = plugin_config['default_ssh'];
-  }
-  provider_options['cluster_name'] = loaded_cluster.cluster.metadata.code ?? cluster_name;
-
-  const provider = create_k0s_provider(provider_options);
-
+  const provider = provider_result.value;
   if (!provider.get_config_preview) {
     return undefined;
   }
 
   const preview_result = provider.get_config_preview(node_list);
-  if (!preview_result.success) {
+  if (!is_success(preview_result)) {
     return undefined;
   }
 

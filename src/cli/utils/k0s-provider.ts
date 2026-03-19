@@ -78,11 +78,22 @@ export function resolve_k0s_provider_options(
 
 /**
  * Creates a k0s provider instance from resolved options.
+ * Returns an error result if the kustodian-k0s package is not installed.
  */
 export async function create_k0s_provider_instance(
   options: Record<string, unknown>,
-): Promise<K0sProviderType> {
-  const k0s_package = 'kustodian-k0s';
-  const { create_k0s_provider } = await import(k0s_package);
-  return create_k0s_provider(options) as K0sProviderType;
+): Promise<ResultType<K0sProviderType, KustodianErrorType>> {
+  try {
+    const k0s_package = 'kustodian-k0s';
+    const { create_k0s_provider } = await import(k0s_package);
+    return { success: true, value: create_k0s_provider(options) as K0sProviderType };
+  } catch {
+    return {
+      success: false,
+      error: {
+        code: 'NOT_FOUND',
+        message: 'kustodian-k0s package is not installed. Install it with: bun add kustodian-k0s',
+      },
+    };
+  }
 }

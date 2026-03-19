@@ -12,7 +12,11 @@ import { define_command } from '../command.js';
 import { type ClusterSecretProvider, OCI_REGISTRY_PROVIDER } from '../utils/cluster-secrets.js';
 import { confirm } from '../utils/confirm.js';
 import { resolve_defaults } from '../utils/defaults.js';
-import { build_node_list, resolve_k0s_provider_options } from '../utils/k0s-provider.js';
+import {
+  build_node_list,
+  create_k0s_provider_instance,
+  resolve_k0s_provider_options,
+} from '../utils/k0s-provider.js';
 import { create_registry_secret_manifest, get_oci_tag } from '../utils/oci.js';
 import { load_and_resolve_project, sanitize_filename_part } from '../utils/project.js';
 import { validate_cluster_template_requirements } from '../utils/validation.js';
@@ -170,9 +174,12 @@ export const apply_command = define_command({
 
           // Load k0s provider with plugin config
           const provider_options = resolve_k0s_provider_options(loaded_cluster);
-          const k0s_package = 'kustodian-k0s';
-          const { create_k0s_provider } = await import(k0s_package);
-          const provider = create_k0s_provider(provider_options);
+          const provider_result = await create_k0s_provider_instance(provider_options);
+          if (!is_success(provider_result)) {
+            console.error(`  ✗ ${provider_result.error.message}`);
+            return provider_result;
+          }
+          const provider = provider_result.value;
 
           console.log('  → Validating cluster configuration...');
           const validate_result = provider.validate(node_list);

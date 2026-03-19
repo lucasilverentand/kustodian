@@ -119,7 +119,13 @@ export const diff_command = define_command({
       try {
         const node_list = build_node_list(loaded_cluster);
         const provider_options = resolve_k0s_provider_options(loaded_cluster);
-        const provider_instance = await create_k0s_provider_instance(provider_options);
+        const provider_result = await create_k0s_provider_instance(provider_options);
+        if (!is_success(provider_result)) {
+          process.exitCode = 2;
+          console.error(`  ✗ ${provider_result.error.message}`);
+          return provider_result;
+        }
+        const provider_instance = provider_result.value;
         provider = provider_instance;
 
         const validate_result = provider_instance.validate(node_list);

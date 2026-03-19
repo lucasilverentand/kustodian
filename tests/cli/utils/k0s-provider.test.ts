@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import {
   build_node_list,
+  create_k0s_provider_instance,
   resolve_k0s_provider_options,
 } from '../../../src/cli/utils/k0s-provider.js';
 import type { LoadedClusterType } from '../../../src/loader/index.js';
@@ -126,5 +127,28 @@ describe('resolve_k0s_provider_options', () => {
 
     expect(options['cluster_name']).toBe('test-cluster');
     expect(options['k0s_version']).toBeUndefined();
+  });
+});
+
+describe('create_k0s_provider_instance', () => {
+  it('should return a provider when kustodian-k0s is installed', async () => {
+    const result = await create_k0s_provider_instance({ cluster_name: 'test' });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.value).toBeDefined();
+      expect(typeof result.value.validate).toBe('function');
+      expect(typeof result.value.install).toBe('function');
+      expect(typeof result.value.get_kubeconfig).toBe('function');
+    }
+  });
+
+  it('should return a provider with get_config_preview', async () => {
+    const result = await create_k0s_provider_instance({ cluster_name: 'test' });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(typeof result.value.get_config_preview).toBe('function');
+    }
   });
 });

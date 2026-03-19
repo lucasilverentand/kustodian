@@ -66,7 +66,12 @@ export const kubeconfig_command = define_command({
     // Build NodeListType and provider
     const node_list = build_node_list(loaded_cluster);
     const provider_options = resolve_k0s_provider_options(loaded_cluster, { include_all: false });
-    const provider = await create_k0s_provider_instance(provider_options);
+    const provider_result = await create_k0s_provider_instance(provider_options);
+    if (!is_success(provider_result)) {
+      console.error(`  ✗ ${provider_result.error.message}`);
+      return provider_result;
+    }
+    const provider = provider_result.value;
 
     // Validate
     console.log('\n  → Validating cluster configuration...');
