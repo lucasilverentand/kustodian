@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.2](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.11.1...kustodian-v1.11.2) (2026-03-23)
+
+
+### Bug Fixes
+
+* discover plugins from global install location ([055640c](https://github.com/lucasilverentand/kustodian/commit/055640c2464592b851bf8713b001bad392a5f111))
+
 ## [1.11.1](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.11.0...kustodian-v1.11.1) (2026-03-23)
 
 
