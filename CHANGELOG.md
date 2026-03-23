@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.3](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.11.2...kustodian-v1.11.3) (2026-03-23)
+
+
+### Bug Fixes
+
+* **k0s:** read plugin manifest from package.json instead of hardcoding ([57b470e](https://github.com/lucasilverentand/kustodian/commit/57b470e8efa8eeae0a49ba3d70d04506e48cf733))
+
 ## [1.11.2](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.11.1...kustodian-v1.11.2) (2026-03-23)
 
 

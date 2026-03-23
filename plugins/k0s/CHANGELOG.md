@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.5](https://github.com/lucasilverentand/kustodian/compare/kustodian-k0s-v1.2.4...kustodian-k0s-v1.2.5) (2026-03-23)
+
+
+### Bug Fixes
+
+* **k0s:** read plugin manifest from package.json instead of hardcoding ([57b470e](https://github.com/lucasilverentand/kustodian/commit/57b470e8efa8eeae0a49ba3d70d04506e48cf733))
+
 ## [1.2.4](https://github.com/lucasilverentand/kustodian/compare/kustodian-k0s-v1.2.3...kustodian-k0s-v1.2.4) (2026-02-28)
 
 
