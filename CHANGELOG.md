@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.1](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.11.0...kustodian-v1.11.1) (2026-03-23)
+
+
+### Bug Fixes
+
+* resolve workspace:* dependencies before npm publish ([d718952](https://github.com/lucasilverentand/kustodian/commit/d718952177c207466e53d358ef30ec894a09525c))
+
 ## [1.11.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.10.0...kustodian-v1.11.0) (2026-03-19)
 
 
