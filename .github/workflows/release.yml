@@ -88,6 +88,23 @@ jobs:
         with:
           name: build-output
 
+      - name: Resolve workspace dependencies
+        working-directory: ${{ matrix.path }}
+        run: |
+          # Replace workspace:* references with actual versions from the monorepo
+          for dep in $(jq -r '.dependencies // {} | to_entries[] | select(.value | startswith("workspace:")) | .key' package.json); do
+            # Find the package in the monorepo and get its version
+            pkg_dir=$(find "$GITHUB_WORKSPACE/plugins" -name "package.json" -maxdepth 2 -exec grep -l "\"name\": \"$dep\"" {} \; | head -1)
+            if [ -z "$pkg_dir" ]; then
+              echo "❌ Could not find workspace package $dep"
+              exit 1
+            fi
+            version=$(jq -r .version "$pkg_dir")
+            echo "Resolving $dep: workspace:* → ^$version"
+            jq --arg dep "$dep" --arg ver "^$version" '.dependencies[$dep] = $ver' package.json > package.json.tmp
+            mv package.json.tmp package.json
+          done
+
       - name: Publish ${{ matrix.package }}
         working-directory: ${{ matrix.path }}
         run: |
@@ -137,6 +154,21 @@ jobs:
         with:
           node-version: 'latest'
           registry-url: 'https://npm.pkg.github.com'
+
+      - name: Resolve workspace dependencies
+        working-directory: ${{ matrix.path }}
+        run: |
+          for dep in $(jq -r '.dependencies // {} | to_entries[] | select(.value | startswith("workspace:")) | .key' package.json); do
+            pkg_dir=$(find "$GITHUB_WORKSPACE/plugins" -name "package.json" -maxdepth 2 -exec grep -l "\"name\": \"$dep\"" {} \; | head -1)
+            if [ -z "$pkg_dir" ]; then
+              echo "❌ Could not find workspace package $dep"
+              exit 1
+            fi
+            version=$(jq -r .version "$pkg_dir")
+            echo "Resolving $dep: workspace:* → ^$version"
+            jq --arg dep "$dep" --arg ver "^$version" '.dependencies[$dep] = $ver' package.json > package.json.tmp
+            mv package.json.tmp package.json
+          done
 
       - name: Publish ${{ matrix.package }}
         working-directory: ${{ matrix.path }}
