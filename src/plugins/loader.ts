@@ -1,6 +1,6 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { KustodianErrorType } from '../core/index.js';
 import { Errors, type ResultType, failure, is_success, success } from '../core/index.js';
 
@@ -124,15 +124,10 @@ export function create_plugin_loader(config: PluginDiscoveryConfigType = {}): Pl
   }
 
   /**
-   * Discovers plugins in node_modules.
+   * Scans a single node_modules directory for matching plugin packages.
    */
-  async function discover_npm_plugins(): Promise<PluginLocationInfoType[]> {
-    if (!search_node_modules) {
-      return [];
-    }
-
+  async function scan_node_modules_dir(node_modules: string): Promise<PluginLocationInfoType[]> {
     const locations: PluginLocationInfoType[] = [];
-    const node_modules = path.resolve('./node_modules');
 
     try {
       const entries = await fs.readdir(node_modules, { withFileTypes: true });
@@ -172,6 +167,42 @@ export function create_plugin_loader(config: PluginDiscoveryConfigType = {}): Pl
       }
     } catch {
       // node_modules doesn't exist
+    }
+
+    return locations;
+  }
+
+  /**
+   * Discovers plugins in node_modules directories.
+   * Searches both the local project's node_modules and the node_modules
+   * where kustodian itself is installed (for global installs).
+   */
+  async function discover_npm_plugins(): Promise<PluginLocationInfoType[]> {
+    if (!search_node_modules) {
+      return [];
+    }
+
+    const seen = new Set<string>();
+    const locations: PluginLocationInfoType[] = [];
+
+    // Directories to search: local project + kustodian's own node_modules
+    const search_dirs = [path.resolve('./node_modules')];
+
+    // Find the node_modules where kustodian itself is installed
+    // loader.ts is at <node_modules>/kustodian/dist/plugins/loader.js
+    const own_dir = path.dirname(fileURLToPath(import.meta.url));
+    const own_node_modules = path.resolve(own_dir, '../../..');
+    if (own_node_modules !== search_dirs[0]) {
+      search_dirs.push(own_node_modules);
+    }
+
+    for (const dir of search_dirs) {
+      for (const loc of await scan_node_modules_dir(dir)) {
+        if (!seen.has(loc.resolved_path)) {
+          seen.add(loc.resolved_path);
+          locations.push(loc);
+        }
+      }
     }
 
     return locations;
