@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { success } from 'kustodian/core';
 import type {
   CommandType,
@@ -12,13 +15,16 @@ import type {
 
 import { create_k0s_provider } from './provider.js';
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf-8'));
+
 /**
  * k0s plugin manifest.
  */
 const manifest: PluginManifestType = {
-  name: 'kustodian-k0s',
-  version: '0.1.0',
-  description: 'k0s cluster provider for Kustodian',
+  name: pkg.name,
+  version: pkg.version,
+  description: pkg.description,
   capabilities: ['commands', 'hooks', 'providers'],
 };
 
