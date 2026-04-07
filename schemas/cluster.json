@@ -468,6 +468,40 @@
                 "additionalProperties": false
               }
             },
+            "secrets": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "namespace": {
+                    "type": "string",
+                    "minLength": 1,
+                    "default": "default"
+                  },
+                  "key": {
+                    "type": "string",
+                    "minLength": 1,
+                    "default": "token"
+                  },
+                  "env_var": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "annotations": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": ["name", "env_var"],
+                "additionalProperties": false
+              }
+            },
             "node_defaults": {
               "type": "object",
               "properties": {
