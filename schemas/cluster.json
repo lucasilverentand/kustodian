@@ -409,6 +409,10 @@
                     "type": "string",
                     "minLength": 1
                   },
+                  "template": {
+                    "type": "string",
+                    "minLength": 1
+                  },
                   "values": {
                     "type": "object",
                     "additionalProperties": {

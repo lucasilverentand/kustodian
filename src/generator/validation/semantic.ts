@@ -298,7 +298,8 @@ export function validate_flux_durations(cluster: LoadedClusterType): SemanticErr
 }
 
 /**
- * Validates there are no duplicate template names in spec.templates[].
+ * Validates there are no duplicate instance names in spec.templates[].
+ * Each template entry's `name` field must be unique since it's used as the instance identifier.
  */
 export function validate_duplicate_templates(cluster: LoadedClusterType): SemanticErrorType[] {
   const errors: SemanticErrorType[] = [];
@@ -312,7 +313,7 @@ export function validate_duplicate_templates(cluster: LoadedClusterType): Semant
         type: 'duplicate',
         cluster: name,
         field: 'spec.templates',
-        message: `Cluster '${name}': duplicate template name '${t.name}'`,
+        message: `Cluster '${name}': duplicate template instance name '${t.name}'`,
       });
     }
     seen.add(t.name);

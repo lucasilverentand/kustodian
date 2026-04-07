@@ -1,7 +1,7 @@
 import type { KustodianErrorType } from '../core/index.js';
 import { type ResultType, is_success, success } from '../core/index.js';
 import type { GeneratedResourceType, PluginRegistryType } from '../plugins/index.js';
-import type { ClusterType, TemplateConfigType, TemplateType } from '../schema/index.js';
+import type { ClusterType, TemplateType } from '../schema/index.js';
 
 import {
   DEFAULT_INTERVAL,
@@ -141,44 +141,32 @@ export function create_generator(
     }
   }
 
-  function get_template_values(
-    cluster: ClusterType,
-    template_name: string,
-  ): Record<string, string> {
-    const cluster_values = cluster.spec.values ?? {};
-    const template_config = cluster.spec.templates?.find(
-      (t: TemplateConfigType) => t.name === template_name,
-    );
-    const template_values = template_config?.values ?? {};
-    // Template-level values override cluster-level values
-    return { ...cluster_values, ...template_values };
-  }
-
-  function is_template_enabled(cluster: ClusterType, template_name: string): boolean {
-    // Templates are only enabled if explicitly listed in cluster.yaml
-    // Templates not listed are NOT deployed (opt-in model)
-    const template_config = cluster.spec.templates?.find(
-      (t: TemplateConfigType) => t.name === template_name,
-    );
-    return template_config !== undefined;
-  }
-
   return {
     on_hook(handler) {
       hooks.push(handler);
     },
 
     resolve_templates(cluster, templates) {
-      return templates.map((template) => {
-        const values = get_template_values(cluster, template.metadata.name);
-        const enabled = is_template_enabled(cluster, template.metadata.name);
+      const template_map = new Map(templates.map((t) => [t.metadata.name, t]));
+      const cluster_values = cluster.spec.values ?? {};
+      const config_entries = cluster.spec.templates ?? [];
 
-        return {
-          template,
-          values,
-          enabled,
-        };
-      });
+      const resolved: ResolvedTemplateType[] = [];
+      for (const config_entry of config_entries) {
+        const template_name = config_entry.template ?? config_entry.name;
+        const template = template_map.get(template_name);
+        if (!template) {
+          // Template not found — validation catches this, skip here
+          continue;
+        }
+
+        const instance_name = config_entry.name;
+        const template_values = config_entry.values ?? {};
+        const values = { ...cluster_values, ...template_values };
+
+        resolved.push({ template, instance_name, values, enabled: true });
+      }
+      return resolved;
     },
 
     async generate(cluster, templates, generate_options = {}) {
@@ -234,7 +222,8 @@ export function create_generator(
         }
 
         // Get template configuration from cluster for kustomization overrides
-        const template_config = get_template_config(cluster, resolved.template.metadata.name);
+        // Use instance_name since that's the cluster config entry's `name` field
+        const template_config = get_template_config(cluster, resolved.instance_name);
 
         for (const kustomization of resolved.template.spec.kustomizations) {
           // Resolve kustomization state (preservation policy)
@@ -269,6 +258,7 @@ export function create_generator(
             flux_reconciliation_interval,
             flux_reconciliation_timeout,
             flux_reconciliation_retry_interval,
+            resolved.instance_name,
           );
 
           // Override namespace to configured value

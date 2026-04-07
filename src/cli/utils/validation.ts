@@ -18,7 +18,9 @@ export function validate_cluster_template_requirements(
   }
 
   const enabled_templates = all_templates
-    .filter((t) => enabled_template_refs.some((ref) => ref.name === t.template.metadata.name))
+    .filter((t) =>
+      enabled_template_refs.some((ref) => (ref.template ?? ref.name) === t.template.metadata.name),
+    )
     .map((t) => t.template);
 
   const requirements_result = validate_template_requirements(

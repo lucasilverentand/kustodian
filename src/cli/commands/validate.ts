@@ -133,7 +133,11 @@ export const validate_command = define_command({
 
       // Get enabled templates
       const enabled_templates = project.templates
-        .filter((t) => enabled_template_refs.some((ref) => ref.name === t.template.metadata.name))
+        .filter((t) =>
+          enabled_template_refs.some(
+            (ref) => (ref.template ?? ref.name) === t.template.metadata.name,
+          ),
+        )
         .map((t) => t.template);
 
       // Validate requirements

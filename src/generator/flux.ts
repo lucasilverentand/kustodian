@@ -223,9 +223,13 @@ export function generate_flux_kustomization(
   interval: string = DEFAULT_INTERVAL,
   timeout: string = DEFAULT_TIMEOUT,
   retry_interval: string = DEFAULT_RETRY_INTERVAL,
+  instance_name?: string,
 ): FluxKustomizationType {
   const { template, kustomization, values, namespace } = resolved;
-  const name = generate_flux_name(template.metadata.name, kustomization.name);
+  // Use instance_name for Flux resource naming, fall back to template name
+  const effective_name = instance_name ?? template.metadata.name;
+  const name = generate_flux_name(effective_name, kustomization.name);
+  // Path always uses the actual template directory name
   const path = generate_flux_path(
     template.metadata.name,
     kustomization.path,
@@ -263,8 +267,8 @@ export function generate_flux_kustomization(
   // Always set retry interval (kustomization-level overrides the default)
   spec.retryInterval = kustomization.retry_interval || retry_interval;
 
-  // Add dependencies
-  const depends_on = generate_depends_on(template.metadata.name, kustomization.depends_on);
+  // Add dependencies — use instance name so within-instance refs resolve correctly
+  const depends_on = generate_depends_on(effective_name, kustomization.depends_on);
   if (depends_on) {
     spec.dependsOn = depends_on;
   }

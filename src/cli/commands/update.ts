@@ -166,7 +166,7 @@ export const update_command = define_command({
       for (const loaded_template of project.templates) {
         const template = loaded_template.template;
         const template_config = loaded_cluster.cluster.spec.templates?.find(
-          (t) => t.name === template.metadata.name,
+          (t) => (t.template ?? t.name) === template.metadata.name,
         );
 
         // Skip templates not listed in cluster.yaml (only listed templates are deployed)

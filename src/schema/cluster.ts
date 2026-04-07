@@ -90,6 +90,7 @@ export type KustomizationOverrideType = z.infer<typeof kustomization_override_sc
  */
 export const template_config_schema = z.object({
   name: z.string().min(1),
+  template: z.string().min(1).optional(),
   values: values_schema.optional(),
   kustomizations: z
     .record(

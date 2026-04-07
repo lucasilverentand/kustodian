@@ -81,10 +81,10 @@ describe('Generator', () => {
       expect(result[0]?.enabled).toBe(true); // Listed in cluster.yaml = enabled
     });
 
-    it('should mark templates not listed as disabled', () => {
+    it('should not include templates not listed in cluster config', () => {
       // Arrange
       const generator = create_generator();
-      // Empty templates array in cluster.yaml means no templates are enabled
+      // Empty templates array in cluster.yaml means no templates are resolved
       const cluster = create_cluster([]);
       const templates = [
         create_template('nginx', [
@@ -96,7 +96,7 @@ describe('Generator', () => {
       const result = generator.resolve_templates(cluster, templates);
 
       // Assert
-      expect(result[0]?.enabled).toBe(false); // Not listed = disabled
+      expect(result).toHaveLength(0); // Not listed = not included
     });
 
     it('should enable templates when listed in cluster config', () => {
