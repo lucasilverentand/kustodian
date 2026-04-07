@@ -1,0 +1,4 @@
+apiVersion: kustodian.io/v1
+kind: Project
+metadata:
+  name: multi-instance-test

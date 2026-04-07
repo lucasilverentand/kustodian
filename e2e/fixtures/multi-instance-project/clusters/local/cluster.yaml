@@ -1,0 +1,20 @@
+apiVersion: kustodian.io/v1
+kind: Cluster
+metadata:
+  name: local
+  code: local
+spec:
+  oci:
+    registry: ghcr.io
+    repository: test/multi-instance
+    tag_strategy: git-sha
+  templates:
+    - name: my-app
+      values:
+        app_name: "my-app"
+        category: "standard"
+    - name: my-app-4k
+      template: my-app
+      values:
+        app_name: "my-app-4k"
+        category: "4k"

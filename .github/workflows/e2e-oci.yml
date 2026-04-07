@@ -100,7 +100,7 @@ jobs:
             interval: 1m
             url: oci://kind-registry:5000/kustodian-e2e
             ref:
-              tag: ${GIT_SHA}
+              tag: "${GIT_SHA}"
             insecure: true
           EOF
 

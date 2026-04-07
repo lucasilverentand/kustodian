@@ -21,8 +21,8 @@ async function run_plugin_setup(project_path: string) {
     stderr: 'pipe',
     env: {
       ...process.env,
-      // Override PATH to not find a global kustodian (avoids side effects)
-      PATH: process.env.PATH,
+      // Skip global node_modules discovery to avoid running real ci-setup scripts
+      KUSTODIAN_SKIP_GLOBAL: '1',
     },
   });
   await proc.exited;

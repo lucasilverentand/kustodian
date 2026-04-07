@@ -35,11 +35,12 @@ export function validate_template_references(
   const cluster_name = cluster.cluster.metadata.name;
 
   for (const ref of cluster.cluster.spec.templates ?? []) {
-    if (!template_names.has(ref.name)) {
+    const template_name = ref.template ?? ref.name;
+    if (!template_names.has(template_name)) {
       errors.push({
         type: 'missing_template',
         cluster: cluster_name,
-        message: `Cluster '${cluster_name}' references template '${ref.name}' which does not exist`,
+        message: `Cluster '${cluster_name}' references template '${template_name}' which does not exist`,
       });
     }
   }
@@ -61,7 +62,8 @@ export function validate_substitution_completeness(
   const template_map = new Map(templates.map((t) => [t.template.metadata.name, t]));
 
   for (const ref of cluster.cluster.spec.templates ?? []) {
-    const loaded = template_map.get(ref.name);
+    const template_name = ref.template ?? ref.name;
+    const loaded = template_map.get(template_name);
     if (!loaded) {
       // Already caught by validate_template_references
       continue;
@@ -117,7 +119,8 @@ export function validate_kustomization_overrides(
       continue;
     }
 
-    const loaded = template_map.get(ref.name);
+    const template_name = ref.template ?? ref.name;
+    const loaded = template_map.get(template_name);
     if (!loaded) {
       // Already caught by validate_template_references
       continue;

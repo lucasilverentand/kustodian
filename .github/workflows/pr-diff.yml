@@ -51,3 +51,4 @@ jobs:
       - uses: ./action/kustodian-pr-diff
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          project-path: e2e/fixtures/valid-project

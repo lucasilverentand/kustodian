@@ -1,6 +1,5 @@
 import type { ClusterType, TemplateType } from '../../schema/index.js';
 
-import { get_template_config } from '../kustomization-resolution.js';
 import { create_node_id } from './reference.js';
 
 /**
@@ -16,10 +15,11 @@ export interface MissingDependencyErrorType {
 }
 
 /**
- * Validates that all kustomization dependencies are satisfied by templates listed in cluster.yaml.
+ * Validates that all kustomization dependencies are satisfied by instances listed in cluster.yaml.
  *
  * Templates are only deployed if they are explicitly listed in cluster.yaml.
- * This validates that all dependency references point to kustomizations from listed templates.
+ * This validates that all dependency references point to kustomizations from listed instances.
+ * Uses instance names (config entry `name`) for node IDs, matching Flux resource naming.
  *
  * @param cluster - Cluster configuration
  * @param templates - Array of templates
@@ -30,36 +30,38 @@ export function validate_enablement_dependencies(
   templates: TemplateType[],
 ): MissingDependencyErrorType[] {
   const errors: MissingDependencyErrorType[] = [];
+  const template_map = new Map(templates.map((t) => [t.metadata.name, t]));
 
-  // Build a set of kustomization IDs that will be deployed
+  // Build a set of kustomization IDs that will be deployed, keyed by instance name
   const deployed_kustomizations = new Set<string>();
 
-  for (const template of templates) {
-    const template_config = get_template_config(cluster, template.metadata.name);
+  for (const config_entry of cluster.spec.templates ?? []) {
+    const template_name = config_entry.template ?? config_entry.name;
+    const instance_name = config_entry.name;
+    const template = template_map.get(template_name);
 
-    // Template is only deployed if listed in cluster.yaml
-    if (!template_config) {
-      continue;
+    if (!template) {
+      continue; // Caught by cross-reference validation
     }
 
-    // All kustomizations in a listed template are deployed
     for (const kustomization of template.spec.kustomizations) {
-      const node_id = create_node_id(template.metadata.name, kustomization.name);
+      const node_id = create_node_id(instance_name, kustomization.name);
       deployed_kustomizations.add(node_id);
     }
   }
 
-  // Check each deployed kustomization's dependencies
-  for (const template of templates) {
-    const template_config = get_template_config(cluster, template.metadata.name);
+  // Check each deployed instance's kustomization dependencies
+  for (const config_entry of cluster.spec.templates ?? []) {
+    const template_name = config_entry.template ?? config_entry.name;
+    const instance_name = config_entry.name;
+    const template = template_map.get(template_name);
 
-    // Skip templates not listed in cluster.yaml
-    if (!template_config) {
+    if (!template) {
       continue;
     }
 
     for (const kustomization of template.spec.kustomizations) {
-      const node_id = create_node_id(template.metadata.name, kustomization.name);
+      const node_id = create_node_id(instance_name, kustomization.name);
 
       // Check dependencies
       for (const dep of kustomization.depends_on ?? []) {
@@ -73,11 +75,11 @@ export function validate_enablement_dependencies(
         let target_node_id: string;
 
         if (dep_parts.length === 2) {
-          // Cross-template reference: template/kustomization
+          // Cross-instance reference: instance_name/kustomization
           target_node_id = dep;
         } else {
-          // Within-template reference: kustomization
-          target_node_id = create_node_id(template.metadata.name, dep);
+          // Within-instance reference: kustomization
+          target_node_id = create_node_id(instance_name, dep);
         }
 
         // Check if the dependency is deployed

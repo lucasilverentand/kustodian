@@ -82,8 +82,10 @@ function find_plugin_packages(node_modules: string): string[] {
 // Collect search paths
 const search_paths: string[] = [];
 
-const global_modules = find_global_node_modules();
-if (global_modules) search_paths.push(global_modules);
+if (!process.env.KUSTODIAN_SKIP_GLOBAL) {
+  const global_modules = find_global_node_modules();
+  if (global_modules) search_paths.push(global_modules);
+}
 
 const local_modules = resolve(project_path, 'node_modules');
 if (existsSync(local_modules)) search_paths.push(local_modules);

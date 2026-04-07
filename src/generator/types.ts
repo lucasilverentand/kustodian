@@ -14,6 +14,8 @@ export interface GenerateOptionsType {
  */
 export interface ResolvedTemplateType {
   template: TemplateType;
+  /** Instance name from cluster config (the config entry's `name` field) */
+  instance_name: string;
   values: Record<string, string>;
   enabled: boolean;
 }

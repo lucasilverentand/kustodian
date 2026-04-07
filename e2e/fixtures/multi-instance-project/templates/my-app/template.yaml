@@ -1,0 +1,15 @@
+apiVersion: kustodian.io/v1
+kind: Template
+metadata:
+  name: my-app
+spec:
+  kustomizations:
+    - name: app
+      path: ./app
+      namespace:
+        default: default
+      substitutions:
+        - name: app_name
+          default: "my-app"
+        - name: category
+          default: "standard"
