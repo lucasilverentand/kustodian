@@ -10,9 +10,16 @@ case "$ARCH" in
 esac
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 
+INSTALL_DIR="/usr/local/bin"
+SUDO=""
+if [ ! -w "$INSTALL_DIR" ]; then
+  SUDO="sudo"
+fi
+
 echo "Installing k0sctl ${K0SCTL_VERSION}..."
 curl -sSLf "https://github.com/k0sproject/k0sctl/releases/download/${K0SCTL_VERSION}/k0sctl-${OS}-${ARCH}" \
-  -o /usr/local/bin/k0sctl
-chmod +x /usr/local/bin/k0sctl
+  -o /tmp/k0sctl
+$SUDO install -m 755 /tmp/k0sctl "$INSTALL_DIR/k0sctl"
+rm -f /tmp/k0sctl
 
 k0sctl version
