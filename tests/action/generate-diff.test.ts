@@ -185,7 +185,7 @@ describe('generate-diff', () => {
     expect(html).toContain('modified');
   });
 
-  it('should produce markdown comment with file table', async () => {
+  it('should produce markdown comment with inline diffs', async () => {
     write_manifest(pr_dir, 'new.yaml', 'kind: Deployment\n');
     write_manifest(base_dir, 'old.yaml', 'kind: Service\n');
 
@@ -194,10 +194,11 @@ describe('generate-diff', () => {
     const comment = readFileSync(output_comment, 'utf-8');
     expect(comment).toContain('### Kustodian PR Diff');
     expect(comment).toContain('**2** files changed');
-    expect(comment).toContain('`new.yaml`');
-    expect(comment).toContain('`old.yaml`');
-    expect(comment).toContain('+ added');
-    expect(comment).toContain('- removed');
+    expect(comment).toContain('🟢 1 added');
+    expect(comment).toContain('🔴 1 removed');
+    expect(comment).toContain('<code>new.yaml</code>');
+    expect(comment).toContain('<code>old.yaml</code>');
+    expect(comment).toContain('```yaml');
   });
 
   it('should escape HTML entities in file content', async () => {
