@@ -16,19 +16,13 @@ function write_setup_script(dir: string, script_name: string, content: string) {
 }
 
 async function run_plugin_setup(project_path: string) {
-  // Strip bun global bin dirs from PATH so `which kustodian` fails
-  // — prevents discovering the globally installed kustodian and running its ci-setup.sh
-  const filtered_path = (process.env.PATH ?? '')
-    .split(':')
-    .filter((p) => !p.includes('.bun/install/global') && !p.includes('.bun/bin'))
-    .join(':');
-
   const proc = Bun.spawn(['bun', 'run', SCRIPT, project_path], {
     stdout: 'pipe',
     stderr: 'pipe',
     env: {
       ...process.env,
-      PATH: filtered_path,
+      // Skip global node_modules discovery to avoid running real ci-setup scripts
+      KUSTODIAN_SKIP_GLOBAL: '1',
     },
   });
   await proc.exited;
