@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.11.3...kustodian-v1.12.0) (2026-04-07)
+
+
+### Features
+
+* **action:** improve PR diff readability and add local modes ([#181](https://github.com/lucasilverentand/kustodian/issues/181)) ([a138234](https://github.com/lucasilverentand/kustodian/commit/a13823466e4e89956a442bba77f5a06946fece19))
+
 ## [1.11.3](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.11.2...kustodian-v1.11.3) (2026-03-23)
 
 
