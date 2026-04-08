@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-k0s-v1.2.5...kustodian-k0s-v1.3.0) (2026-04-07)
+
+
+### Features
+
+* multi-instance templates and improved PR diffs ([#183](https://github.com/lucasilverentand/kustodian/issues/183)) ([1bd232a](https://github.com/lucasilverentand/kustodian/commit/1bd232a32eb083dc88296183a1b18b0110e87adb))
+
 ## [1.2.5](https://github.com/lucasilverentand/kustodian/compare/kustodian-k0s-v1.2.4...kustodian-k0s-v1.2.5) (2026-03-23)
 
 
