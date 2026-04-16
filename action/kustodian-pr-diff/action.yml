@@ -26,6 +26,10 @@ inputs:
     description: 'Number of days to retain the HTML diff report artifact'
     required: false
     default: '30'
+  kubeconfig:
+    description: 'Base64-encoded kubeconfig for live cluster diff (optional — enables showing actual resource changes)'
+    required: false
+    default: ''
 
 outputs:
   has-changes:
@@ -105,15 +109,81 @@ runs:
       id: diff
       shell: bash
       run: |
-        bun run "${{ github.action_path }}/generate-diff.ts" \
-          /tmp/kustodian-manifests-base \
-          /tmp/kustodian-manifests-pr \
-          /tmp/kustodian-diff-report/index.html \
-          /tmp/kustodian-diff-summary.json \
-          /tmp/kustodian-comment.md
+        ARGS=("--mode" "ci")
+        ARGS+=("/tmp/kustodian-manifests-base")
+        ARGS+=("/tmp/kustodian-manifests-pr")
+        ARGS+=("/tmp/kustodian-diff-report/index.html")
+        ARGS+=("/tmp/kustodian-diff-summary.json")
+        ARGS+=("/tmp/kustodian-comment.md")
+
+        if [ -f "/tmp/kustodian-live-diff.txt" ]; then
+          ARGS+=("--live-diff" "/tmp/kustodian-live-diff.txt")
+        fi
+
+        bun run "${{ github.action_path }}/generate-diff.ts" "${ARGS[@]}"
 
         HAS_CHANGES=$(jq -r 'if .total > 0 then "true" else "false" end' /tmp/kustodian-diff-summary.json)
         echo "has-changes=$HAS_CHANGES" >> "$GITHUB_OUTPUT"
+
+    - name: Setup live diff tools
+      if: inputs.kubeconfig != ''
+      shell: bash
+      run: |
+        # Install kubectl if not present
+        if ! command -v kubectl &>/dev/null; then
+          curl -sLO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+        fi
+        # Install flux CLI if not present
+        if ! command -v flux &>/dev/null; then
+          curl -s https://fluxcd.io/install.sh | sudo bash
+        fi
+
+    - name: Configure kubeconfig
+      if: inputs.kubeconfig != ''
+      shell: bash
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ inputs.kubeconfig }}" | base64 -d > ~/.kube/config
+        chmod 600 ~/.kube/config
+
+    - name: Run live cluster diff
+      if: inputs.kubeconfig != ''
+      shell: bash
+      continue-on-error: true
+      working-directory: ${{ inputs.project-path }}
+      run: |
+        ARGS=("diff")
+        ARGS+=("--kubeconfig" "$HOME/.kube/config")
+        if [ -n "${{ inputs.cluster }}" ]; then
+          ARGS+=("--cluster" "${{ inputs.cluster }}")
+        fi
+
+        kustodian "${ARGS[@]}" 2>&1 | tee /tmp/kustodian-live-diff.txt
+
+    - name: Append live diff to comment
+      if: inputs.kubeconfig != '' && hashFiles('/tmp/kustodian-live-diff.txt') != ''
+      shell: bash
+      run: |
+        # Re-generate the comment with live diff included
+        ARGS=("--mode" "ci")
+        ARGS+=("/tmp/kustodian-manifests-base")
+        ARGS+=("/tmp/kustodian-manifests-pr")
+        ARGS+=("/tmp/kustodian-diff-report/index.html")
+        ARGS+=("/tmp/kustodian-diff-summary.json")
+        ARGS+=("/tmp/kustodian-comment.md")
+
+        if [ -s "/tmp/kustodian-live-diff.txt" ]; then
+          ARGS+=("--live-diff" "/tmp/kustodian-live-diff.txt")
+        fi
+
+        bun run "${{ github.action_path }}/generate-diff.ts" "${ARGS[@]}"
+
+    - name: Cleanup kubeconfig
+      if: always() && inputs.kubeconfig != ''
+      shell: bash
+      run: rm -f ~/.kube/config
 
     - name: Upload HTML report
       if: steps.diff.outputs.has-changes == 'true'
@@ -176,4 +246,4 @@ runs:
       run: |
         git worktree remove /tmp/kustodian-base --force 2>/dev/null || true
         rm -rf /tmp/kustodian-manifests-base /tmp/kustodian-manifests-pr 2>/dev/null || true
-        rm -rf /tmp/kustodian-diff-report /tmp/kustodian-diff-summary.json /tmp/kustodian-comment.md 2>/dev/null || true
+        rm -rf /tmp/kustodian-diff-report /tmp/kustodian-diff-summary.json /tmp/kustodian-comment.md /tmp/kustodian-live-diff.txt 2>/dev/null || true

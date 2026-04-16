@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { mkdtemp, rm, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
@@ -51,6 +52,12 @@ export const diff_command = define_command({
       default_value: 'k0s',
     },
     {
+      name: 'kubeconfig',
+      short: 'k',
+      description: 'Path to kubeconfig file (skips provider/SSH)',
+      type: 'string',
+    },
+    {
       name: 'project',
       short: 'p',
       description: 'Path to project root',
@@ -60,6 +67,7 @@ export const diff_command = define_command({
   handler: async (ctx, container) => {
     const cluster_filter = ctx.options['cluster'] as string | undefined;
     const provider_name = ctx.options['provider'] as string;
+    const kubeconfig_path = ctx.options['kubeconfig'] as string | undefined;
     const project_path = (ctx.options['project'] as string) || process.cwd();
 
     console.log('\n━━━ Kustodian Diff ━━━');
@@ -79,8 +87,6 @@ export const diff_command = define_command({
       const oci_registry_secret_name = defaults.oci_registry_secret_name;
 
       console.log(`\n━━━ Cluster: ${cluster_name} ━━━`);
-      console.log(`  Provider: ${provider_name}`);
-      console.log(`  ✓ Loaded ${loaded_cluster.nodes.length} nodes`);
 
       if (!loaded_cluster.cluster.spec.oci) {
         process.exitCode = 2;
@@ -99,25 +105,44 @@ export const diff_command = define_command({
         return validation_result;
       }
 
-      // Resolve provider from plugin registry (before try block — no cleanup needed)
-      const registry_result = container.resolve(PLUGIN_REGISTRY_ID);
-      if (!is_success(registry_result)) {
-        return registry_result;
-      }
-      const provider_result = resolve_provider(
-        registry_result.value,
-        loaded_cluster,
-        provider_name,
-      );
-      if (!is_success(provider_result)) {
-        return provider_result;
-      }
-
+      // Resolve kubeconfig: either from --kubeconfig flag or via provider SSH
+      let resolved_kubeconfig: string;
       let temp_kubeconfig: string | undefined;
-      let temp_flux_kustomization_dir: string | undefined;
-      const provider: ClusterProviderType = provider_result.value;
+      let provider: ClusterProviderType | undefined;
 
-      try {
+      if (kubeconfig_path) {
+        // Use the provided kubeconfig directly
+        if (!existsSync(kubeconfig_path)) {
+          process.exitCode = 2;
+          return {
+            success: false as const,
+            error: {
+              code: 'INVALID_CONFIG',
+              message: `Kubeconfig file not found: ${kubeconfig_path}`,
+            },
+          };
+        }
+        console.log(`  Kubeconfig: ${kubeconfig_path}`);
+        resolved_kubeconfig = kubeconfig_path;
+      } else {
+        // Resolve provider from plugin registry
+        console.log(`  Provider: ${provider_name}`);
+        console.log(`  ✓ Loaded ${loaded_cluster.nodes.length} nodes`);
+
+        const registry_result = container.resolve(PLUGIN_REGISTRY_ID);
+        if (!is_success(registry_result)) {
+          return registry_result;
+        }
+        const provider_result = resolve_provider(
+          registry_result.value,
+          loaded_cluster,
+          provider_name,
+        );
+        if (!is_success(provider_result)) {
+          return provider_result;
+        }
+        provider = provider_result.value;
+
         const node_list = build_node_list(loaded_cluster);
 
         const validate_result = provider.validate(node_list);
@@ -138,7 +163,6 @@ export const diff_command = define_command({
         );
         await writeFile(temp_kubeconfig, kubeconfig_result.value as string, 'utf-8');
 
-        // Rename kubeconfig entries to cluster-scoped names
         const kubeconfig_manager = create_kubeconfig_manager();
         const rename_result = await kubeconfig_manager.rename_entries(
           temp_kubeconfig,
@@ -149,7 +173,13 @@ export const diff_command = define_command({
           return rename_result;
         }
 
-        const client_options = { kubeconfig: temp_kubeconfig };
+        resolved_kubeconfig = temp_kubeconfig;
+      }
+
+      let temp_flux_kustomization_dir: string | undefined;
+
+      try {
+        const client_options = { kubeconfig: resolved_kubeconfig };
         const kubectl_client = create_kubectl_client(client_options);
         const flux_client = create_flux_client(client_options);
 
@@ -332,7 +362,7 @@ export const diff_command = define_command({
           }
         }
       } finally {
-        await provider?.cleanup?.();
+        if (provider) await provider.cleanup?.();
         if (temp_kubeconfig) {
           await unlink(temp_kubeconfig).catch(() => undefined);
         }

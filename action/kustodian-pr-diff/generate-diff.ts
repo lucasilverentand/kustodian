@@ -30,9 +30,11 @@ function parse_args(): {
   output_html?: string;
   output_summary?: string;
   output_comment?: string;
+  live_diff_file?: string;
 } {
   const args = process.argv.slice(2);
   let mode: Mode = 'ci';
+  let live_diff_file: string | undefined;
   const positional: string[] = [];
 
   for (let i = 0; i < args.length; i++) {
@@ -42,7 +44,10 @@ function parse_args(): {
         console.error(`Unknown mode: ${mode}. Expected: ci, terminal, comment`);
         process.exit(1);
       }
-      i++; // skip value
+      i++;
+    } else if (args[i] === '--live-diff' && args[i + 1]) {
+      live_diff_file = args[i + 1];
+      i++;
     } else {
       positional.push(args[i] as string);
     }
@@ -53,7 +58,7 @@ function parse_args(): {
   if (!base_dir || !pr_dir) {
     console.error(
       'Usage:\n' +
-        '  generate-diff.ts --mode ci       <base-dir> <pr-dir> <output-html> <output-summary> <output-comment>\n' +
+        '  generate-diff.ts --mode ci       <base-dir> <pr-dir> <output-html> <output-summary> <output-comment> [--live-diff <file>]\n' +
         '  generate-diff.ts --mode terminal <base-dir> <pr-dir>\n' +
         '  generate-diff.ts --mode comment  <base-dir> <pr-dir>',
     );
@@ -67,10 +72,17 @@ function parse_args(): {
     process.exit(1);
   }
 
-  return { mode, base_dir, pr_dir, output_html, output_summary, output_comment };
+  return { mode, base_dir, pr_dir, output_html, output_summary, output_comment, live_diff_file };
 }
 
 const config = parse_args();
+
+// --- Live diff content ---
+
+let live_diff_content = '';
+if (config.live_diff_file && existsSync(config.live_diff_file)) {
+  live_diff_content = readFileSync(config.live_diff_file, 'utf-8').trim();
+}
 
 // --- File discovery ---
 
@@ -358,6 +370,20 @@ function build_comment(): string {
       const block = render_change_block(change);
       parts.push(block);
     }
+  }
+
+  // Append live cluster diff if available
+  if (live_diff_content) {
+    // Strip ANSI escape codes for the markdown comment
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping ANSI escapes requires matching ESC
+    const clean_diff = live_diff_content.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+
+    parts.push('\n---\n');
+    parts.push('#### 🔴 Live Cluster Diff\n');
+    parts.push('> Actual resource changes compared to the running cluster\n');
+    parts.push(
+      `<details>\n<summary>Show full diff</summary>\n\n\`\`\`diff\n${clean_diff}\n\`\`\`\n\n</details>`,
+    );
   }
 
   let result = parts.join('\n');
