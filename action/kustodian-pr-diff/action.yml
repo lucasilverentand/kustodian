@@ -45,7 +45,10 @@ runs:
       shell: bash
       run: |
         bun install -g kustodian@${{ inputs.kustodian-version }}
-        echo "$(bun pm bin -g)" >> "$GITHUB_PATH"
+        GLOBAL_BIN="$(bun pm bin -g)"
+        echo "$GLOBAL_BIN" >> "$GITHUB_PATH"
+        # bun global shims use #!/usr/bin/env node — symlink bun as node
+        ln -sf "$(which bun)" "$GLOBAL_BIN/node"
 
     - name: Install project dependencies
       shell: bash
