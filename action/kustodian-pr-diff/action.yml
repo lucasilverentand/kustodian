@@ -43,7 +43,9 @@ runs:
 
     - name: Install kustodian
       shell: bash
-      run: bun install -g kustodian@${{ inputs.kustodian-version }}
+      run: |
+        bun install -g kustodian@${{ inputs.kustodian-version }}
+        echo "$(bun pm bin -g)" >> "$GITHUB_PATH"
 
     - name: Install project dependencies
       shell: bash
