@@ -118,6 +118,7 @@ runs:
     - name: Upload HTML report
       if: steps.diff.outputs.has-changes == 'true'
       id: upload-html
+      continue-on-error: true
       uses: actions/upload-artifact@v4
       with:
         name: kustodian-pr-diff-report
@@ -138,8 +139,8 @@ runs:
           body += fs.readFileSync('/tmp/kustodian-comment.md', 'utf-8');
 
           const hasChanges = '${{ steps.diff.outputs.has-changes }}' === 'true';
-          if (hasChanges) {
-            const artifactUrl = '${{ steps.upload-html.outputs.artifact-url }}';
+          const artifactUrl = '${{ steps.upload-html.outputs.artifact-url }}';
+          if (hasChanges && artifactUrl) {
             body += '\n\n' + `[View full HTML diff report](${artifactUrl})`;
           }
 
