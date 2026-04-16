@@ -211,12 +211,18 @@ const CYAN = '\x1b[36m';
 
 function render_terminal(): void {
   if (!changes.length) {
-    console.log(`\n${GREEN}${BOLD}✓ No manifest changes detected.${RESET}\n`);
+    console.log(
+      `\n${GREEN}${BOLD}✓ No manifest changes detected — no clusters affected.${RESET}\n`,
+    );
     return;
   }
 
+  const grouped = group_by_cluster(changes);
+  const cluster_names = [...grouped.keys()];
+
   // Header
   console.log(`\n${BOLD}━━━ Kustodian Diff ━━━${RESET}`);
+  console.log(`  ${BOLD}Clusters affected:${RESET} ${cluster_names.join(', ')}`);
   const stats = [
     added.length ? `${GREEN}+${added.length} added${RESET}` : '',
     modified.length ? `${YELLOW}~${modified.length} modified${RESET}` : '',
@@ -226,13 +232,8 @@ function render_terminal(): void {
     .join('  ');
   console.log(`  ${changes.length} file${changes.length !== 1 ? 's' : ''} changed: ${stats}\n`);
 
-  const grouped = group_by_cluster(changes);
-  const is_multi_cluster = grouped.size > 1;
-
   for (const [cluster, cluster_changes] of grouped) {
-    if (is_multi_cluster) {
-      console.log(`${BOLD}${BLUE}┌─ ${cluster}${RESET}`);
-    }
+    console.log(`${BOLD}${BLUE}┌─ ${cluster}${RESET}`);
 
     for (const change of cluster_changes) {
       const label = get_change_label(change);
@@ -242,41 +243,36 @@ function render_terminal(): void {
         change.status === 'added' ? '+' : change.status === 'removed' ? '-' : '~';
 
       console.log(
-        `${is_multi_cluster ? '│ ' : ''}${status_color}${BOLD}${status_symbol}${RESET} ${BOLD}${label}${RESET} ${DIM}${change.path}${RESET}`,
+        `│ ${status_color}${BOLD}${status_symbol}${RESET} ${BOLD}${label}${RESET} ${DIM}${change.path}${RESET}`,
       );
 
       if (change.status === 'modified' && change.diff_lines) {
         for (const line of change.diff_lines) {
-          const prefix = is_multi_cluster ? '│ ' : '';
           if (line.startsWith('@@')) {
-            console.log(`${prefix}  ${CYAN}${line}${RESET}`);
+            console.log(`│   ${CYAN}${line}${RESET}`);
           } else if (line.startsWith('+')) {
-            console.log(`${prefix}  ${GREEN}${line}${RESET}`);
+            console.log(`│   ${GREEN}${line}${RESET}`);
           } else if (line.startsWith('-')) {
-            console.log(`${prefix}  ${RED}${line}${RESET}`);
+            console.log(`│   ${RED}${line}${RESET}`);
           } else {
-            console.log(`${prefix}  ${DIM}${line}${RESET}`);
+            console.log(`│   ${DIM}${line}${RESET}`);
           }
         }
         console.log('');
       } else if (change.status === 'added' && change.content) {
         for (const line of change.content.trimEnd().split('\n')) {
-          const prefix = is_multi_cluster ? '│ ' : '';
-          console.log(`${prefix}  ${GREEN}+${line}${RESET}`);
+          console.log(`│   ${GREEN}+${line}${RESET}`);
         }
         console.log('');
       } else if (change.status === 'removed' && change.content) {
         for (const line of change.content.trimEnd().split('\n')) {
-          const prefix = is_multi_cluster ? '│ ' : '';
-          console.log(`${prefix}  ${RED}-${line}${RESET}`);
+          console.log(`│   ${RED}-${line}${RESET}`);
         }
         console.log('');
       }
     }
 
-    if (is_multi_cluster) {
-      console.log(`${BOLD}${BLUE}└──${RESET}\n`);
-    }
+    console.log(`${BOLD}${BLUE}└──${RESET}\n`);
   }
 }
 
@@ -336,12 +332,15 @@ ${change.content.trimEnd()}
 
 function build_comment(): string {
   if (!changes.length) {
-    return '### Kustodian PR Diff\n\n✅ No manifest changes detected.';
+    return '### Kustodian PR Diff\n\n✅ No manifest changes detected — no clusters affected.';
   }
 
   const parts: string[] = [];
+  const grouped = group_by_cluster(changes);
+  const cluster_names = [...grouped.keys()];
 
   parts.push('### Kustodian PR Diff\n');
+  parts.push(`**Clusters affected:** ${cluster_names.map((c) => `\`${c}\``).join(', ')}\n`);
   parts.push(
     `**${changes.length}** file${changes.length !== 1 ? 's' : ''} changed — ${[
       added.length ? `🟢 ${added.length} added` : '',
@@ -352,13 +351,8 @@ function build_comment(): string {
       .join(', ')}\n`,
   );
 
-  const grouped = group_by_cluster(changes);
-  const is_multi_cluster = grouped.size > 1;
-
   for (const [cluster, cluster_changes] of grouped) {
-    if (is_multi_cluster) {
-      parts.push(`\n#### 📦 ${cluster}\n`);
-    }
+    parts.push(`\n#### 📦 ${cluster}\n`);
 
     for (const change of cluster_changes) {
       const block = render_change_block(change);
@@ -440,16 +434,15 @@ function build_html(): string {
     .join('\n      ');
 
   const grouped = group_by_cluster(changes);
-  const is_multi_cluster = grouped.size > 1;
+  const cluster_names = [...grouped.keys()];
 
   let file_sections = '';
   if (!changes.length) {
-    file_sections = '<div class="empty-state">No manifest changes detected.</div>';
+    file_sections =
+      '<div class="empty-state">No manifest changes detected &mdash; no clusters affected.</div>';
   } else {
     for (const [cluster, cluster_changes] of grouped) {
-      if (is_multi_cluster) {
-        file_sections += `<h2 class="cluster-heading">${escape_html(cluster)}</h2>`;
-      }
+      file_sections += `<h2 class="cluster-heading">${escape_html(cluster)}</h2>`;
       file_sections += cluster_changes.map(render_file_section).join('\n');
     }
   }
@@ -627,7 +620,7 @@ function build_html(): string {
 <body>
   <header>
     <h1>Kustodian PR Diff</h1>
-    <p class="subtitle">Kubernetes manifest changes between base and PR branch</p>
+    <p class="subtitle">${changes.length ? `Clusters affected: <strong>${cluster_names.map(escape_html).join(', ')}</strong>` : 'No clusters affected'}</p>
     <div class="stats">
       ${stats_chips}
     </div>
@@ -661,6 +654,7 @@ if (config.mode === 'terminal') {
   if (!existsSync(html_dir)) mkdirSync(html_dir, { recursive: true });
   writeFileSync(out_html, html, 'utf-8');
 
+  const summary_grouped = group_by_cluster(changes);
   writeFileSync(
     out_summary,
     JSON.stringify({
@@ -668,6 +662,7 @@ if (config.mode === 'terminal') {
       added: added.length,
       modified: modified.length,
       removed: removed.length,
+      clusters: [...summary_grouped.keys()],
       files: changes.map((c) => ({ path: c.path, status: c.status })),
     }),
     'utf-8',
