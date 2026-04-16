@@ -72,8 +72,40 @@ spec:
     - name: <template-name>
       values:
         <KEY>: <value>
+      scheduling: ...
+      kustomizations:
+        <kustomization-name>:
+          scheduling: ...
   values:
     <KEY>: <value>
+  scheduling:
+    node_selector:
+      <label>: <value>
+    affinity:
+      node:
+        required: [...]
+        preferred: [...]
+      pod: ...
+      pod_anti: ...
+    tolerations:
+      - { key, operator, value, effect, toleration_seconds }
+    topology_spread:
+      - { max_skew, topology_key, when_unsatisfiable, label_selector, min_domains, match_label_keys }
+    priority_class: <string>
+    resources:
+      requests: { cpu, memory }
+      limits: { cpu, memory }
+    containers:
+      <container-name>:
+        resources: { requests, limits }
+    disabled: <boolean>
+    workloads:
+      <workload-name>:
+        kind: <Deployment|StatefulSet|DaemonSet|Job|CronJob>
+        node_selector: ...
+        tolerations: ...
+        resources: ...
+        containers: ...
   node_defaults:
     label_prefix: <prefix>
     ssh:
@@ -290,6 +322,61 @@ Default SSH settings.
 | `port` | Integer | No | `22` | SSH port |
 | `key_path` | String | No | `~/.ssh/id_rsa` | Path to private key |
 | `known_hosts_path` | String | No | `~/.ssh/known_hosts` | Path to known_hosts |
+
+### spec.scheduling
+
+| | |
+|-|-|
+| **Required** | No |
+| **Type** | Object |
+
+Kubernetes scheduling defaults applied to every workload (`Deployment`, `StatefulSet`, `DaemonSet`, `Job`, `CronJob`) in every kustomization deployed by this cluster. Emitted as Kustomize strategic-merge `patches` on the generated Flux `Kustomization` resources.
+
+The same block is available at three levels — each narrower level overrides the previous per field:
+
+1. `spec.scheduling` — cluster-wide default
+2. `spec.templates[].scheduling` — per template instance
+3. `spec.templates[].kustomizations[<name>].scheduling` — per kustomization
+
+Field merge semantics: scalars and lists **replace** at each lower level; `node_selector` and `resources.requests`/`resources.limits` **shallow-merge** (lower-level keys override). `disabled: true` at the kustomization level opts out of all inherited scheduling for that kustomization only.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `node_selector` | Map[string,string] | nodeSelector applied to every workload |
+| `affinity` | Object | Node/pod (anti-)affinity — see Kubernetes affinity docs |
+| `tolerations` | Array | Pod tolerations |
+| `topology_spread` | Array | Topology spread constraints |
+| `priority_class` | String | `priorityClassName` applied to every workload |
+| `resources` | Object | Requests/limits applied to the primary container (`name: main`) |
+| `containers` | Map[string, { resources }] | Per-container resource overrides for multi-container pods |
+| `disabled` | Boolean | (kustomization level) Skip emitting scheduling patches |
+| `workloads` | Map[string, WorkloadScheduling] | Per-workload overrides keyed by `metadata.name` |
+
+#### Resources and container targeting
+
+`resources` at any level applies to a container named `main` by default. If your pod's primary container has a different name — or the pod has multiple containers — use `containers.<name>.resources` to target explicitly. Example:
+
+```yaml
+scheduling:
+  containers:
+    app:     { resources: { requests: { cpu: 500m } } }
+    sidecar: { resources: { limits:   { memory: 64Mi } } }
+```
+
+#### Per-workload overrides
+
+Workload-level entries are patched by name. Declare `kind` to emit a single targeted patch; omit it to emit one patch per workload kind (Kustomize no-ops mismatches):
+
+```yaml
+scheduling:
+  priority_class: default
+  workloads:
+    database:
+      kind: StatefulSet   # optional — when set, only one patch is emitted
+      node_selector: { disk: nvme }
+      tolerations: [{ key: dedicated, operator: Equal, value: db, effect: NoSchedule }]
+      resources: { requests: { cpu: 2, memory: 4Gi } }
+```
 
 ### spec.nodes
 

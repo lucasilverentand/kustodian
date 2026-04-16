@@ -5,12 +5,14 @@ import type {
   KustomizationType,
   OciConfigType,
   PreservationPolicyType,
+  SchedulingType,
   DependencyRefType as SchemaDependencyRefType,
   TemplateType,
 } from '../schema/index.js';
 
 import YAML from 'yaml';
 import { generate_preservation_patches, get_preserved_resource_types } from './preservation.js';
+import { generate_scheduling_patches } from './scheduling.js';
 import { collect_all_substitution_values } from './substitution.js';
 import type {
   FluxKustomizationType,
@@ -224,6 +226,7 @@ export function generate_flux_kustomization(
   timeout: string = DEFAULT_TIMEOUT,
   retry_interval: string = DEFAULT_RETRY_INTERVAL,
   instance_name?: string,
+  scheduling?: SchedulingType,
 ): FluxKustomizationType {
   const { template, kustomization, values, namespace } = resolved;
   // Use instance_name for Flux resource naming, fall back to template name
@@ -248,13 +251,19 @@ export function generate_flux_kustomization(
     },
   };
 
-  // Add preservation patches if preservation is configured
+  // Collect patches from preservation + scheduling into a single `spec.patches` list.
+  const patches: FluxKustomizationType['spec']['patches'] = [];
   if (preservation) {
     const preserved_types = get_preserved_resource_types(preservation);
     if (preserved_types.length > 0) {
-      const patches = generate_preservation_patches(preserved_types);
-      spec.patches = patches;
+      patches.push(...generate_preservation_patches(preserved_types));
     }
+  }
+  if (scheduling) {
+    patches.push(...generate_scheduling_patches(scheduling));
+  }
+  if (patches.length > 0) {
+    spec.patches = patches;
   }
 
   // Add timeout if specified

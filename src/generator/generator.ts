@@ -226,11 +226,12 @@ export function create_generator(
         const template_config = get_template_config(cluster, resolved.instance_name);
 
         for (const kustomization of resolved.template.spec.kustomizations) {
-          // Resolve kustomization state (preservation policy)
+          // Resolve kustomization state (preservation policy + scheduling)
           const kustomization_state = resolve_kustomization_state(
             kustomization,
             template_config,
             kustomization.name,
+            cluster,
           );
 
           // Merge external (plugin-provided) values with template values
@@ -259,6 +260,7 @@ export function create_generator(
             flux_reconciliation_timeout,
             flux_reconciliation_retry_interval,
             resolved.instance_name,
+            kustomization_state.scheduling,
           );
 
           // Override namespace to configured value
