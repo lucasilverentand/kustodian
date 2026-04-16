@@ -116,6 +116,15 @@ runs:
         ARGS+=("/tmp/kustodian-diff-summary.json")
         ARGS+=("/tmp/kustodian-comment.md")
 
+        # Pass cluster name for proper labeling
+        if [ -n "${{ inputs.cluster }}" ]; then
+          ARGS+=("--cluster" "${{ inputs.cluster }}")
+        fi
+
+        # Pass repo roots for source template diffing
+        ARGS+=("--repo-pr" "${{ github.workspace }}/${{ inputs.project-path }}")
+        ARGS+=("--repo-base" "/tmp/kustodian-base/${{ inputs.project-path }}")
+
         if [ -f "/tmp/kustodian-live-diff.txt" ]; then
           ARGS+=("--live-diff" "/tmp/kustodian-live-diff.txt")
         fi
@@ -173,6 +182,13 @@ runs:
         ARGS+=("/tmp/kustodian-diff-report/index.html")
         ARGS+=("/tmp/kustodian-diff-summary.json")
         ARGS+=("/tmp/kustodian-comment.md")
+
+        if [ -n "${{ inputs.cluster }}" ]; then
+          ARGS+=("--cluster" "${{ inputs.cluster }}")
+        fi
+
+        ARGS+=("--repo-pr" "${{ github.workspace }}/${{ inputs.project-path }}")
+        ARGS+=("--repo-base" "/tmp/kustodian-base/${{ inputs.project-path }}")
 
         if [ -s "/tmp/kustodian-live-diff.txt" ]; then
           ARGS+=("--live-diff" "/tmp/kustodian-live-diff.txt")
