@@ -2,15 +2,19 @@ import type {
   ClusterType,
   KustomizationType,
   PreservationPolicyType,
+  SchedulingType,
   TemplateConfigType,
 } from '../schema/index.js';
 
+import { resolve_scheduling } from './scheduling.js';
+
 /**
- * Resolved kustomization state (preservation only).
+ * Resolved kustomization state (preservation + scheduling).
  * Enablement is now determined at the template level - templates listed in cluster.yaml are deployed.
  */
 export interface ResolvedKustomizationStateType {
   preservation: PreservationPolicyType;
+  scheduling?: SchedulingType;
 }
 
 /**
@@ -69,14 +73,24 @@ export function resolve_kustomization_state(
   kustomization: KustomizationType,
   template_config: TemplateConfigType | undefined,
   kustomization_name: string,
+  cluster?: ClusterType,
 ): ResolvedKustomizationStateType {
-  return {
+  const override = template_config?.kustomizations?.[kustomization_name];
+  const scheduling = resolve_scheduling(
+    cluster?.spec.scheduling,
+    template_config?.scheduling,
+    override?.scheduling,
+  );
+
+  const state: ResolvedKustomizationStateType = {
     preservation: resolve_kustomization_preservation(
       kustomization,
       template_config,
       kustomization_name,
     ),
   };
+  if (scheduling) state.scheduling = scheduling;
+  return state;
 }
 
 /**

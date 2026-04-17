@@ -23,7 +23,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, extname, basename } from 'node:path';
+import { basename, dirname, extname, join, relative } from 'node:path';
 
 // --- Types ---
 
@@ -34,12 +34,6 @@ type FileChange = {
   status: 'added' | 'removed' | 'modified';
   diff_lines?: string[];
   content?: string;
-};
-
-type ChangeSection = {
-  label: string;
-  description: string;
-  changes: FileChange[];
 };
 
 // --- Argument parsing ---
@@ -182,7 +176,11 @@ function is_binary_file(path: string): boolean {
 
 // --- Collect preview changes (Flux Kustomization config) ---
 
-function collect_dir_changes(base_dir: string, pr_dir: string, extensions?: string[]): FileChange[] {
+function collect_dir_changes(
+  base_dir: string,
+  pr_dir: string,
+  extensions?: string[],
+): FileChange[] {
   const base_files = new Set(walk_dir(base_dir, extensions));
   const pr_files = new Set(walk_dir(pr_dir, extensions));
   const all_files = [...new Set([...base_files, ...pr_files])].sort();
@@ -443,9 +441,7 @@ function render_terminal(): void {
   const cluster_label = config.cluster ?? 'all clusters';
 
   if (total_changes === 0) {
-    console.log(
-      `\n${GREEN}${BOLD}✓ No changes detected for ${cluster_label}.${RESET}\n`,
-    );
+    console.log(`\n${GREEN}${BOLD}✓ No changes detected for ${cluster_label}.${RESET}\n`);
     return;
   }
 
@@ -470,7 +466,10 @@ function render_terminal(): void {
     console.log(`${BOLD}${BLUE}┌─ ${template.short_name}${RESET} ${DIM}(${template.name})${RESET}`);
 
     for (const change of all_template_changes) {
-      const label = get_change_label(change, config.repo_pr ? join(config.repo_pr, 'templates') : config.pr_dir);
+      const label = get_change_label(
+        change,
+        config.repo_pr ? join(config.repo_pr, 'templates') : config.pr_dir,
+      );
       const status_color =
         change.status === 'added' ? GREEN : change.status === 'removed' ? RED : YELLOW;
       const status_symbol =
@@ -754,7 +753,10 @@ function render_full_content(content: string, prefix: string, cls: string): stri
 }
 
 function render_file_section(change: FileChange): string {
-  const label = get_change_label(change, config.repo_pr ? join(config.repo_pr, 'templates') : config.pr_dir);
+  const label = get_change_label(
+    change,
+    config.repo_pr ? join(config.repo_pr, 'templates') : config.pr_dir,
+  );
   let body = '';
   if (change.status === 'modified' && change.diff_lines) {
     body = change.diff_lines.map(render_diff_line).join('\n');

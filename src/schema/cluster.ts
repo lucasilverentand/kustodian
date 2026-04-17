@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { api_version_schema, metadata_schema, values_schema } from './common.js';
+import { scheduling_schema } from './scheduling.js';
 
 /**
  * Extended metadata for clusters.
@@ -80,6 +81,7 @@ export const kustomization_override_schema = z.object({
       keep_resources: z.array(z.string()).optional(),
     })
     .optional(),
+  scheduling: scheduling_schema.optional(),
 });
 
 export type KustomizationOverrideType = z.infer<typeof kustomization_override_schema>;
@@ -92,10 +94,11 @@ export const template_config_schema = z.object({
   name: z.string().min(1),
   template: z.string().min(1).optional(),
   values: values_schema.optional(),
+  scheduling: scheduling_schema.optional(),
   kustomizations: z
     .record(
       z.string(), // kustomization name
-      kustomization_override_schema, // Override preservation settings
+      kustomization_override_schema, // Override preservation + scheduling settings
     )
     .optional(),
 });
@@ -266,6 +269,7 @@ export const cluster_spec_schema = z
     flux: flux_config_schema.optional(),
     defaults: defaults_config_schema.optional(),
     values: values_schema.optional(),
+    scheduling: scheduling_schema.optional(),
     templates: z.array(template_config_schema).optional(),
     plugins: z.array(plugin_config_schema).optional(),
     secrets: z.array(cluster_secret_entry_schema).optional(),
