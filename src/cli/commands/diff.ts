@@ -449,7 +449,9 @@ export const diff_command = define_command({
     }
 
     if (first_error) {
-      process.exitCode = 2;
+      // Return the error so the runner/bin decides exit code. Do not mutate
+      // `process.exitCode` here: it is a global that leaks across tests
+      // sharing a process.
       console.log('━━━ Diff Complete: errors occurred ━━━\n');
       return {
         success: false as const,
@@ -458,12 +460,12 @@ export const diff_command = define_command({
     }
 
     if (any_changes) {
+      // exit-code 1 = differences found (Unix `diff` convention)
       process.exitCode = 1;
       console.log('━━━ Diff Complete: changes detected ━━━\n');
       return success(undefined);
     }
 
-    process.exitCode = 0;
     console.log('━━━ Diff Complete: no changes ━━━\n');
     return success(undefined);
   },
