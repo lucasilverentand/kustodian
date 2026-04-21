@@ -10,6 +10,8 @@ It compares:
 - Flux control-plane resources (OCIRepository, Kustomizations, and OCI auth resources when available)
 - Rendered workload output through `flux diff kustomization`
 
+When multiple clusters are diffed, `diff` prints a per-cluster summary table at the end listing each configured cluster, its status (`no changes`, `changed`, or `error`), the number of resources affected, and a git-status style line count (`+N -N`).
+
 ## Usage
 
 ```bash
