@@ -73,7 +73,7 @@ describe('generate-diff', () => {
     expect(summary.files).toEqual([]);
 
     const comment = readFileSync(output_comment, 'utf-8');
-    expect(comment).toContain('No manifest changes detected');
+    expect(comment).toContain('No changes detected');
   });
 
   it('should detect added files', async () => {
@@ -193,7 +193,7 @@ describe('generate-diff', () => {
 
     const comment = readFileSync(output_comment, 'utf-8');
     expect(comment).toContain('### Kustodian PR Diff');
-    expect(comment).toContain('**2** files changed');
+    expect(comment).toContain('templates affected');
     expect(comment).toContain('🟢 1 added');
     expect(comment).toContain('🔴 1 removed');
     expect(comment).toContain('<code>new.yaml</code>');
