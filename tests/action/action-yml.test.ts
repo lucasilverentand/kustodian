@@ -107,24 +107,25 @@ describe('kustodian-pr-diff action.yml', () => {
     expect(action.outputs['has-changes']).toBeDefined();
   });
 
-  it('should expose artifact-url output', () => {
-    expect(action.outputs['artifact-url']).toBeDefined();
+  it('should require a kubeconfig input', () => {
+    expect(action.inputs.kubeconfig).toBeDefined();
+    expect(action.inputs.kubeconfig.required).toBe(true);
   });
 
-  it('should cleanup on failure', () => {
+  it('should cleanup kubeconfig on failure', () => {
     const cleanup = action.runs.steps.find((s: { name?: string }) =>
-      s.name?.toLowerCase().includes('cleanup'),
+      s.name?.toLowerCase().includes('cleanup kubeconfig'),
     );
     expect(cleanup).toBeDefined();
     expect(cleanup.if).toContain('always()');
   });
 
-  it('should use generate-diff.ts in the diff step', () => {
-    const diff_step = action.runs.steps.find((s: { name?: string }) =>
-      s.name?.toLowerCase().includes('generate diff'),
-    );
+  it('should run `kustodian diff --format markdown` to build the comment body', () => {
+    const diff_step = action.runs.steps.find((s: { id?: string }) => s.id === 'diff');
     expect(diff_step).toBeDefined();
-    expect(diff_step.run).toContain('generate-diff.ts');
+    expect(diff_step.run).toContain('kustodian');
+    expect(diff_step.run).toContain('--format');
+    expect(diff_step.run).toContain('markdown');
   });
 
   it('should use run-plugin-setup.ts for plugin dependencies', () => {
@@ -133,5 +134,22 @@ describe('kustodian-pr-diff action.yml', () => {
     );
     expect(plugin_step).toBeDefined();
     expect(plugin_step.run).toContain('run-plugin-setup.ts');
+  });
+
+  it('should install flux CLI and kubectl before running diff', () => {
+    const steps: Array<{ name?: string }> = action.runs.steps;
+    const idx = (needle: string) => steps.findIndex((s) => s.name?.toLowerCase().includes(needle));
+    expect(idx('install kubectl')).toBeGreaterThanOrEqual(0);
+    expect(idx('install flux')).toBeGreaterThanOrEqual(0);
+    expect(idx('run cluster diff')).toBeGreaterThan(idx('install kubectl'));
+    expect(idx('run cluster diff')).toBeGreaterThan(idx('install flux'));
+  });
+
+  it('should use the kustodian-pr-diff marker when locating prior comments', () => {
+    const comment_step = action.runs.steps.find((s: { name?: string }) =>
+      s.name?.toLowerCase().includes('comment on pr'),
+    );
+    expect(comment_step).toBeDefined();
+    expect(comment_step.with.script).toContain('<!-- kustodian-pr-diff -->');
   });
 });

@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'bun:test';
 import {
+  PR_COMMENT_MARKER,
   empty_diff_stats,
   format_line_counts,
   format_resource_counts,
   has_changes,
   merge_diff_stats,
   parse_diff_stats,
+  render_markdown_report,
   render_summary_table,
   total_resources,
 } from '../../../src/cli/utils/diff-stats.js';
@@ -198,5 +200,135 @@ describe('render_summary_table', () => {
     expect(rows.length).toBe(3);
     const visible_widths = new Set(rows.map((line) => line.replace(ansi_re, '').length));
     expect(visible_widths.size).toBe(1);
+  });
+});
+
+describe('render_markdown_report', () => {
+  it('leads with the comment marker so the action can find and update it', () => {
+    const md = render_markdown_report([]);
+    expect(md.startsWith(PR_COMMENT_MARKER)).toBe(true);
+  });
+
+  it('produces a markdown summary table with one row per cluster', () => {
+    const md = render_markdown_report([
+      {
+        cluster: 'prod',
+        stats: {
+          resources_created: 1,
+          resources_modified: 2,
+          resources_deleted: 0,
+          lines_added: 10,
+          lines_removed: 3,
+        },
+      },
+      {
+        cluster: 'staging',
+        stats: empty_diff_stats(),
+      },
+      {
+        cluster: 'dev',
+        stats: empty_diff_stats(),
+        error: 'kubeconfig unreachable',
+      },
+    ]);
+
+    expect(md).toContain('| Cluster | Status | Resources | Lines |');
+    expect(md).toMatch(/\|\s*\*\*prod\*\*\s*\|[^|]*changed[^|]*\|[^|]*\+1 ~2[^|]*\|[^|]*\+10 -3/);
+    expect(md).toMatch(/\|\s*\*\*staging\*\*\s*\|[^|]*no changes/);
+    expect(md).toContain('kubeconfig unreachable');
+  });
+
+  it('emits a collapsible details block with the diff fence for changed clusters', () => {
+    const md = render_markdown_report([
+      {
+        cluster: 'prod',
+        stats: {
+          resources_created: 0,
+          resources_modified: 1,
+          resources_deleted: 0,
+          lines_added: 1,
+          lines_removed: 1,
+        },
+        sections: [
+          {
+            title: 'Kustomization: apps',
+            output: '--- old\n+++ new\n-  replicas: 1\n+  replicas: 2',
+          },
+        ],
+      },
+    ]);
+
+    expect(md).toContain('<details');
+    expect(md).toContain('<summary>🔵 <b>prod</b>');
+    expect(md).toContain('**Kustomization: apps**');
+    expect(md).toContain('```diff');
+    expect(md).toContain('-  replicas: 1');
+    expect(md).toContain('+  replicas: 2');
+    expect(md).toContain('</details>');
+  });
+
+  it('skips detail blocks for clusters with no changes', () => {
+    const md = render_markdown_report([{ cluster: 'clean', stats: empty_diff_stats() }]);
+    expect(md).not.toContain('<details');
+  });
+
+  it('renders error clusters with the error message and no diff fence', () => {
+    const md = render_markdown_report([
+      {
+        cluster: 'broken',
+        stats: empty_diff_stats(),
+        error: 'flux CLI not found',
+      },
+    ]);
+    expect(md).toContain('<summary>❌ <b>broken</b>');
+    expect(md).toContain('flux CLI not found');
+  });
+
+  it('truncates oversized output while closing any open fences and details', () => {
+    const huge_section = {
+      title: 'Kustomization: apps',
+      output: `--- old\n+++ new\n${Array.from({ length: 5000 }, (_, i) => `+  line ${i}`).join('\n')}`,
+    };
+    const md = render_markdown_report(
+      [
+        {
+          cluster: 'prod',
+          stats: { ...empty_diff_stats(), lines_added: 5000 },
+          sections: [huge_section],
+        },
+      ],
+      { max_length: 500 },
+    );
+
+    expect(md.length).toBeLessThanOrEqual(500 + 200);
+    // Every ``` fence is matched
+    const fences = md.match(/```/g) ?? [];
+    expect(fences.length % 2).toBe(0);
+    // Every <details> is closed
+    const opens = (md.match(/<details(?:\s[^>]*)?>/g) ?? []).length;
+    const closes = (md.match(/<\/details>/g) ?? []).length;
+    expect(opens).toBe(closes);
+    expect(md).toContain('Comment truncated');
+  });
+
+  it('uses 4-backtick fences when diff output contains triple backticks', () => {
+    const md = render_markdown_report([
+      {
+        cluster: 'prod',
+        stats: { ...empty_diff_stats(), lines_added: 1 },
+        sections: [
+          {
+            title: 'Kustomization: apps',
+            output: 'data: |\n  ```shell\n  echo hi\n  ```',
+          },
+        ],
+      },
+    ]);
+    expect(md).toContain('````diff');
+  });
+
+  it('includes the scope in the heading when provided', () => {
+    const md = render_markdown_report([], { scope: 'production' });
+    expect(md).toContain('### Kustodian Cluster Diff — `production`');
   });
 });

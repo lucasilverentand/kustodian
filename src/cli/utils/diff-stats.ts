@@ -16,11 +16,17 @@ export interface DiffStatsType {
   lines_removed: number;
 }
 
+export interface ClusterDiffSectionType {
+  title: string;
+  output: string;
+}
+
 export interface ClusterDiffStatsType {
   cluster: string;
   stats: DiffStatsType;
   error?: string;
   skipped?: string;
+  sections?: ClusterDiffSectionType[];
 }
 
 export function empty_diff_stats(): DiffStatsType {
@@ -238,4 +244,214 @@ export function render_summary_table(
     ],
     rows,
   );
+}
+
+// ---------------------------------------------------------------------------
+// Markdown PR comment rendering
+// ---------------------------------------------------------------------------
+
+/**
+ * Sentinel used to locate a previously-posted kustodian PR diff comment so
+ * the GitHub Action can update it in place instead of stacking duplicates.
+ */
+export const PR_COMMENT_MARKER = '<!-- kustodian-pr-diff -->';
+
+const STATUS_EMOJI = {
+  changed: '🔵',
+  no_changes: '✅',
+  error: '❌',
+  skipped: '⏭️',
+};
+
+function markdown_status_emoji(entry: ClusterDiffStatsType): string {
+  if (entry.error) return STATUS_EMOJI.error;
+  if (entry.skipped) return STATUS_EMOJI.skipped;
+  if (!has_changes(entry.stats)) return STATUS_EMOJI.no_changes;
+  return STATUS_EMOJI.changed;
+}
+
+function markdown_status_label(entry: ClusterDiffStatsType): string {
+  if (entry.error) return 'error';
+  if (entry.skipped) return 'skipped';
+  if (!has_changes(entry.stats)) return 'no changes';
+  return 'changed';
+}
+
+function markdown_resources_cell(entry: ClusterDiffStatsType): string {
+  if (entry.error || entry.skipped || !has_changes(entry.stats)) return '—';
+  const parts: string[] = [];
+  if (entry.stats.resources_created) parts.push(`+${entry.stats.resources_created}`);
+  if (entry.stats.resources_modified) parts.push(`~${entry.stats.resources_modified}`);
+  if (entry.stats.resources_deleted) parts.push(`-${entry.stats.resources_deleted}`);
+  return parts.length > 0 ? parts.join(' ') : '—';
+}
+
+function markdown_lines_cell(entry: ClusterDiffStatsType): string {
+  if (entry.error) return `\`${escape_markdown_code(entry.error)}\``;
+  if (entry.skipped) return entry.skipped;
+  if (!has_changes(entry.stats)) return '—';
+  const parts: string[] = [];
+  if (entry.stats.lines_added) parts.push(`+${entry.stats.lines_added}`);
+  if (entry.stats.lines_removed) parts.push(`-${entry.stats.lines_removed}`);
+  return parts.length > 0 ? parts.join(' ') : '—';
+}
+
+function escape_markdown_code(value: string): string {
+  // Backticks break inline code spans. Trim and escape them.
+  return value.replace(/`/g, "'").replace(/\r?\n/g, ' ').trim();
+}
+
+function fence_diff(output: string): string {
+  // Strip ANSI and normalize trailing whitespace, then wrap in a ```diff fence.
+  const clean = output.replace(ANSI_RE, '').trimEnd();
+  // A code fence of 4 backticks is needed if the diff itself contains triple
+  // backticks — this is rare in k8s diffs, but be defensive.
+  const fence = clean.includes('```') ? '````' : '```';
+  return `${fence}diff\n${clean}\n${fence}`;
+}
+
+export interface MarkdownReportOptions {
+  title?: string;
+  /** If provided, included in the header (e.g. "production" or "all clusters"). */
+  scope?: string;
+  /**
+   * Truncate the comment to this byte length (approx). GitHub comments max
+   * out around 65k chars; default to a conservative 60k.
+   */
+  max_length?: number;
+}
+
+/**
+ * Render the full PR-ready markdown document (including the detection marker).
+ *
+ * Structure:
+ *   1. Hidden marker
+ *   2. Heading + short status line
+ *   3. Summary table
+ *   4. Per-cluster <details> blocks with raw diff blobs
+ *   5. Footer signature
+ */
+export function render_markdown_report(
+  entries: ClusterDiffStatsType[],
+  options: MarkdownReportOptions = {},
+): string {
+  const title = options.title ?? 'Kustodian Cluster Diff';
+  const scope = options.scope ? ` — \`${options.scope}\`` : '';
+  const max_length = options.max_length ?? 60000;
+
+  const error_count = entries.filter((e) => e.error).length;
+  const changed_count = entries.filter(
+    (e) => !e.error && !e.skipped && has_changes(e.stats),
+  ).length;
+  const clean_count = entries.filter((e) => !e.error && !e.skipped && !has_changes(e.stats)).length;
+  const skipped_count = entries.filter((e) => e.skipped).length;
+
+  const total_lines_added = entries.reduce((sum, e) => sum + e.stats.lines_added, 0);
+  const total_lines_removed = entries.reduce((sum, e) => sum + e.stats.lines_removed, 0);
+
+  const parts: string[] = [];
+  parts.push(PR_COMMENT_MARKER);
+  parts.push(`### ${title}${scope}`);
+  parts.push('');
+
+  if (entries.length === 0) {
+    parts.push('_No clusters were diffed._');
+    return parts.join('\n');
+  }
+
+  const status_bits: string[] = [];
+  if (changed_count) status_bits.push(`**${changed_count}** changed`);
+  if (clean_count) status_bits.push(`${clean_count} unchanged`);
+  if (error_count) status_bits.push(`${error_count} errored`);
+  if (skipped_count) status_bits.push(`${skipped_count} skipped`);
+  const line_bits: string[] = [];
+  if (total_lines_added) line_bits.push(`+${total_lines_added}`);
+  if (total_lines_removed) line_bits.push(`-${total_lines_removed}`);
+
+  const summary_line = [status_bits.join(', '), line_bits.join(' ') || '']
+    .filter(Boolean)
+    .join(' — ');
+  parts.push(summary_line);
+  parts.push('');
+
+  // Markdown summary table
+  parts.push('| Cluster | Status | Resources | Lines |');
+  parts.push('|---------|--------|-----------|-------|');
+  for (const entry of entries) {
+    parts.push(
+      `| **${entry.cluster}** | ${markdown_status_emoji(entry)} ${markdown_status_label(entry)} | ${markdown_resources_cell(entry)} | ${markdown_lines_cell(entry)} |`,
+    );
+  }
+  parts.push('');
+
+  // Per-cluster detail blocks
+  for (const entry of entries) {
+    if (entry.error) {
+      parts.push(
+        `<details>\n<summary>${markdown_status_emoji(entry)} <b>${entry.cluster}</b> — error</summary>\n`,
+      );
+      parts.push('```');
+      parts.push(entry.error);
+      parts.push('```');
+      parts.push('</details>');
+      parts.push('');
+      continue;
+    }
+
+    if (entry.skipped) {
+      parts.push(
+        `<details>\n<summary>${markdown_status_emoji(entry)} <b>${entry.cluster}</b> — ${entry.skipped}</summary>\n</details>`,
+      );
+      parts.push('');
+      continue;
+    }
+
+    if (!has_changes(entry.stats)) {
+      // Keep no-change clusters off the detail list to reduce noise; they
+      // already appear in the summary table.
+      continue;
+    }
+
+    const sections = entry.sections ?? [];
+    const resources_hint = markdown_resources_cell(entry);
+    const lines_hint = markdown_lines_cell(entry);
+    parts.push(
+      `<details open>\n<summary>${markdown_status_emoji(entry)} <b>${entry.cluster}</b> — ${resources_hint} resources, ${lines_hint} lines</summary>\n`,
+    );
+
+    if (sections.length === 0) {
+      parts.push('_No detailed diff output captured._');
+    } else {
+      for (const section of sections) {
+        if (!section.output.trim()) continue;
+        parts.push(`**${section.title}**`);
+        parts.push('');
+        parts.push(fence_diff(section.output));
+        parts.push('');
+      }
+    }
+
+    parts.push('</details>');
+    parts.push('');
+  }
+
+  parts.push('---');
+  parts.push(
+    '<sub>Generated by <a href="https://github.com/lucasilverentand/kustodian">Kustodian</a></sub>',
+  );
+
+  let result = parts.join('\n');
+
+  if (result.length > max_length) {
+    result = result.slice(0, max_length);
+    // Balance any dangling code fences or <details> tags
+    const open_code = (result.match(/```/g) ?? []).length;
+    if (open_code % 2 !== 0) result += '\n```';
+    const open_details = (result.match(/<details(?:\s[^>]*)?>/g) ?? []).length;
+    const close_details = (result.match(/<\/details>/g) ?? []).length;
+    for (let i = 0; i < open_details - close_details; i++) result += '\n</details>';
+    result += '\n\n_Comment truncated — see the workflow logs for the full diff._';
+  }
+
+  return result;
 }
