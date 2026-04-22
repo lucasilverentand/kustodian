@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.14.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.13.0...kustodian-v1.14.0) (2026-04-16)
+
+
+### Features
+
+* **action:** show affected clusters in PR diff summary ([#189](https://github.com/lucasilverentand/kustodian/issues/189)) ([f7a196d](https://github.com/lucasilverentand/kustodian/commit/f7a196d628b74e4ff3824d95889d364957b09e52))
+* live cluster diff in PR comments ([#190](https://github.com/lucasilverentand/kustodian/issues/190)) ([29c10f2](https://github.com/lucasilverentand/kustodian/commit/29c10f2e6cfca0e6142e1b2ae2237dd784df39e9))
+
+
+### Bug Fixes
+
+* **action:** add bun global bin to PATH after installing kustodian ([#185](https://github.com/lucasilverentand/kustodian/issues/185)) ([6bc5116](https://github.com/lucasilverentand/kustodian/commit/6bc51162e3dcc9b2cf19a20a8216e4fd8fe04d9d))
+* **action:** make artifact upload non-blocking in PR diff ([#188](https://github.com/lucasilverentand/kustodian/issues/188)) ([f1d5bf1](https://github.com/lucasilverentand/kustodian/commit/f1d5bf1ca262be4e7ae9c7cb595f4aaada603e73))
+* **action:** symlink bun as node for global shim compatibility ([#187](https://github.com/lucasilverentand/kustodian/issues/187)) ([ef24f0f](https://github.com/lucasilverentand/kustodian/commit/ef24f0f6d631f17122b28dfe93df39d73efa88f7))
+
 ## [1.13.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.12.0...kustodian-v1.13.0) (2026-04-07)
 
 
