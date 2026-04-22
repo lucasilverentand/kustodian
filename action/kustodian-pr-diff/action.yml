@@ -1,5 +1,5 @@
 name: 'Kustodian PR Diff'
-description: 'Generate Kubernetes manifest diffs on pull requests and post as PR comments'
+description: 'Run a live `kustodian diff` against configured clusters and post the result as a PR comment'
 author: 'Luca Silverentand'
 
 branding:
@@ -8,10 +8,13 @@ branding:
 
 inputs:
   github-token:
-    description: 'GitHub token for PR comments and artifact uploads'
+    description: 'GitHub token for PR comments'
+    required: true
+  kubeconfig:
+    description: 'Base64-encoded kubeconfig with access to every cluster you want to diff'
     required: true
   cluster:
-    description: 'Filter to a specific cluster name (defaults to all)'
+    description: 'Filter to a specific cluster name (defaults to all clusters in the project)'
     required: false
     default: ''
   project-path:
@@ -22,22 +25,15 @@ inputs:
     description: 'Kustodian version to install (e.g., "1.9.0" or "latest")'
     required: false
     default: 'latest'
-  retention-days:
-    description: 'Number of days to retain the HTML diff report artifact'
+  flux-version:
+    description: 'Flux CLI version to install (e.g., "2.3.0" or "latest")'
     required: false
-    default: '30'
-  kubeconfig:
-    description: 'Base64-encoded kubeconfig for live cluster diff (optional — enables showing actual resource changes)'
-    required: false
-    default: ''
+    default: 'latest'
 
 outputs:
   has-changes:
-    description: 'Whether manifest changes were detected'
+    description: 'Whether any cluster would change ("true" or "false")'
     value: ${{ steps.diff.outputs.has-changes }}
-  artifact-url:
-    description: 'URL to the diff report artifact'
-    value: ${{ steps.upload-html.outputs.artifact-url }}
 
 runs:
   using: 'composite'
@@ -67,149 +63,71 @@ runs:
       continue-on-error: true
       run: bun run "${{ github.action_path }}/run-plugin-setup.ts" "${{ inputs.project-path }}"
 
-    - name: Generate PR manifests
-      shell: bash
-      working-directory: ${{ inputs.project-path }}
-      run: |
-        mkdir -p /tmp/kustodian-manifests-pr
-        ARGS=("-o" "/tmp/kustodian-manifests-pr")
-        if [ -n "${{ inputs.cluster }}" ]; then
-          ARGS+=("-c" "${{ inputs.cluster }}")
-        fi
-        kustodian preview "${ARGS[@]}"
-
-    - name: Fetch base branch
-      shell: bash
-      run: git fetch origin "${{ github.event.pull_request.base.ref }}" --depth=1
-
-    - name: Create base worktree
-      shell: bash
-      run: git worktree add /tmp/kustodian-base "origin/${{ github.event.pull_request.base.ref }}" --detach
-
-    - name: Install base dependencies
-      shell: bash
-      working-directory: /tmp/kustodian-base/${{ inputs.project-path }}
-      run: |
-        if [ -f "package.json" ]; then
-          bun install --frozen-lockfile 2>/dev/null || bun install
-        fi
-
-    - name: Generate base manifests
-      shell: bash
-      working-directory: /tmp/kustodian-base/${{ inputs.project-path }}
-      run: |
-        mkdir -p /tmp/kustodian-manifests-base
-        ARGS=("-o" "/tmp/kustodian-manifests-base")
-        if [ -n "${{ inputs.cluster }}" ]; then
-          ARGS+=("-c" "${{ inputs.cluster }}")
-        fi
-        kustodian preview "${ARGS[@]}" 2>/dev/null || true
-
-    - name: Generate diff report
-      id: diff
+    - name: Install kubectl
       shell: bash
       run: |
-        ARGS=("--mode" "ci")
-        ARGS+=("/tmp/kustodian-manifests-base")
-        ARGS+=("/tmp/kustodian-manifests-pr")
-        ARGS+=("/tmp/kustodian-diff-report/index.html")
-        ARGS+=("/tmp/kustodian-diff-summary.json")
-        ARGS+=("/tmp/kustodian-comment.md")
-
-        # Pass cluster name for proper labeling
-        if [ -n "${{ inputs.cluster }}" ]; then
-          ARGS+=("--cluster" "${{ inputs.cluster }}")
-        fi
-
-        # Pass repo roots for source template diffing
-        ARGS+=("--repo-pr" "${{ github.workspace }}/${{ inputs.project-path }}")
-        ARGS+=("--repo-base" "/tmp/kustodian-base/${{ inputs.project-path }}")
-
-        if [ -f "/tmp/kustodian-live-diff.txt" ]; then
-          ARGS+=("--live-diff" "/tmp/kustodian-live-diff.txt")
-        fi
-
-        bun run "${{ github.action_path }}/generate-diff.ts" "${ARGS[@]}"
-
-        HAS_CHANGES=$(jq -r 'if .total > 0 then "true" else "false" end' /tmp/kustodian-diff-summary.json)
-        echo "has-changes=$HAS_CHANGES" >> "$GITHUB_OUTPUT"
-
-    - name: Setup live diff tools
-      if: inputs.kubeconfig != ''
-      shell: bash
-      run: |
-        # Install kubectl if not present
-        if ! command -v kubectl &>/dev/null; then
-          curl -sLO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        if ! command -v kubectl >/dev/null 2>&1; then
+          KUBECTL_VERSION="$(curl -Ls https://dl.k8s.io/release/stable.txt)"
+          curl -sLo kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
           chmod +x kubectl
           sudo mv kubectl /usr/local/bin/
         fi
-        # Install flux CLI if not present
-        if ! command -v flux &>/dev/null; then
+        kubectl version --client=true
+
+    - name: Install Flux CLI
+      shell: bash
+      env:
+        FLUX_VERSION: ${{ inputs.flux-version }}
+      run: |
+        if [ "$FLUX_VERSION" = "latest" ]; then
           curl -s https://fluxcd.io/install.sh | sudo bash
+        else
+          curl -s https://fluxcd.io/install.sh | sudo FLUX_VERSION="$FLUX_VERSION" bash
         fi
+        flux --version
 
     - name: Configure kubeconfig
-      if: inputs.kubeconfig != ''
       shell: bash
       run: |
-        mkdir -p ~/.kube
-        echo "${{ inputs.kubeconfig }}" | base64 -d > ~/.kube/config
-        chmod 600 ~/.kube/config
+        mkdir -p "$HOME/.kube"
+        echo "${{ inputs.kubeconfig }}" | base64 -d > "$HOME/.kube/config"
+        chmod 600 "$HOME/.kube/config"
 
-    - name: Run live cluster diff
-      if: inputs.kubeconfig != ''
+    - name: Run cluster diff
+      id: diff
       shell: bash
-      continue-on-error: true
       working-directory: ${{ inputs.project-path }}
+      env:
+        KUBECONFIG: ${{ env.HOME }}/.kube/config
       run: |
-        ARGS=("diff")
-        ARGS+=("--kubeconfig" "$HOME/.kube/config")
+        ARGS=("diff" "--format" "markdown" "--kubeconfig" "$HOME/.kube/config")
         if [ -n "${{ inputs.cluster }}" ]; then
           ARGS+=("--cluster" "${{ inputs.cluster }}")
         fi
 
-        kustodian "${ARGS[@]}" 2>&1 | tee /tmp/kustodian-live-diff.txt
+        # `diff` exits 0 for no changes, 1 for changes, non-zero otherwise. We
+        # want to keep running so we can post the comment regardless.
+        set +e
+        kustodian "${ARGS[@]}" > /tmp/kustodian-pr-comment.md 2> /tmp/kustodian-pr-progress.log
+        exit_code=$?
+        set -e
 
-    - name: Append live diff to comment
-      if: inputs.kubeconfig != '' && hashFiles('/tmp/kustodian-live-diff.txt') != ''
-      shell: bash
-      run: |
-        # Re-generate the comment with live diff included
-        ARGS=("--mode" "ci")
-        ARGS+=("/tmp/kustodian-manifests-base")
-        ARGS+=("/tmp/kustodian-manifests-pr")
-        ARGS+=("/tmp/kustodian-diff-report/index.html")
-        ARGS+=("/tmp/kustodian-diff-summary.json")
-        ARGS+=("/tmp/kustodian-comment.md")
+        # Always show progress in the workflow logs.
+        cat /tmp/kustodian-pr-progress.log || true
 
-        if [ -n "${{ inputs.cluster }}" ]; then
-          ARGS+=("--cluster" "${{ inputs.cluster }}")
-        fi
-
-        ARGS+=("--repo-pr" "${{ github.workspace }}/${{ inputs.project-path }}")
-        ARGS+=("--repo-base" "/tmp/kustodian-base/${{ inputs.project-path }}")
-
-        if [ -s "/tmp/kustodian-live-diff.txt" ]; then
-          ARGS+=("--live-diff" "/tmp/kustodian-live-diff.txt")
-        fi
-
-        bun run "${{ github.action_path }}/generate-diff.ts" "${ARGS[@]}"
+        case "$exit_code" in
+          0) echo "has-changes=false" >> "$GITHUB_OUTPUT" ;;
+          1) echo "has-changes=true"  >> "$GITHUB_OUTPUT" ;;
+          *)
+            echo "has-changes=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::kustodian diff exited with code $exit_code — posting whatever output was produced"
+            ;;
+        esac
 
     - name: Cleanup kubeconfig
-      if: always() && inputs.kubeconfig != ''
+      if: always()
       shell: bash
-      run: rm -f ~/.kube/config
-
-    - name: Upload HTML report
-      if: steps.diff.outputs.has-changes == 'true'
-      id: upload-html
-      continue-on-error: true
-      uses: actions/upload-artifact@v4
-      with:
-        name: kustodian-pr-diff-report
-        path: /tmp/kustodian-diff-report/
-        retention-days: ${{ inputs.retention-days }}
+      run: rm -f "$HOME/.kube/config"
 
     - name: Comment on PR
       if: github.event_name == 'pull_request'
@@ -221,16 +139,16 @@ runs:
           const marker = '<!-- kustodian-pr-diff -->';
           const legacyMarker = '<!-- kustodian-manifest-diff -->';
 
-          let body = marker + '\n';
-          body += fs.readFileSync('/tmp/kustodian-comment.md', 'utf-8');
-
-          const hasChanges = '${{ steps.diff.outputs.has-changes }}' === 'true';
-          const artifactUrl = '${{ steps.upload-html.outputs.artifact-url }}';
-          if (hasChanges && artifactUrl) {
-            body += '\n\n' + `[View full HTML diff report](${artifactUrl})`;
+          let body = '';
+          try {
+            body = fs.readFileSync('/tmp/kustodian-pr-comment.md', 'utf-8');
+          } catch {
+            body = marker + '\n### Kustodian PR Diff\n\n_Diff step did not produce output — see the workflow logs for details._';
           }
 
-          body += '\n\n---\n<sub>Generated by <a href="https://github.com/lucasilverentand/kustodian">Kustodian</a></sub>';
+          if (!body.includes(marker)) {
+            body = marker + '\n' + body;
+          }
 
           const { data: comments } = await github.rest.issues.listComments({
             owner: context.repo.owner,
@@ -238,7 +156,9 @@ runs:
             issue_number: context.issue.number,
           });
 
-          const existing = comments.find(c => c.body?.includes(marker) || c.body?.includes(legacyMarker));
+          const existing = comments.find(
+            (c) => c.body?.includes(marker) || c.body?.includes(legacyMarker),
+          );
 
           if (existing) {
             await github.rest.issues.updateComment({
@@ -259,7 +179,4 @@ runs:
     - name: Cleanup
       if: always()
       shell: bash
-      run: |
-        git worktree remove /tmp/kustodian-base --force 2>/dev/null || true
-        rm -rf /tmp/kustodian-manifests-base /tmp/kustodian-manifests-pr 2>/dev/null || true
-        rm -rf /tmp/kustodian-diff-report /tmp/kustodian-diff-summary.json /tmp/kustodian-comment.md /tmp/kustodian-live-diff.txt 2>/dev/null || true
+      run: rm -f /tmp/kustodian-pr-comment.md /tmp/kustodian-pr-progress.log

@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { mkdtemp, rm, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
+import type { KustodianErrorType } from '../../core/index.js';
 import { is_success, success } from '../../core/index.js';
 import { create_generator, serialize_resource } from '../../generator/index.js';
 import { create_flux_client } from '../../k8s/flux.js';
@@ -13,6 +14,17 @@ import { define_command } from '../command.js';
 import { PLUGIN_REGISTRY_ID } from '../services.js';
 import { OCI_REGISTRY_PROVIDER } from '../utils/cluster-secrets.js';
 import { resolve_defaults } from '../utils/defaults.js';
+import {
+  type ClusterDiffSectionType,
+  type ClusterDiffStatsType,
+  type DiffStatsType,
+  has_changes as diff_has_changes,
+  empty_diff_stats,
+  merge_diff_stats,
+  parse_diff_stats,
+  render_markdown_report,
+  render_summary_table,
+} from '../utils/diff-stats.js';
 import { is_not_found_error } from '../utils/k8s-errors.js';
 import {
   create_namespace_manifest,
@@ -63,14 +75,39 @@ export const diff_command = define_command({
       description: 'Path to project root',
       type: 'string',
     },
+    {
+      name: 'format',
+      short: 'f',
+      description: 'Output format: terminal (default) or markdown (PR-comment ready)',
+      type: 'string',
+      default_value: 'terminal',
+    },
   ],
   handler: async (ctx, container) => {
     const cluster_filter = ctx.options['cluster'] as string | undefined;
     const provider_name = ctx.options['provider'] as string;
     const kubeconfig_path = ctx.options['kubeconfig'] as string | undefined;
     const project_path = (ctx.options['project'] as string) || process.cwd();
+    const format = ((ctx.options['format'] as string) || 'terminal').toLowerCase();
 
-    console.log('\n━━━ Kustodian Diff ━━━');
+    if (format !== 'terminal' && format !== 'markdown') {
+      return {
+        success: false as const,
+        error: {
+          code: 'INVALID_ARGUMENT',
+          message: `--format must be 'terminal' or 'markdown', got '${format}'`,
+        },
+      };
+    }
+
+    const is_markdown = format === 'markdown';
+    // In markdown mode we own stdout entirely so the captured output is a
+    // valid comment. Progress goes to stderr instead of stdout.
+    const log = (message: string) =>
+      (is_markdown ? process.stderr : process.stdout).write(`${message}\n`);
+    const warn = (message: string) => process.stderr.write(`${message}\n`);
+
+    log('\n━━━ Kustodian Diff ━━━');
 
     const project_result = await load_and_resolve_project(project_path, cluster_filter);
     if (!is_success(project_result)) {
@@ -78,7 +115,11 @@ export const diff_command = define_command({
     }
 
     const { project_root, project, target_clusters } = project_result.value;
-    let has_changes = false;
+    const cluster_summaries: ClusterDiffStatsType[] = [];
+    let first_error: KustodianErrorType | undefined;
+    const record_error = (err: KustodianErrorType) => {
+      if (!first_error) first_error = err;
+    };
 
     for (const loaded_cluster of target_clusters) {
       const cluster_name = loaded_cluster.cluster.metadata.name;
@@ -86,14 +127,21 @@ export const diff_command = define_command({
       const flux_namespace = defaults.flux_namespace;
       const oci_registry_secret_name = defaults.oci_registry_secret_name;
 
-      console.log(`\n━━━ Cluster: ${cluster_name} ━━━`);
+      log(`\n━━━ Cluster: ${cluster_name} ━━━`);
 
       if (!loaded_cluster.cluster.spec.oci) {
-        process.exitCode = 2;
-        return {
-          success: false as const,
-          error: { code: 'INVALID_CONFIG', message: 'spec.oci configuration required' },
+        const err: KustodianErrorType = {
+          code: 'INVALID_CONFIG',
+          message: 'spec.oci configuration required',
         };
+        warn(`  ✗ ${err.message}`);
+        cluster_summaries.push({
+          cluster: cluster_name,
+          stats: empty_diff_stats(),
+          error: 'spec.oci required',
+        });
+        record_error(err);
+        continue;
       }
 
       const validation_result = validate_cluster_template_requirements(
@@ -101,8 +149,14 @@ export const diff_command = define_command({
         project.templates,
       );
       if (!is_success(validation_result)) {
-        process.exitCode = 2;
-        return validation_result;
+        warn(`  ✗ ${validation_result.error.message}`);
+        cluster_summaries.push({
+          cluster: cluster_name,
+          stats: empty_diff_stats(),
+          error: validation_result.error.message,
+        });
+        record_error(validation_result.error);
+        continue;
       }
 
       // Resolve kubeconfig: either from --kubeconfig flag or via provider SSH
@@ -111,23 +165,25 @@ export const diff_command = define_command({
       let provider: ClusterProviderType | undefined;
 
       if (kubeconfig_path) {
-        // Use the provided kubeconfig directly
         if (!existsSync(kubeconfig_path)) {
-          process.exitCode = 2;
-          return {
-            success: false as const,
-            error: {
-              code: 'INVALID_CONFIG',
-              message: `Kubeconfig file not found: ${kubeconfig_path}`,
-            },
+          const err: KustodianErrorType = {
+            code: 'INVALID_CONFIG',
+            message: `Kubeconfig file not found: ${kubeconfig_path}`,
           };
+          warn(`  ✗ ${err.message}`);
+          cluster_summaries.push({
+            cluster: cluster_name,
+            stats: empty_diff_stats(),
+            error: 'kubeconfig not found',
+          });
+          record_error(err);
+          continue;
         }
-        console.log(`  Kubeconfig: ${kubeconfig_path}`);
+        log(`  Kubeconfig: ${kubeconfig_path}`);
         resolved_kubeconfig = kubeconfig_path;
       } else {
-        // Resolve provider from plugin registry
-        console.log(`  Provider: ${provider_name}`);
-        console.log(`  ✓ Loaded ${loaded_cluster.nodes.length} nodes`);
+        log(`  Provider: ${provider_name}`);
+        log(`  ✓ Loaded ${loaded_cluster.nodes.length} nodes`);
 
         const registry_result = container.resolve(PLUGIN_REGISTRY_ID);
         if (!is_success(registry_result)) {
@@ -139,7 +195,14 @@ export const diff_command = define_command({
           provider_name,
         );
         if (!is_success(provider_result)) {
-          return provider_result;
+          warn(`  ✗ ${provider_result.error.message}`);
+          cluster_summaries.push({
+            cluster: cluster_name,
+            stats: empty_diff_stats(),
+            error: provider_result.error.message,
+          });
+          record_error(provider_result.error);
+          continue;
         }
         provider = provider_result.value;
 
@@ -147,14 +210,28 @@ export const diff_command = define_command({
 
         const validate_result = provider.validate(node_list);
         if (!is_success(validate_result)) {
-          process.exitCode = 2;
-          return validate_result;
+          warn(`  ✗ ${validate_result.error.message}`);
+          cluster_summaries.push({
+            cluster: cluster_name,
+            stats: empty_diff_stats(),
+            error: validate_result.error.message,
+          });
+          record_error(validate_result.error);
+          await provider.cleanup?.();
+          continue;
         }
 
         const kubeconfig_result = await provider.get_kubeconfig(node_list);
         if (!is_success(kubeconfig_result)) {
-          process.exitCode = 2;
-          return kubeconfig_result;
+          warn(`  ✗ ${kubeconfig_result.error.message}`);
+          cluster_summaries.push({
+            cluster: cluster_name,
+            stats: empty_diff_stats(),
+            error: kubeconfig_result.error.message,
+          });
+          record_error(kubeconfig_result.error);
+          await provider.cleanup?.();
+          continue;
         }
 
         temp_kubeconfig = path.join(
@@ -169,14 +246,25 @@ export const diff_command = define_command({
           cluster_name,
         );
         if (!is_success(rename_result)) {
-          process.exitCode = 2;
-          return rename_result;
+          warn(`  ✗ ${rename_result.error.message}`);
+          cluster_summaries.push({
+            cluster: cluster_name,
+            stats: empty_diff_stats(),
+            error: rename_result.error.message,
+          });
+          record_error(rename_result.error);
+          await provider.cleanup?.();
+          await unlink(temp_kubeconfig).catch(() => undefined);
+          continue;
         }
 
         resolved_kubeconfig = temp_kubeconfig;
       }
 
       let temp_flux_kustomization_dir: string | undefined;
+      let cluster_stats: DiffStatsType = empty_diff_stats();
+      let cluster_error: string | undefined;
+      const cluster_sections: ClusterDiffSectionType[] = [];
 
       try {
         const client_options = { kubeconfig: resolved_kubeconfig };
@@ -185,11 +273,10 @@ export const diff_command = define_command({
 
         const flux_cli_result = await flux_client.check_cli();
         if (!is_success(flux_cli_result) || !flux_cli_result.value) {
-          process.exitCode = 2;
-          return {
-            success: false as const,
-            error: { code: 'MISSING_DEPENDENCY', message: 'flux CLI not found' },
-          };
+          cluster_error = 'flux CLI not found';
+          warn(`  ✗ ${cluster_error}`);
+          record_error({ code: 'MISSING_DEPENDENCY', message: cluster_error });
+          continue;
         }
 
         const templates_dir = path.join(project_root, 'templates');
@@ -213,8 +300,10 @@ export const diff_command = define_command({
           {},
         );
         if (!is_success(gen_result)) {
-          process.exitCode = 2;
-          return gen_result;
+          cluster_error = gen_result.error.message;
+          warn(`  ✗ ${cluster_error}`);
+          record_error(gen_result.error);
+          continue;
         }
 
         const gen_data = gen_result.value;
@@ -232,14 +321,10 @@ export const diff_command = define_command({
         if (is_success(secret_check)) {
           oci_has_auth = true;
         } else if (!is_not_found_error(secret_check.error.message)) {
-          process.exitCode = 2;
-          return {
-            success: false as const,
-            error: {
-              code: 'KUBECTL_GET_ERROR',
-              message: `Failed to check OCI secret: ${secret_check.error.message}`,
-            },
-          };
+          cluster_error = `Failed to check OCI secret: ${secret_check.error.message}`;
+          warn(`  ✗ ${cluster_error}`);
+          record_error({ code: 'KUBECTL_GET_ERROR', message: cluster_error });
+          continue;
         } else {
           const token = get_provider_token_from_env(OCI_REGISTRY_PROVIDER.env_vars);
           if (token) {
@@ -252,14 +337,10 @@ export const diff_command = define_command({
               if (is_not_found_error(namespace_check.error.message)) {
                 resources.push(create_namespace_manifest(flux_namespace));
               } else {
-                process.exitCode = 2;
-                return {
-                  success: false as const,
-                  error: {
-                    code: 'KUBECTL_GET_ERROR',
-                    message: `Failed to check namespace '${flux_namespace}': ${namespace_check.error.message}`,
-                  },
-                };
+                cluster_error = `Failed to check namespace '${flux_namespace}': ${namespace_check.error.message}`;
+                warn(`  ✗ ${cluster_error}`);
+                record_error({ code: 'KUBECTL_GET_ERROR', message: cluster_error });
+                continue;
               }
             }
 
@@ -272,7 +353,7 @@ export const diff_command = define_command({
               ),
             );
           } else {
-            console.warn(`  ⚠ ${OCI_REGISTRY_PROVIDER.skip_warning}`);
+            warn(`  ⚠ ${OCI_REGISTRY_PROVIDER.skip_warning}`);
           }
         }
 
@@ -298,30 +379,40 @@ export const diff_command = define_command({
         }
 
         if (resources.length > 0) {
-          console.log('\n  → Diffing Flux control-plane resources...');
+          log('\n  → Diffing Flux control-plane resources...');
           const object_diff_result = await kubectl_client.diff_stdin(
             resources.map((resource) => serialize_resource(resource)).join('---\n'),
           );
           if (!is_success(object_diff_result)) {
-            process.exitCode = 2;
-            return object_diff_result;
+            cluster_error = object_diff_result.error.message;
+            warn(`  ✗ ${cluster_error}`);
+            record_error(object_diff_result.error);
+            continue;
           }
 
           if (object_diff_result.value.stdout) {
-            console.log(object_diff_result.value.stdout);
+            log(object_diff_result.value.stdout);
+            cluster_stats = merge_diff_stats(
+              cluster_stats,
+              parse_diff_stats(object_diff_result.value.stdout),
+            );
+            if (object_diff_result.value.has_changes) {
+              cluster_sections.push({
+                title: 'Flux control plane',
+                output: object_diff_result.value.stdout,
+              });
+            }
           }
           if (object_diff_result.value.stderr) {
-            console.error(object_diff_result.value.stderr);
+            warn(object_diff_result.value.stderr);
           }
 
-          if (object_diff_result.value.has_changes) {
-            has_changes = true;
-          } else {
-            console.log('    ✓ No Flux object changes');
+          if (!object_diff_result.value.has_changes) {
+            log('    ✓ No Flux object changes');
           }
         }
 
-        console.log('\n  → Diffing rendered workloads...');
+        log('\n  → Diffing rendered workloads...');
         temp_flux_kustomization_dir = await mkdtemp(
           path.join(tmpdir(), `kustodian-diff-${sanitize_filename_part(cluster_name)}-`),
         );
@@ -346,19 +437,27 @@ export const diff_command = define_command({
           });
 
           if (!is_success(workload_diff_result)) {
-            process.exitCode = 2;
-            return workload_diff_result;
+            cluster_error = workload_diff_result.error.message;
+            warn(`  ✗ ${cluster_error}`);
+            record_error(workload_diff_result.error);
+            break;
           }
 
           if (workload_diff_result.value.stdout) {
-            console.log(workload_diff_result.value.stdout);
+            log(workload_diff_result.value.stdout);
+            cluster_stats = merge_diff_stats(
+              cluster_stats,
+              parse_diff_stats(workload_diff_result.value.stdout),
+            );
+            if (workload_diff_result.value.has_changes) {
+              cluster_sections.push({
+                title: `Kustomization: ${generated.name}`,
+                output: workload_diff_result.value.stdout,
+              });
+            }
           }
           if (workload_diff_result.value.stderr) {
-            console.error(workload_diff_result.value.stderr);
-          }
-
-          if (workload_diff_result.value.has_changes) {
-            has_changes = true;
+            warn(workload_diff_result.value.stderr);
           }
         }
       } finally {
@@ -371,17 +470,50 @@ export const diff_command = define_command({
             () => undefined,
           );
         }
+
+        const entry: ClusterDiffStatsType = {
+          cluster: cluster_name,
+          stats: cluster_stats,
+        };
+        if (cluster_error) entry.error = cluster_error;
+        if (cluster_sections.length > 0) entry.sections = cluster_sections;
+        cluster_summaries.push(entry);
       }
     }
 
-    if (has_changes) {
+    const any_changes = cluster_summaries.some((c) => !c.error && diff_has_changes(c.stats));
+
+    if (is_markdown) {
+      process.stdout.write(
+        `${render_markdown_report(cluster_summaries, {
+          scope: cluster_filter ?? 'all clusters',
+        })}\n`,
+      );
+    } else if (cluster_summaries.length > 0) {
+      log('\n━━━ Summary ━━━\n');
+      log(render_summary_table(cluster_summaries));
+      log('');
+    }
+
+    if (first_error) {
+      // Return the error so the runner/bin decides exit code. Do not mutate
+      // `process.exitCode` here: it is a global that leaks across tests
+      // sharing a process.
+      log('━━━ Diff Complete: errors occurred ━━━\n');
+      return {
+        success: false as const,
+        error: first_error,
+      };
+    }
+
+    if (any_changes) {
+      // exit-code 1 = differences found (Unix `diff` convention)
       process.exitCode = 1;
-      console.log('\n━━━ Diff Complete: changes detected ━━━\n');
+      log('━━━ Diff Complete: changes detected ━━━\n');
       return success(undefined);
     }
 
-    process.exitCode = 0;
-    console.log('\n━━━ Diff Complete: no changes ━━━\n');
+    log('━━━ Diff Complete: no changes ━━━\n');
     return success(undefined);
   },
 });
