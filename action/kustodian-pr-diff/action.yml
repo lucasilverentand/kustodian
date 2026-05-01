@@ -1,5 +1,5 @@
 name: 'Kustodian PR Diff'
-description: 'Generate Kubernetes manifest diffs on pull requests and post as PR comments'
+description: 'Post a Kustodian live-cluster diff and source-file review on pull requests'
 author: 'Luca Silverentand'
 
 branding:
@@ -11,7 +11,7 @@ inputs:
     description: 'GitHub token for PR comments and artifact uploads'
     required: true
   cluster:
-    description: 'Filter to a specific cluster name (defaults to all)'
+    description: 'Cluster name to diff against the live cluster (must match a folder under clusters/)'
     required: false
     default: ''
   project-path:
@@ -27,16 +27,16 @@ inputs:
     required: false
     default: '30'
   kubeconfig:
-    description: 'Base64-encoded kubeconfig for live cluster diff (optional — enables showing actual resource changes)'
+    description: 'Base64-encoded kubeconfig for live cluster diff. When omitted, the comment will mark the cluster as "not analyzed".'
     required: false
     default: ''
 
 outputs:
   has-changes:
-    description: 'Whether manifest changes were detected'
+    description: 'Whether changes were detected (live or source)'
     value: ${{ steps.diff.outputs.has-changes }}
   artifact-url:
-    description: 'URL to the diff report artifact'
+    description: 'URL to the HTML source-file review artifact'
     value: ${{ steps.upload-html.outputs.artifact-url }}
 
 runs:
@@ -66,6 +66,25 @@ runs:
       shell: bash
       continue-on-error: true
       run: bun run "${{ github.action_path }}/run-plugin-setup.ts" "${{ inputs.project-path }}"
+
+    - name: Discover project clusters
+      id: clusters
+      shell: bash
+      working-directory: ${{ inputs.project-path }}
+      run: |
+        # Each subdirectory of clusters/ that contains a cluster.yaml is a cluster.
+        names=()
+        if [ -d clusters ]; then
+          for dir in clusters/*/; do
+            name="$(basename "$dir")"
+            if [ -f "clusters/${name}/cluster.yaml" ]; then
+              names+=("$name")
+            fi
+          done
+        fi
+        joined="$(IFS=, ; echo "${names[*]}")"
+        echo "all=${joined}" >> "$GITHUB_OUTPUT"
+        echo "Discovered clusters: ${joined:-<none>}"
 
     - name: Generate PR manifests
       shell: bash
@@ -105,46 +124,15 @@ runs:
         fi
         kustodian preview "${ARGS[@]}" 2>/dev/null || true
 
-    - name: Generate diff report
-      id: diff
-      shell: bash
-      run: |
-        ARGS=("--mode" "ci")
-        ARGS+=("/tmp/kustodian-manifests-base")
-        ARGS+=("/tmp/kustodian-manifests-pr")
-        ARGS+=("/tmp/kustodian-diff-report/index.html")
-        ARGS+=("/tmp/kustodian-diff-summary.json")
-        ARGS+=("/tmp/kustodian-comment.md")
-
-        # Pass cluster name for proper labeling
-        if [ -n "${{ inputs.cluster }}" ]; then
-          ARGS+=("--cluster" "${{ inputs.cluster }}")
-        fi
-
-        # Pass repo roots for source template diffing
-        ARGS+=("--repo-pr" "${{ github.workspace }}/${{ inputs.project-path }}")
-        ARGS+=("--repo-base" "/tmp/kustodian-base/${{ inputs.project-path }}")
-
-        if [ -f "/tmp/kustodian-live-diff.txt" ]; then
-          ARGS+=("--live-diff" "/tmp/kustodian-live-diff.txt")
-        fi
-
-        bun run "${{ github.action_path }}/generate-diff.ts" "${ARGS[@]}"
-
-        HAS_CHANGES=$(jq -r 'if .total > 0 then "true" else "false" end' /tmp/kustodian-diff-summary.json)
-        echo "has-changes=$HAS_CHANGES" >> "$GITHUB_OUTPUT"
-
     - name: Setup live diff tools
       if: inputs.kubeconfig != ''
       shell: bash
       run: |
-        # Install kubectl if not present
         if ! command -v kubectl &>/dev/null; then
           curl -sLO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
           chmod +x kubectl
           sudo mv kubectl /usr/local/bin/
         fi
-        # Install flux CLI if not present
         if ! command -v flux &>/dev/null; then
           curl -s https://fluxcd.io/install.sh | sudo bash
         fi
@@ -158,24 +146,24 @@ runs:
         chmod 600 ~/.kube/config
 
     - name: Run live cluster diff
-      if: inputs.kubeconfig != ''
+      id: live-diff
+      if: inputs.kubeconfig != '' && inputs.cluster != ''
       shell: bash
       continue-on-error: true
       working-directory: ${{ inputs.project-path }}
       run: |
         ARGS=("diff")
         ARGS+=("--kubeconfig" "$HOME/.kube/config")
-        if [ -n "${{ inputs.cluster }}" ]; then
-          ARGS+=("--cluster" "${{ inputs.cluster }}")
-        fi
+        ARGS+=("--cluster" "${{ inputs.cluster }}")
+        ARGS+=("--json" "/tmp/kustodian-live-diff.json")
 
+        # Capture text output for fallback rendering and human readability.
         kustodian "${ARGS[@]}" 2>&1 | tee /tmp/kustodian-live-diff.txt
 
-    - name: Append live diff to comment
-      if: inputs.kubeconfig != '' && hashFiles('/tmp/kustodian-live-diff.txt') != ''
+    - name: Generate diff report
+      id: diff
       shell: bash
       run: |
-        # Re-generate the comment with live diff included
         ARGS=("--mode" "ci")
         ARGS+=("/tmp/kustodian-manifests-base")
         ARGS+=("/tmp/kustodian-manifests-pr")
@@ -187,14 +175,28 @@ runs:
           ARGS+=("--cluster" "${{ inputs.cluster }}")
         fi
 
+        if [ -n "${{ steps.clusters.outputs.all }}" ]; then
+          ARGS+=("--all-clusters" "${{ steps.clusters.outputs.all }}")
+        fi
+
+        if [ -n "${{ inputs.cluster }}" ] && [ -n "${{ inputs.kubeconfig }}" ]; then
+          ARGS+=("--analyzed-clusters" "${{ inputs.cluster }}")
+        fi
+
         ARGS+=("--repo-pr" "${{ github.workspace }}/${{ inputs.project-path }}")
         ARGS+=("--repo-base" "/tmp/kustodian-base/${{ inputs.project-path }}")
 
+        if [ -s "/tmp/kustodian-live-diff.json" ]; then
+          ARGS+=("--live-json" "/tmp/kustodian-live-diff.json")
+        fi
         if [ -s "/tmp/kustodian-live-diff.txt" ]; then
           ARGS+=("--live-diff" "/tmp/kustodian-live-diff.txt")
         fi
 
         bun run "${{ github.action_path }}/generate-diff.ts" "${ARGS[@]}"
+
+        HAS_CHANGES=$(jq -r 'if (.total > 0) or (.live.has_changes // false) then "true" else "false" end' /tmp/kustodian-diff-summary.json)
+        echo "has-changes=$HAS_CHANGES" >> "$GITHUB_OUTPUT"
 
     - name: Cleanup kubeconfig
       if: always() && inputs.kubeconfig != ''
@@ -227,7 +229,7 @@ runs:
           const hasChanges = '${{ steps.diff.outputs.has-changes }}' === 'true';
           const artifactUrl = '${{ steps.upload-html.outputs.artifact-url }}';
           if (hasChanges && artifactUrl) {
-            body += '\n\n' + `[View full HTML diff report](${artifactUrl})`;
+            body += '\n\n' + `📄 [Open the source-file review HTML artifact](${artifactUrl})`;
           }
 
           body += '\n\n---\n<sub>Generated by <a href="https://github.com/lucasilverentand/kustodian">Kustodian</a></sub>';
@@ -262,4 +264,4 @@ runs:
       run: |
         git worktree remove /tmp/kustodian-base --force 2>/dev/null || true
         rm -rf /tmp/kustodian-manifests-base /tmp/kustodian-manifests-pr 2>/dev/null || true
-        rm -rf /tmp/kustodian-diff-report /tmp/kustodian-diff-summary.json /tmp/kustodian-comment.md /tmp/kustodian-live-diff.txt 2>/dev/null || true
+        rm -rf /tmp/kustodian-diff-report /tmp/kustodian-diff-summary.json /tmp/kustodian-comment.md /tmp/kustodian-live-diff.txt /tmp/kustodian-live-diff.json 2>/dev/null || true

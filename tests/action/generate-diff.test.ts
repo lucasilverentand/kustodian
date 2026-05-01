@@ -72,8 +72,11 @@ describe('generate-diff', () => {
     expect(summary.removed).toBe(0);
     expect(summary.files).toEqual([]);
 
+    // With no live diff and no source changes, the comment still includes the
+    // header and is honest about the missing live diff.
     const comment = readFileSync(output_comment, 'utf-8');
-    expect(comment).toContain('No manifest changes detected');
+    expect(comment).toContain('### Kustodian PR Diff');
+    expect(comment).toContain('No live cluster diff was produced');
   });
 
   it('should detect added files', async () => {
@@ -185,7 +188,7 @@ describe('generate-diff', () => {
     expect(html).toContain('modified');
   });
 
-  it('should produce markdown comment with inline diffs', async () => {
+  it('should point at the source-file review artifact instead of inlining diffs', async () => {
     write_manifest(pr_dir, 'new.yaml', 'kind: Deployment\n');
     write_manifest(base_dir, 'old.yaml', 'kind: Service\n');
 
@@ -193,12 +196,151 @@ describe('generate-diff', () => {
 
     const comment = readFileSync(output_comment, 'utf-8');
     expect(comment).toContain('### Kustodian PR Diff');
-    expect(comment).toContain('**2** files changed');
+    expect(comment).toContain('Source-file review');
+    expect(comment).toContain('2 files changed');
     expect(comment).toContain('🟢 1 added');
     expect(comment).toContain('🔴 1 removed');
-    expect(comment).toContain('<code>new.yaml</code>');
-    expect(comment).toContain('<code>old.yaml</code>');
-    expect(comment).toContain('```yaml');
+    // File-by-file inline diffs no longer live in the comment — they're in HTML.
+    expect(comment).not.toContain('<code>new.yaml</code>');
+    expect(comment).not.toContain('```yaml');
+
+    // The HTML artifact still has them.
+    const html = readFileSync(output_html, 'utf-8');
+    expect(html).toContain('new.yaml');
+    expect(html).toContain('old.yaml');
+  });
+
+  async function run_with_args(extra: string[]) {
+    const proc = Bun.spawn(
+      [
+        'bun',
+        'run',
+        SCRIPT,
+        '--mode',
+        'ci',
+        base_dir,
+        pr_dir,
+        output_html,
+        output_summary,
+        output_comment,
+        ...extra,
+      ],
+      { stdout: 'pipe', stderr: 'pipe' },
+    );
+    await proc.exited;
+    return {
+      exit_code: proc.exitCode,
+      stdout: await new Response(proc.stdout).text(),
+      stderr: await new Response(proc.stderr).text(),
+    };
+  }
+
+  it('renders a per-cluster status table when --live-json is provided', async () => {
+    const live_path = join(tmp_dir, 'live.json');
+    writeFileSync(
+      live_path,
+      JSON.stringify({
+        schema_version: 1,
+        has_changes: true,
+        clusters: [
+          {
+            name: 'amsterdam',
+            has_changes: true,
+            control_plane: { has_changes: false, diff: '' },
+            kustomizations: [
+              {
+                name: '07.16-jellyfin',
+                namespace: 'flux-system',
+                template: '07.16-jellyfin',
+                has_changes: true,
+                diff: '► Deployment/jellyfin/jellyfin\n@@ -1 +1 @@\n- image: jellyfin:1.0\n+ image: jellyfin:2.0\n',
+              },
+              {
+                name: '00-infrastructure',
+                namespace: 'flux-system',
+                template: '00-infrastructure',
+                has_changes: false,
+                diff: '',
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    await run_with_args([
+      '--live-json',
+      live_path,
+      '--analyzed-clusters',
+      'amsterdam',
+      '--all-clusters',
+      'amsterdam,ingber',
+    ]);
+
+    const comment = readFileSync(output_comment, 'utf-8');
+    // Status table covers both clusters.
+    expect(comment).toContain('| Cluster | Status | Detail |');
+    expect(comment).toContain('`amsterdam`');
+    expect(comment).toContain('🟡 changes detected');
+    expect(comment).toContain('`ingber`');
+    expect(comment).toContain('⚪ not analyzed');
+    // Per-cluster section with the changed Kustomization rendered as a diff.
+    expect(comment).toContain('#### `amsterdam`');
+    expect(comment).toContain('07.16-jellyfin');
+    expect(comment).toContain('```diff');
+    expect(comment).toContain('image: jellyfin:2.0');
+    // Honest note about unanalyzed clusters.
+    expect(comment).toContain('not analyzed in CI');
+
+    const summary = JSON.parse(readFileSync(output_summary, 'utf-8'));
+    expect(summary.live).toBeDefined();
+    expect(summary.live.has_changes).toBe(true);
+    expect(summary.live.clusters[0].name).toBe('amsterdam');
+    expect(summary.live.clusters[0].changed_kustomizations).toBe(1);
+    expect(summary.analyzed_clusters).toEqual(['amsterdam']);
+    expect(summary.all_clusters).toEqual(['amsterdam', 'ingber']);
+  });
+
+  it('reports "no changes" cleanly when live diff returns no per-cluster changes', async () => {
+    const live_path = join(tmp_dir, 'live.json');
+    writeFileSync(
+      live_path,
+      JSON.stringify({
+        schema_version: 1,
+        has_changes: false,
+        clusters: [
+          {
+            name: 'amsterdam',
+            has_changes: false,
+            control_plane: { has_changes: false, diff: '' },
+            kustomizations: [
+              {
+                name: '00-infrastructure',
+                namespace: 'flux-system',
+                template: '00-infrastructure',
+                has_changes: false,
+                diff: '',
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    await run_with_args([
+      '--live-json',
+      live_path,
+      '--analyzed-clusters',
+      'amsterdam',
+      '--all-clusters',
+      'amsterdam',
+    ]);
+
+    const comment = readFileSync(output_comment, 'utf-8');
+    expect(comment).toContain('✅ no changes');
+    expect(comment).toContain('No changes — applying this PR will not modify any resources');
+    // No code-block diff section when nothing changed.
+    expect(comment).not.toContain('```diff');
   });
 
   it('should escape HTML entities in file content', async () => {

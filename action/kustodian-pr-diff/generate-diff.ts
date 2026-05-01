@@ -1,29 +1,39 @@
 #!/usr/bin/env bun
 
 /**
- * Generates manifest diffs between two kustodian preview output directories
- * AND/OR between source template directories.
+ * Renders Kustodian PR-diff outputs:
+ *   - PR comment markdown — focused on what `kustodian apply` will change in
+ *     the live cluster(s). Source-file diffs are NOT inlined here; they live
+ *     in the HTML artifact instead.
+ *   - HTML artifact — single-page source-file review of templates / cluster
+ *     config that changed in the PR. Useful for reviewing what was authored,
+ *     separately from what will end up applied.
+ *   - JSON summary — machine-readable counts, used by the workflow.
  *
  * Modes:
- *   ci       - Write HTML report, JSON summary, and PR comment markdown to files
- *   terminal - Print colorized diff to stdout
- *   comment  - Print PR comment markdown to stdout
+ *   ci       - Write HTML report, JSON summary, and PR comment markdown to files.
+ *   terminal - Print colorized live-diff summary to stdout.
+ *   comment  - Print PR comment markdown to stdout.
  *
- * Usage:
+ * Usage (CI mode):
  *   generate-diff.ts --mode ci <base-dir> <pr-dir> <output-html> <output-summary> <output-comment> [options]
- *   generate-diff.ts --mode terminal <base-dir> <pr-dir> [options]
- *   generate-diff.ts --mode comment <base-dir> <pr-dir> [options]
  *
  * Options:
- *   --cluster <name>       Cluster name for labeling (instead of deriving from paths)
- *   --repo-base <path>     Base branch repo root (enables source template diffing)
- *   --repo-pr <path>       PR branch repo root (enables source template diffing)
- *   --live-diff <file>     Live cluster diff output file
+ *   --cluster <name>             Cluster being analyzed (legacy single-cluster invocation)
+ *   --analyzed-clusters <names>  Comma-separated clusters that were diffed against a live cluster
+ *   --all-clusters <names>       Comma-separated clusters that exist in the project. Any cluster
+ *                                in this list but not in --analyzed-clusters is reported as
+ *                                "not analyzed" in the PR comment.
+ *   --repo-base <path>           Base branch repo root (enables source template diffing for HTML)
+ *   --repo-pr <path>             PR branch repo root (enables source template diffing for HTML)
+ *   --live-json <path>           Structured JSON output from `kustodian diff --json` (preferred)
+ *   --live-diff <path>           Plain-text live-diff output (fallback when --live-json absent)
+ *   --artifact-url <url>         If known at render time, link to the HTML artifact in the comment
  */
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, extname, basename } from 'node:path';
+import { basename, dirname, extname, join, relative } from 'node:path';
 
 // --- Types ---
 
@@ -36,15 +46,30 @@ type FileChange = {
   content?: string;
 };
 
-type ChangeSection = {
-  label: string;
-  description: string;
-  changes: FileChange[];
+type KustomizationDiff = {
+  name: string;
+  namespace: string;
+  template: string;
+  has_changes: boolean;
+  diff: string;
+};
+
+type ClusterDiff = {
+  name: string;
+  has_changes: boolean;
+  control_plane: { has_changes: boolean; diff: string };
+  kustomizations: KustomizationDiff[];
+};
+
+type LiveDiffReport = {
+  schema_version: 1;
+  has_changes: boolean;
+  clusters: ClusterDiff[];
 };
 
 // --- Argument parsing ---
 
-function parse_args(): {
+type Config = {
   mode: Mode;
   base_dir: string;
   pr_dir: string;
@@ -52,40 +77,71 @@ function parse_args(): {
   output_summary?: string;
   output_comment?: string;
   live_diff_file?: string;
+  live_json_file?: string;
   cluster?: string;
+  analyzed_clusters: string[];
+  all_clusters: string[];
   repo_base?: string;
   repo_pr?: string;
-} {
+  artifact_url?: string;
+};
+
+function parse_args(): Config {
   const args = process.argv.slice(2);
   let mode: Mode = 'ci';
   let live_diff_file: string | undefined;
+  let live_json_file: string | undefined;
   let cluster: string | undefined;
+  let analyzed_clusters: string[] = [];
+  let all_clusters: string[] = [];
   let repo_base: string | undefined;
   let repo_pr: string | undefined;
+  let artifact_url: string | undefined;
   const positional: string[] = [];
 
+  function split_csv(value: string): string[] {
+    return value
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--mode' && args[i + 1]) {
-      mode = args[i + 1] as Mode;
+    const arg = args[i];
+    const next = args[i + 1];
+    if (arg === '--mode' && next) {
+      mode = next as Mode;
       if (!['ci', 'terminal', 'comment'].includes(mode)) {
         console.error(`Unknown mode: ${mode}. Expected: ci, terminal, comment`);
         process.exit(1);
       }
       i++;
-    } else if (args[i] === '--live-diff' && args[i + 1]) {
-      live_diff_file = args[i + 1];
+    } else if (arg === '--live-diff' && next) {
+      live_diff_file = next;
       i++;
-    } else if (args[i] === '--cluster' && args[i + 1]) {
-      cluster = args[i + 1];
+    } else if (arg === '--live-json' && next) {
+      live_json_file = next;
       i++;
-    } else if (args[i] === '--repo-base' && args[i + 1]) {
-      repo_base = args[i + 1];
+    } else if (arg === '--cluster' && next) {
+      cluster = next;
       i++;
-    } else if (args[i] === '--repo-pr' && args[i + 1]) {
-      repo_pr = args[i + 1];
+    } else if (arg === '--analyzed-clusters' && next) {
+      analyzed_clusters = split_csv(next);
+      i++;
+    } else if (arg === '--all-clusters' && next) {
+      all_clusters = split_csv(next);
+      i++;
+    } else if (arg === '--repo-base' && next) {
+      repo_base = next;
+      i++;
+    } else if (arg === '--repo-pr' && next) {
+      repo_pr = next;
+      i++;
+    } else if (arg === '--artifact-url' && next) {
+      artifact_url = next;
       i++;
     } else {
-      positional.push(args[i] as string);
+      positional.push(arg as string);
     }
   }
 
@@ -96,13 +152,7 @@ function parse_args(): {
       'Usage:\n' +
         '  generate-diff.ts --mode ci       <base-dir> <pr-dir> <html> <summary> <comment> [options]\n' +
         '  generate-diff.ts --mode terminal <base-dir> <pr-dir> [options]\n' +
-        '  generate-diff.ts --mode comment  <base-dir> <pr-dir> [options]\n' +
-        '\n' +
-        'Options:\n' +
-        '  --cluster <name>       Cluster name for labeling\n' +
-        '  --repo-base <path>     Base branch repo root (enables source diffing)\n' +
-        '  --repo-pr <path>       PR branch repo root (enables source diffing)\n' +
-        '  --live-diff <file>     Live cluster diff output\n',
+        '  generate-diff.ts --mode comment  <base-dir> <pr-dir> [options]\n',
     );
     process.exit(1);
   }
@@ -114,6 +164,10 @@ function parse_args(): {
     process.exit(1);
   }
 
+  if (cluster && analyzed_clusters.length === 0) {
+    analyzed_clusters = [cluster];
+  }
+
   return {
     mode,
     base_dir,
@@ -122,19 +176,40 @@ function parse_args(): {
     output_summary,
     output_comment,
     live_diff_file,
+    live_json_file,
     cluster,
+    analyzed_clusters,
+    all_clusters,
     repo_base,
     repo_pr,
+    artifact_url,
   };
 }
 
 const config = parse_args();
 
-// --- Live diff content ---
+// --- Live diff loading ---
 
-let live_diff_content = '';
+function load_live_report(): LiveDiffReport | undefined {
+  if (config.live_json_file && existsSync(config.live_json_file)) {
+    try {
+      const raw = readFileSync(config.live_json_file, 'utf-8');
+      const parsed = JSON.parse(raw) as LiveDiffReport;
+      if (parsed && Array.isArray(parsed.clusters)) {
+        return parsed;
+      }
+    } catch (err) {
+      console.error(`Warning: could not parse --live-json: ${(err as Error).message}`);
+    }
+  }
+  return undefined;
+}
+
+const live_report = load_live_report();
+
+let live_diff_text = '';
 if (config.live_diff_file && existsSync(config.live_diff_file)) {
-  live_diff_content = readFileSync(config.live_diff_file, 'utf-8').trim();
+  live_diff_text = readFileSync(config.live_diff_file, 'utf-8').trim();
 }
 
 // --- File discovery ---
@@ -180,9 +255,13 @@ function is_binary_file(path: string): boolean {
   return binary_exts.includes(extname(path).toLowerCase());
 }
 
-// --- Collect preview changes (Flux Kustomization config) ---
+// --- Collect source / preview changes (used by HTML artifact only) ---
 
-function collect_dir_changes(base_dir: string, pr_dir: string, extensions?: string[]): FileChange[] {
+function collect_dir_changes(
+  base_dir: string,
+  pr_dir: string,
+  extensions?: string[],
+): FileChange[] {
   const base_files = new Set(walk_dir(base_dir, extensions));
   const pr_files = new Set(walk_dir(pr_dir, extensions));
   const all_files = [...new Set([...base_files, ...pr_files])].sort();
@@ -229,40 +308,30 @@ function collect_dir_changes(base_dir: string, pr_dir: string, extensions?: stri
   return changes;
 }
 
-// Collect preview output changes (Flux Kustomization wrappers)
 const preview_extensions = ['.yaml', '.yml', '.json'];
 const preview_changes = collect_dir_changes(config.base_dir, config.pr_dir, preview_extensions);
-
-// --- Collect source changes (actual K8s manifests) ---
 
 let source_changes: FileChange[] = [];
 let cluster_config_changes: FileChange[] = [];
 
 if (config.repo_base && config.repo_pr) {
-  // Diff template source directories
   const base_templates = join(config.repo_base, 'templates');
   const pr_templates = join(config.repo_pr, 'templates');
-
   if (existsSync(base_templates) || existsSync(pr_templates)) {
     source_changes = collect_dir_changes(base_templates, pr_templates);
-    // Exclude template.yaml files — those are kustodian specs, not K8s manifests
-    // But still include them with a note since they affect generation
   }
 
-  // Diff cluster config if cluster name is known
   if (config.cluster) {
     const base_cluster = join(config.repo_base, 'clusters', config.cluster);
     const pr_cluster = join(config.repo_pr, 'clusters', config.cluster);
-
     if (existsSync(base_cluster) || existsSync(pr_cluster)) {
       cluster_config_changes = collect_dir_changes(base_cluster, pr_cluster);
     }
   }
 }
 
-// --- Shared helpers ---
+// --- Identity / grouping helpers ---
 
-/** Try to extract the Kubernetes kind and name from YAML content */
 function parse_k8s_identity(content: string): string | undefined {
   const kind_match = content.match(/^kind:\s*(.+)/m);
   const name_match = content.match(/^\s+name:\s*(.+)/m);
@@ -272,7 +341,6 @@ function parse_k8s_identity(content: string): string | undefined {
   return name ? `${kind}/${name}` : kind;
 }
 
-/** Get a human label for a change: k8s identity or just the filename */
 function get_change_label(change: FileChange, search_dir?: string): string {
   let content: string | undefined;
   if (change.content) {
@@ -281,34 +349,23 @@ function get_change_label(change: FileChange, search_dir?: string): string {
     try {
       content = readFileSync(join(search_dir, change.path), 'utf-8');
     } catch {
-      // Ignore
+      // ignore
     }
   }
   const identity = content ? parse_k8s_identity(content) : undefined;
   return identity ?? basename(change.path, extname(change.path));
 }
 
-/**
- * Extract template name from a source file path.
- * Paths look like: "07-media/07.16-jellyfin/jellyfin/deployment.yaml"
- * Template name is the second segment: "07.16-jellyfin"
- */
 function extract_template_name(file_path: string): string {
   const parts = file_path.split('/');
   return parts[1] ?? parts[0] ?? 'unknown';
 }
 
-/**
- * Extract a short display name from a template directory name.
- * "07.16-jellyfin" → "jellyfin"
- * "06.1-home-assistant" → "home-assistant"
- */
 function short_template_name(template_dir: string): string {
   const match = template_dir.match(/^\d+(?:\.\d+)?-(.+)$/);
   return match?.[1] ?? template_dir;
 }
 
-/** Group source changes by template name */
 function group_by_template(items: FileChange[]): Map<string, FileChange[]> {
   const groups = new Map<string, FileChange[]>();
   for (const item of items) {
@@ -320,12 +377,10 @@ function group_by_template(items: FileChange[]): Map<string, FileChange[]> {
   return groups;
 }
 
-/** Group preview changes by template name (second path segment: templates/<name>/...) */
 function group_preview_by_template(items: FileChange[]): Map<string, FileChange[]> {
   const groups = new Map<string, FileChange[]>();
   for (const item of items) {
     const parts = item.path.split('/');
-    // Preview paths: "templates/<template>/<file>" or "flux-system/<file>"
     let group_name: string;
     if (parts[0] === 'templates' && parts[1]) {
       group_name = parts[1];
@@ -341,10 +396,8 @@ function group_preview_by_template(items: FileChange[]): Map<string, FileChange[
   return groups;
 }
 
-// --- Build all change sections ---
-
-const all_changes = [...preview_changes, ...source_changes, ...cluster_config_changes];
-const total_changes = all_changes.length;
+const all_source_changes = [...preview_changes, ...source_changes, ...cluster_config_changes];
+const total_source_changes = all_source_changes.length;
 
 function count_by_status(items: FileChange[]) {
   return {
@@ -353,8 +406,6 @@ function count_by_status(items: FileChange[]) {
     removed: items.filter((c) => c.status === 'removed').length,
   };
 }
-
-// --- Determine which templates are affected ---
 
 type TemplateSummary = {
   name: string;
@@ -365,8 +416,6 @@ type TemplateSummary = {
 
 function build_template_summaries(): TemplateSummary[] {
   const template_map = new Map<string, TemplateSummary>();
-
-  // Source changes grouped by template
   const source_grouped = group_by_template(source_changes);
   for (const [template, changes] of source_grouped) {
     template_map.set(template, {
@@ -376,11 +425,9 @@ function build_template_summaries(): TemplateSummary[] {
       config_changes: [],
     });
   }
-
-  // Preview changes grouped by template
   const preview_grouped = group_preview_by_template(preview_changes);
   for (const [template, changes] of preview_grouped) {
-    if (template === 'flux-system') continue; // Handle separately
+    if (template === 'flux-system') continue;
     const existing = template_map.get(template);
     if (existing) {
       existing.config_changes = changes;
@@ -393,136 +440,148 @@ function build_template_summaries(): TemplateSummary[] {
       });
     }
   }
-
-  // Sort by template name
   return [...template_map.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 const template_summaries = build_template_summaries();
 const flux_system_changes = preview_changes.filter((c) => c.path.startsWith('flux-system/'));
 
-// ============================================================
-// Terminal mode
-// ============================================================
+// --- Live diff rendering ---
 
-const RESET = '\x1b[0m';
-const BOLD = '\x1b[1m';
-const DIM = '\x1b[2m';
-const RED = '\x1b[31m';
-const GREEN = '\x1b[32m';
-const YELLOW = '\x1b[33m';
-const BLUE = '\x1b[34m';
-const CYAN = '\x1b[36m';
-const MAGENTA = '\x1b[35m';
+// biome-ignore lint/suspicious/noControlCharactersInRegex: stripping ANSI escapes requires matching ESC
+const ANSI_PATTERN = /\x1b\[[0-9;]*[a-zA-Z]/g;
 
-function render_terminal_diff(change: FileChange): void {
-  if (change.status === 'modified' && change.diff_lines) {
-    for (const line of change.diff_lines) {
-      if (line.startsWith('@@')) {
-        console.log(`│   ${CYAN}${line}${RESET}`);
-      } else if (line.startsWith('+')) {
-        console.log(`│   ${GREEN}${line}${RESET}`);
-      } else if (line.startsWith('-')) {
-        console.log(`│   ${RED}${line}${RESET}`);
-      } else {
-        console.log(`│   ${DIM}${line}${RESET}`);
-      }
-    }
-  } else if (change.status === 'added' && change.content) {
-    for (const line of change.content.trimEnd().split('\n')) {
-      console.log(`│   ${GREEN}+${line}${RESET}`);
-    }
-  } else if (change.status === 'removed' && change.content) {
-    for (const line of change.content.trimEnd().split('\n')) {
-      console.log(`│   ${RED}-${line}${RESET}`);
-    }
-  }
+function strip_ansi(text: string): string {
+  return text.replace(ANSI_PATTERN, '');
 }
 
-function render_terminal(): void {
-  const cluster_label = config.cluster ?? 'all clusters';
+function clean_flux_diff(text: string): string {
+  // flux diff prints a progress line like "► OCIRepository ..." mixed with
+  // the actual unified diff. Strip ANSI but keep the markers — they're useful
+  // for seeing which resource a hunk applies to.
+  return strip_ansi(text).trim();
+}
 
-  if (total_changes === 0) {
-    console.log(
-      `\n${GREEN}${BOLD}✓ No changes detected for ${cluster_label}.${RESET}\n`,
+function render_kustomization_block_md(k: KustomizationDiff): string {
+  const cleaned = clean_flux_diff(k.diff);
+  const summary = `📦 <b>${k.name}</b> <code>${k.template}</code>`;
+
+  if (!k.has_changes) {
+    return `- ✓ ${summary} — no changes`;
+  }
+
+  const body = cleaned.length > 0 ? cleaned : '(no diff output captured)';
+  return `<details open>
+<summary>${summary}</summary>
+
+\`\`\`diff
+${body}
+\`\`\`
+
+</details>`;
+}
+
+function render_control_plane_block_md(cluster: ClusterDiff): string {
+  if (!cluster.control_plane.has_changes) return '';
+  const cleaned = clean_flux_diff(cluster.control_plane.diff);
+  return `<details>
+<summary>⚙️ <b>Flux control-plane</b> (OCIRepository, Kustomization wrappers)</summary>
+
+\`\`\`diff
+${cleaned.length > 0 ? cleaned : '(no diff output captured)'}
+\`\`\`
+
+</details>`;
+}
+
+function render_cluster_section_md(cluster: ClusterDiff): string {
+  const parts: string[] = [];
+  parts.push(`#### \`${cluster.name}\``);
+
+  if (!cluster.has_changes) {
+    parts.push('\n✅ No changes — applying this PR will not modify any resources on this cluster.');
+    return parts.join('\n');
+  }
+
+  const changed_kustomizations = cluster.kustomizations.filter((k) => k.has_changes);
+  const unchanged = cluster.kustomizations.length - changed_kustomizations.length;
+
+  const summary_bits: string[] = [];
+  if (changed_kustomizations.length > 0) {
+    summary_bits.push(
+      `**${changed_kustomizations.length}** Kustomization${
+        changed_kustomizations.length === 1 ? '' : 's'
+      } will change`,
     );
-    return;
+  }
+  if (cluster.control_plane.has_changes) {
+    summary_bits.push('Flux control-plane will change');
+  }
+  if (unchanged > 0) {
+    summary_bits.push(`${unchanged} unchanged`);
+  }
+  parts.push(`\n${summary_bits.join(' · ')}\n`);
+
+  const cp = render_control_plane_block_md(cluster);
+  if (cp) parts.push(cp);
+
+  for (const k of changed_kustomizations) {
+    parts.push(render_kustomization_block_md(k));
   }
 
-  // Header
-  console.log(`\n${BOLD}━━━ Kustodian Diff — ${cluster_label} ━━━${RESET}`);
+  return parts.join('\n');
+}
 
-  const stats = count_by_status(all_changes);
-  const stat_parts = [
-    stats.added ? `${GREEN}+${stats.added} added${RESET}` : '',
-    stats.modified ? `${YELLOW}~${stats.modified} modified${RESET}` : '',
-    stats.removed ? `${RED}-${stats.removed} removed${RESET}` : '',
-  ]
-    .filter(Boolean)
-    .join('  ');
-  console.log(
-    `  ${template_summaries.length} template${template_summaries.length !== 1 ? 's' : ''} affected, ${total_changes} file${total_changes !== 1 ? 's' : ''} changed: ${stat_parts}\n`,
-  );
+function build_cluster_status_table(): {
+  table: string;
+  any_changes: boolean;
+  unanalyzed: string[];
+} {
+  const analyzed = new Set(config.analyzed_clusters);
+  const all = new Set<string>(config.all_clusters);
+  for (const c of analyzed) all.add(c);
+  if (live_report) {
+    for (const c of live_report.clusters) all.add(c.name);
+  }
 
-  // Template sections
-  for (const template of template_summaries) {
-    const all_template_changes = [...template.source_changes, ...template.config_changes];
-    console.log(`${BOLD}${BLUE}┌─ ${template.short_name}${RESET} ${DIM}(${template.name})${RESET}`);
+  const all_sorted = [...all].sort();
+  const unanalyzed = all_sorted.filter((c) => !analyzed.has(c));
+  const live_by_name = new Map<string, ClusterDiff>();
+  for (const c of live_report?.clusters ?? []) {
+    live_by_name.set(c.name, c);
+  }
 
-    for (const change of all_template_changes) {
-      const label = get_change_label(change, config.repo_pr ? join(config.repo_pr, 'templates') : config.pr_dir);
-      const status_color =
-        change.status === 'added' ? GREEN : change.status === 'removed' ? RED : YELLOW;
-      const status_symbol =
-        change.status === 'added' ? '+' : change.status === 'removed' ? '-' : '~';
-
-      console.log(
-        `│ ${status_color}${BOLD}${status_symbol}${RESET} ${BOLD}${label}${RESET} ${DIM}${change.path}${RESET}`,
+  let any_changes = false;
+  const rows: string[] = ['| Cluster | Status | Detail |', '|---------|--------|--------|'];
+  for (const name of all_sorted) {
+    if (!analyzed.has(name)) {
+      rows.push(
+        `| \`${name}\` | ⚪ not analyzed | No kubeconfig configured for this cluster in CI |`,
       );
-      render_terminal_diff(change);
-      if (change.diff_lines || change.content) console.log('');
+      continue;
     }
-
-    console.log(`${BOLD}${BLUE}└──${RESET}\n`);
+    const cluster = live_by_name.get(name);
+    if (!cluster) {
+      rows.push(`| \`${name}\` | ⚠️ analyzed but no data | Diff did not produce a report |`);
+      continue;
+    }
+    if (!cluster.has_changes) {
+      rows.push(`| \`${name}\` | ✅ no changes | Live cluster matches PR-merge state |`);
+      continue;
+    }
+    any_changes = true;
+    const changed_count = cluster.kustomizations.filter((k) => k.has_changes).length;
+    const detail_bits: string[] = [];
+    if (changed_count > 0) {
+      detail_bits.push(`${changed_count} Kustomization${changed_count === 1 ? '' : 's'}`);
+    }
+    if (cluster.control_plane.has_changes) {
+      detail_bits.push('control-plane');
+    }
+    rows.push(`| \`${name}\` | 🟡 changes detected | ${detail_bits.join(', ')} |`);
   }
 
-  // Flux system changes
-  if (flux_system_changes.length > 0) {
-    console.log(`${BOLD}${MAGENTA}┌─ flux-system${RESET}`);
-    for (const change of flux_system_changes) {
-      const label = get_change_label(change, config.pr_dir);
-      const status_color =
-        change.status === 'added' ? GREEN : change.status === 'removed' ? RED : YELLOW;
-      const status_symbol =
-        change.status === 'added' ? '+' : change.status === 'removed' ? '-' : '~';
-
-      console.log(
-        `│ ${status_color}${BOLD}${status_symbol}${RESET} ${BOLD}${label}${RESET} ${DIM}${change.path}${RESET}`,
-      );
-      render_terminal_diff(change);
-      if (change.diff_lines || change.content) console.log('');
-    }
-    console.log(`${BOLD}${MAGENTA}└──${RESET}\n`);
-  }
-
-  // Cluster config changes
-  if (cluster_config_changes.length > 0) {
-    console.log(`${BOLD}${CYAN}┌─ cluster config${RESET} ${DIM}(${config.cluster})${RESET}`);
-    for (const change of cluster_config_changes) {
-      const label = basename(change.path);
-      const status_color =
-        change.status === 'added' ? GREEN : change.status === 'removed' ? RED : YELLOW;
-      const status_symbol =
-        change.status === 'added' ? '+' : change.status === 'removed' ? '-' : '~';
-
-      console.log(
-        `│ ${status_color}${BOLD}${status_symbol}${RESET} ${BOLD}${label}${RESET} ${DIM}${change.path}${RESET}`,
-      );
-      render_terminal_diff(change);
-      if (change.diff_lines || change.content) console.log('');
-    }
-    console.log(`${BOLD}${CYAN}└──${RESET}\n`);
-  }
+  return { table: rows.join('\n'), any_changes, unanalyzed };
 }
 
 // ============================================================
@@ -531,211 +590,157 @@ function render_terminal(): void {
 
 const COMMENT_MAX_LENGTH = 60000;
 
-const status_emoji: Record<string, string> = {
-  added: '🟢',
-  modified: '🔵',
-  removed: '🔴',
-};
-
-function render_change_block(change: FileChange, search_dir?: string): string {
-  const label = get_change_label(change, search_dir);
-  const emoji = status_emoji[change.status];
-
-  if (change.status === 'modified' && change.diff_lines) {
-    const diff_content = change.diff_lines.join('\n').trimEnd();
-    return `<details>
-<summary>${emoji} <b>${label}</b> — <code>${change.path}</code></summary>
-
-\`\`\`diff
-${diff_content}
-\`\`\`
-
-</details>`;
-  }
-
-  if (change.status === 'added' && change.content) {
-    return `<details>
-<summary>${emoji} <b>${label}</b> — <code>${change.path}</code></summary>
-
-\`\`\`yaml
-${change.content.trimEnd()}
-\`\`\`
-
-</details>`;
-  }
-
-  if (change.status === 'removed' && change.content) {
-    return `<details>
-<summary>${emoji} <b>${label}</b> — <code>${change.path}</code></summary>
-
-\`\`\`yaml
-${change.content.trimEnd()}
-\`\`\`
-
-</details>`;
-  }
-
-  // Binary or empty file
-  return `- ${emoji} **${label}** — \`${change.path}\``;
-}
-
-function format_change_counts(items: FileChange[]): string {
-  const stats = count_by_status(items);
-  return [
-    stats.added ? `🟢 ${stats.added} added` : '',
-    stats.modified ? `🔵 ${stats.modified} modified` : '',
-    stats.removed ? `🔴 ${stats.removed} removed` : '',
-  ]
-    .filter(Boolean)
-    .join(', ');
-}
-
 function build_comment(): string {
-  const cluster_label = config.cluster ? ` — \`${config.cluster}\`` : '';
-
-  if (total_changes === 0) {
-    return `### Kustodian PR Diff${cluster_label}\n\n✅ No changes detected — this PR does not affect any deployed manifests or Flux configuration.`;
-  }
-
   const parts: string[] = [];
+  parts.push('### Kustodian PR Diff\n');
+  parts.push(
+    '_What `kustodian apply` will change in the live cluster(s) when this PR is merged._\n',
+  );
 
-  // Header
-  parts.push(`### Kustodian PR Diff${cluster_label}\n`);
+  const has_live = live_report !== undefined || live_diff_text.length > 0;
+  const have_any_clusters =
+    config.all_clusters.length > 0 ||
+    config.analyzed_clusters.length > 0 ||
+    (live_report?.clusters.length ?? 0) > 0;
 
-  // Summary table
-  if (template_summaries.length > 0) {
-    parts.push(
-      `**${template_summaries.length} template${template_summaries.length !== 1 ? 's' : ''} affected** — ${format_change_counts(all_changes)}\n`,
-    );
-
-    parts.push('| Template | Changes | Details |');
-    parts.push('|----------|---------|---------|');
-
-    for (const template of template_summaries) {
-      const all = [...template.source_changes, ...template.config_changes];
-      const counts = count_by_status(all);
-      const details: string[] = [];
-      if (counts.added) details.push(`+${counts.added}`);
-      if (counts.modified) details.push(`~${counts.modified}`);
-      if (counts.removed) details.push(`-${counts.removed}`);
-
-      const types: string[] = [];
-      if (template.source_changes.length) types.push('manifests');
-      if (template.config_changes.length) types.push('flux config');
-
-      parts.push(
-        `| **${template.short_name}** | ${details.join(' ')} file${all.length !== 1 ? 's' : ''} | ${types.join(', ')} |`,
-      );
-    }
-
-    if (flux_system_changes.length > 0) {
-      const counts = count_by_status(flux_system_changes);
-      const details: string[] = [];
-      if (counts.added) details.push(`+${counts.added}`);
-      if (counts.modified) details.push(`~${counts.modified}`);
-      if (counts.removed) details.push(`-${counts.removed}`);
-      parts.push(
-        `| **flux-system** | ${details.join(' ')} file${flux_system_changes.length !== 1 ? 's' : ''} | infrastructure |`,
-      );
-    }
-
-    if (cluster_config_changes.length > 0) {
-      const counts = count_by_status(cluster_config_changes);
-      const details: string[] = [];
-      if (counts.added) details.push(`+${counts.added}`);
-      if (counts.modified) details.push(`~${counts.modified}`);
-      if (counts.removed) details.push(`-${counts.removed}`);
-      parts.push(
-        `| **cluster config** | ${details.join(' ')} file${cluster_config_changes.length !== 1 ? 's' : ''} | ${config.cluster ?? 'cluster'} settings |`,
-      );
-    }
-
+  if (have_any_clusters) {
+    const { table, any_changes, unanalyzed } = build_cluster_status_table();
+    parts.push(table);
     parts.push('');
-  }
 
-  // Template detail sections
-  for (const template of template_summaries) {
-    const all = [...template.source_changes, ...template.config_changes];
-    parts.push(
-      `\n<details>\n<summary>📦 <b>${template.short_name}</b> — ${format_change_counts(all)}</summary>\n`,
-    );
-
-    // Source changes (actual manifests)
-    if (template.source_changes.length > 0) {
-      const search_dir = config.repo_pr ? join(config.repo_pr, 'templates') : undefined;
-      for (const change of template.source_changes) {
-        parts.push(render_change_block(change, search_dir));
+    if (live_report) {
+      for (const cluster of live_report.clusters) {
+        parts.push('');
+        parts.push(render_cluster_section_md(cluster));
       }
+    } else if (live_diff_text) {
+      // Fallback: legacy plain-text live diff with no per-cluster structure.
+      const cleaned = strip_ansi(live_diff_text);
+      parts.push('');
+      parts.push(
+        `<details open>\n<summary>Live cluster diff</summary>\n\n\`\`\`diff\n${cleaned}\n\`\`\`\n\n</details>`,
+      );
     }
 
-    // Config changes (Flux Kustomization wrappers)
-    if (template.config_changes.length > 0) {
-      if (template.source_changes.length > 0) {
-        parts.push('\n**Flux configuration:**\n');
-      }
-      for (const change of template.config_changes) {
-        parts.push(render_change_block(change, config.pr_dir));
-      }
+    if (!any_changes && unanalyzed.length === 0 && has_live) {
+      parts.push('');
+      parts.push('✅ No live cluster changes detected for any analyzed cluster.');
     }
 
-    parts.push('\n</details>');
+    if (unanalyzed.length > 0) {
+      parts.push('');
+      parts.push(
+        `> ⚪ \`${unanalyzed.join('`, `')}\` — not analyzed in CI. Wire up a kubeconfig secret to include ${
+          unanalyzed.length === 1 ? 'it' : 'them'
+        } in this report.`,
+      );
+    }
+  } else if (live_report) {
+    for (const cluster of live_report.clusters) {
+      parts.push(render_cluster_section_md(cluster));
+      parts.push('');
+    }
+  } else if (live_diff_text) {
+    const cleaned = strip_ansi(live_diff_text);
+    parts.push(
+      `<details open>\n<summary>Live cluster diff</summary>\n\n\`\`\`diff\n${cleaned}\n\`\`\`\n\n</details>`,
+    );
+  } else {
+    parts.push(
+      '> ⚠️ No live cluster diff was produced. The action could not reach any cluster, so this PR comment cannot tell you what would actually change on apply.',
+    );
   }
 
-  // Flux system changes
-  if (flux_system_changes.length > 0) {
-    parts.push(
-      `\n<details>\n<summary>⚙️ <b>flux-system</b> — ${format_change_counts(flux_system_changes)}</summary>\n`,
-    );
-    for (const change of flux_system_changes) {
-      parts.push(render_change_block(change, config.pr_dir));
+  // Footer pointing at the source-file review artifact.
+  if (total_source_changes > 0) {
+    const counts = count_by_status(all_source_changes);
+    const count_bits = [
+      counts.added ? `🟢 ${counts.added} added` : '',
+      counts.modified ? `🔵 ${counts.modified} modified` : '',
+      counts.removed ? `🔴 ${counts.removed} removed` : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    parts.push('');
+    parts.push('---');
+    if (config.artifact_url) {
+      parts.push(
+        `📄 [Source-file review](${config.artifact_url}) — ${total_source_changes} file${
+          total_source_changes === 1 ? '' : 's'
+        } changed (${count_bits}). What was authored in this PR.`,
+      );
+    } else {
+      parts.push(
+        `📄 **Source-file review** — ${total_source_changes} file${
+          total_source_changes === 1 ? '' : 's'
+        } changed (${count_bits}). The HTML artifact attached to this workflow run shows the file-by-file diff.`,
+      );
     }
-    parts.push('\n</details>');
-  }
-
-  // Cluster config changes
-  if (cluster_config_changes.length > 0) {
-    parts.push(
-      `\n<details>\n<summary>🔧 <b>cluster config</b> (${config.cluster}) — ${format_change_counts(cluster_config_changes)}</summary>\n`,
-    );
-    for (const change of cluster_config_changes) {
-      parts.push(render_change_block(change));
-    }
-    parts.push('\n</details>');
-  }
-
-  // Live cluster diff
-  if (live_diff_content) {
-    // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping ANSI escapes requires matching ESC
-    const clean_diff = live_diff_content.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
-
-    parts.push('\n---\n');
-    parts.push('#### Live Cluster Diff\n');
-    parts.push('> Resource changes compared to the running cluster\n');
-    parts.push(
-      `<details>\n<summary>Show full diff</summary>\n\n\`\`\`diff\n${clean_diff}\n\`\`\`\n\n</details>`,
-    );
   }
 
   let result = parts.join('\n');
 
-  // Truncate if too long
   if (result.length > COMMENT_MAX_LENGTH) {
     result = result.slice(0, COMMENT_MAX_LENGTH);
-    const open_details = (result.match(/<details>/g) ?? []).length;
+    const open_details = (result.match(/<details/g) ?? []).length;
     const close_details = (result.match(/<\/details>/g) ?? []).length;
     const open_code = (result.match(/```/g) ?? []).length;
-
     if (open_code % 2 !== 0) result += '\n```\n';
     for (let i = 0; i < open_details - close_details; i++) result += '\n</details>';
-
-    result += '\n\n> **Note:** This diff was truncated. See the full HTML report for all changes.';
+    result +=
+      '\n\n> **Note:** This diff was truncated. See the HTML artifact for the full source-file review.';
   }
 
   return result;
 }
 
 // ============================================================
-// HTML mode
+// Terminal mode — quick local view of the live diff
+// ============================================================
+
+const RESET = '\x1b[0m';
+const BOLD = '\x1b[1m';
+const DIM = '\x1b[2m';
+const GREEN = '\x1b[32m';
+const YELLOW = '\x1b[33m';
+const CYAN = '\x1b[36m';
+
+function render_terminal(): void {
+  console.log(`\n${BOLD}━━━ Kustodian Diff — PR comment preview ━━━${RESET}\n`);
+
+  if (live_report) {
+    for (const cluster of live_report.clusters) {
+      const status = cluster.has_changes
+        ? `${YELLOW}changes detected${RESET}`
+        : `${GREEN}no changes${RESET}`;
+      console.log(`${BOLD}${CYAN}${cluster.name}${RESET}  ${status}`);
+      if (cluster.control_plane.has_changes) {
+        console.log(`  ${DIM}control-plane:${RESET}`);
+        console.log(clean_flux_diff(cluster.control_plane.diff));
+      }
+      for (const k of cluster.kustomizations) {
+        if (!k.has_changes) continue;
+        console.log(`  ${DIM}${k.name} (${k.template}):${RESET}`);
+        console.log(clean_flux_diff(k.diff));
+      }
+      console.log('');
+    }
+  } else if (live_diff_text) {
+    console.log(strip_ansi(live_diff_text));
+  } else {
+    console.log(`${DIM}No live diff data provided.${RESET}`);
+  }
+
+  if (total_source_changes > 0) {
+    const counts = count_by_status(all_source_changes);
+    console.log(
+      `\n${DIM}Source files changed: ${counts.added} added, ${counts.modified} modified, ${counts.removed} removed (HTML artifact)${RESET}\n`,
+    );
+  }
+}
+
+// ============================================================
+// HTML mode — single-page source-file review artifact
 // ============================================================
 
 function render_diff_line(line: string): string {
@@ -754,7 +759,10 @@ function render_full_content(content: string, prefix: string, cls: string): stri
 }
 
 function render_file_section(change: FileChange): string {
-  const label = get_change_label(change, config.repo_pr ? join(config.repo_pr, 'templates') : config.pr_dir);
+  const label = get_change_label(
+    change,
+    config.repo_pr ? join(config.repo_pr, 'templates') : config.pr_dir,
+  );
   let body = '';
   if (change.status === 'modified' && change.diff_lines) {
     body = change.diff_lines.map(render_diff_line).join('\n');
@@ -780,7 +788,7 @@ function render_file_section(change: FileChange): string {
 
 function build_html(): string {
   const cluster_label = config.cluster ? ` — ${escape_html(config.cluster)}` : '';
-  const total_stats = count_by_status(all_changes);
+  const total_stats = count_by_status(all_source_changes);
 
   const stats_chips = [
     total_stats.added ? `<span class="chip added">+${total_stats.added} added</span>` : '',
@@ -788,19 +796,20 @@ function build_html(): string {
       ? `<span class="chip modified">~${total_stats.modified} modified</span>`
       : '',
     total_stats.removed ? `<span class="chip removed">-${total_stats.removed} removed</span>` : '',
-    !total_changes ? '<span class="chip">No changes</span>' : '',
+    !total_source_changes ? '<span class="chip">No file changes</span>' : '',
   ]
     .filter(Boolean)
     .join('\n      ');
 
   let file_sections = '';
-  if (total_changes === 0) {
+  if (total_source_changes === 0) {
     file_sections =
-      '<div class="empty-state">No changes detected &mdash; this PR does not affect any deployed manifests or Flux configuration.</div>';
+      '<div class="empty-state">No source-file changes detected. This PR may still affect cluster state via substitution variables or external dependencies.</div>';
   } else {
-    // Template sections
     for (const template of template_summaries) {
-      file_sections += `<h2 class="cluster-heading">${escape_html(template.short_name)} <span class="template-id">${escape_html(template.name)}</span></h2>`;
+      file_sections += `<h2 class="cluster-heading">${escape_html(
+        template.short_name,
+      )} <span class="template-id">${escape_html(template.name)}</span></h2>`;
 
       if (template.source_changes.length > 0) {
         file_sections += '<h3 class="section-label">Manifests</h3>';
@@ -812,23 +821,25 @@ function build_html(): string {
       }
     }
 
-    // Flux system
     if (flux_system_changes.length > 0) {
       file_sections += '<h2 class="cluster-heading">flux-system</h2>';
       file_sections += flux_system_changes.map(render_file_section).join('\n');
     }
 
-    // Cluster config
     if (cluster_config_changes.length > 0) {
-      file_sections += `<h2 class="cluster-heading">Cluster Config${config.cluster ? ` (${escape_html(config.cluster)})` : ''}</h2>`;
+      file_sections += `<h2 class="cluster-heading">Cluster Config${
+        config.cluster ? ` (${escape_html(config.cluster)})` : ''
+      }</h2>`;
       file_sections += cluster_config_changes.map(render_file_section).join('\n');
     }
   }
 
   const template_list =
     template_summaries.length > 0
-      ? `Templates affected: <strong>${template_summaries.map((t) => escape_html(t.short_name)).join(', ')}</strong>`
-      : 'No templates affected';
+      ? `Templates with file changes: <strong>${template_summaries
+          .map((t) => escape_html(t.short_name))
+          .join(', ')}</strong>`
+      : 'No templates with file changes';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -853,7 +864,6 @@ function build_html(): string {
     --hunk-fg: #79c0ff;
     --muted: #7d8590;
   }
-
   @media (prefers-color-scheme: light) {
     :root {
       --bg: #ffffff;
@@ -872,9 +882,7 @@ function build_html(): string {
       --muted: #656d76;
     }
   }
-
   * { box-sizing: border-box; margin: 0; padding: 0; }
-
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     background: var(--bg);
@@ -884,17 +892,14 @@ function build_html(): string {
     max-width: 1200px;
     margin: 0 auto;
   }
-
   header {
     margin-bottom: 2rem;
     padding-bottom: 1rem;
     border-bottom: 1px solid var(--border);
   }
-
   h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem; }
   .subtitle { color: var(--muted); font-size: 0.875rem; }
   .stats { display: flex; gap: 0.75rem; margin-top: 0.75rem; flex-wrap: wrap; }
-
   .chip {
     font-size: 0.8125rem;
     font-weight: 500;
@@ -903,11 +908,9 @@ function build_html(): string {
     background: var(--surface);
     border: 1px solid var(--border);
   }
-
   .chip.added { color: var(--add-fg); }
   .chip.modified { color: var(--mod-fg); }
   .chip.removed { color: var(--del-fg); }
-
   .cluster-heading {
     font-size: 1.1rem;
     font-weight: 600;
@@ -915,13 +918,7 @@ function build_html(): string {
     padding-bottom: 0.5rem;
     border-bottom: 1px solid var(--border);
   }
-
-  .template-id {
-    font-size: 0.8rem;
-    font-weight: 400;
-    color: var(--muted);
-  }
-
+  .template-id { font-size: 0.8rem; font-weight: 400; color: var(--muted); }
   .section-label {
     font-size: 0.85rem;
     font-weight: 500;
@@ -930,14 +927,12 @@ function build_html(): string {
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
-
   .file-section {
     margin-bottom: 0.75rem;
     border: 1px solid var(--border);
     border-radius: 6px;
     overflow: hidden;
   }
-
   .file-section > summary {
     display: flex;
     align-items: center;
@@ -949,9 +944,7 @@ function build_html(): string {
     list-style: none;
     user-select: none;
   }
-
   .file-section > summary::-webkit-details-marker { display: none; }
-
   .file-section > summary::before {
     content: "\\25B6";
     font-size: 0.6rem;
@@ -959,9 +952,7 @@ function build_html(): string {
     color: var(--muted);
     flex-shrink: 0;
   }
-
   .file-section[open] > summary::before { transform: rotate(90deg); }
-
   .status-badge {
     font-size: 0.6875rem;
     font-weight: 600;
@@ -970,28 +961,18 @@ function build_html(): string {
     text-transform: uppercase;
     letter-spacing: 0.03em;
   }
-
   .status-badge.added { background: var(--add-bg); color: var(--add-fg); }
   .status-badge.modified { background: var(--hunk-bg); color: var(--mod-fg); }
   .status-badge.removed { background: var(--del-bg); color: var(--del-fg); }
-
   .diff-body { overflow-x: auto; }
-
   .diff-body pre {
     margin: 0;
     font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
     font-size: 0.8125rem;
   }
-
-  .line {
-    padding: 0 0.75rem;
-    white-space: pre;
-    min-height: 1.35em;
-  }
-
+  .line { padding: 0 0.75rem; white-space: pre; min-height: 1.35em; }
   .line.add { background: var(--add-line); color: var(--add-fg); }
   .line.del { background: var(--del-line); color: var(--del-fg); }
-
   .line.hunk {
     background: var(--hunk-bg);
     color: var(--hunk-fg);
@@ -999,13 +980,11 @@ function build_html(): string {
     padding-bottom: 0.15rem;
     font-style: italic;
   }
-
   .empty-state {
     text-align: center;
     padding: 3rem;
     color: var(--muted);
   }
-
   footer {
     margin-top: 2rem;
     padding-top: 1rem;
@@ -1018,6 +997,7 @@ function build_html(): string {
 <body>
   <header>
     <h1>Kustodian PR Diff${cluster_label}</h1>
+    <p class="subtitle">Source-file review &mdash; what was authored in this PR. For the live cluster delta, see the PR comment.</p>
     <p class="subtitle">${template_list}</p>
     <div class="stats">
       ${stats_chips}
@@ -1042,7 +1022,6 @@ if (config.mode === 'terminal') {
 } else if (config.mode === 'comment') {
   console.log(build_comment());
 } else {
-  // CI mode
   const out_html = config.output_html as string;
   const out_summary = config.output_summary as string;
   const out_comment = config.output_comment as string;
@@ -1052,11 +1031,24 @@ if (config.mode === 'terminal') {
   if (!existsSync(html_dir)) mkdirSync(html_dir, { recursive: true });
   writeFileSync(out_html, html, 'utf-8');
 
-  const total_stats = count_by_status(all_changes);
+  const total_stats = count_by_status(all_source_changes);
+  const live_summary = live_report
+    ? {
+        has_changes: live_report.has_changes,
+        clusters: live_report.clusters.map((c) => ({
+          name: c.name,
+          has_changes: c.has_changes,
+          control_plane_changes: c.control_plane.has_changes,
+          changed_kustomizations: c.kustomizations.filter((k) => k.has_changes).length,
+          total_kustomizations: c.kustomizations.length,
+        })),
+      }
+    : undefined;
+
   writeFileSync(
     out_summary,
     JSON.stringify({
-      total: total_changes,
+      total: total_source_changes,
       added: total_stats.added,
       modified: total_stats.modified,
       removed: total_stats.removed,
@@ -1068,7 +1060,10 @@ if (config.mode === 'terminal') {
       })),
       has_flux_system_changes: flux_system_changes.length > 0,
       has_cluster_config_changes: cluster_config_changes.length > 0,
-      files: all_changes.map((c) => ({ path: c.path, status: c.status })),
+      files: all_source_changes.map((c) => ({ path: c.path, status: c.status })),
+      live: live_summary,
+      analyzed_clusters: config.analyzed_clusters,
+      all_clusters: config.all_clusters,
     }),
     'utf-8',
   );
@@ -1078,9 +1073,12 @@ if (config.mode === 'terminal') {
   console.log(
     `Diff report: ${total_stats.added} added, ${total_stats.modified} modified, ${total_stats.removed} removed across ${template_summaries.length} template(s)`,
   );
+  if (live_report) {
+    const changed = live_report.clusters.filter((c) => c.has_changes).length;
+    console.log(`Live diff: ${changed}/${live_report.clusters.length} cluster(s) have changes`);
+  }
 }
 
-// Exit with code 1 if changes were detected (useful for local scripting).
-if (total_changes > 0 && config.mode !== 'ci') {
+if (total_source_changes > 0 && config.mode !== 'ci') {
   process.exitCode = 1;
 }
