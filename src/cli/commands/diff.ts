@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { mkdtemp, rm, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { is_success, success } from '../../core/index.js';
@@ -23,6 +23,36 @@ import {
 import { load_and_resolve_project, sanitize_filename_part } from '../utils/project.js';
 import { build_node_list, resolve_provider } from '../utils/provider.js';
 import { validate_cluster_template_requirements } from '../utils/validation.js';
+
+/**
+ * Structured per-Kustomization diff entry written when --json is set.
+ */
+type KustomizationDiffJson = {
+  name: string;
+  namespace: string;
+  template: string;
+  has_changes: boolean;
+  diff: string;
+};
+
+/**
+ * Structured per-cluster diff entry written when --json is set.
+ */
+type ClusterDiffJson = {
+  name: string;
+  has_changes: boolean;
+  control_plane: { has_changes: boolean; diff: string };
+  kustomizations: KustomizationDiffJson[];
+};
+
+/**
+ * Top-level structured payload written when --json is set.
+ */
+type DiffJsonReport = {
+  schema_version: 1;
+  has_changes: boolean;
+  clusters: ClusterDiffJson[];
+};
 
 /**
  * Diff command - previews cluster changes without applying:
@@ -63,12 +93,19 @@ export const diff_command = define_command({
       description: 'Path to project root',
       type: 'string',
     },
+    {
+      name: 'json',
+      description:
+        'Write a structured JSON report of per-cluster, per-Kustomization diffs to this file path',
+      type: 'string',
+    },
   ],
   handler: async (ctx, container) => {
     const cluster_filter = ctx.options['cluster'] as string | undefined;
     const provider_name = ctx.options['provider'] as string;
     const kubeconfig_path = ctx.options['kubeconfig'] as string | undefined;
     const project_path = (ctx.options['project'] as string) || process.cwd();
+    const json_output_path = ctx.options['json'] as string | undefined;
 
     console.log('\n━━━ Kustodian Diff ━━━');
 
@@ -79,12 +116,21 @@ export const diff_command = define_command({
 
     const { project_root, project, target_clusters } = project_result.value;
     let has_changes = false;
+    const cluster_reports: ClusterDiffJson[] = [];
 
     for (const loaded_cluster of target_clusters) {
       const cluster_name = loaded_cluster.cluster.metadata.name;
       const defaults = resolve_defaults(loaded_cluster.cluster, project.config);
       const flux_namespace = defaults.flux_namespace;
       const oci_registry_secret_name = defaults.oci_registry_secret_name;
+
+      const cluster_report: ClusterDiffJson = {
+        name: cluster_name,
+        has_changes: false,
+        control_plane: { has_changes: false, diff: '' },
+        kustomizations: [],
+      };
+      cluster_reports.push(cluster_report);
 
       console.log(`\n━━━ Cluster: ${cluster_name} ━━━`);
 
@@ -314,8 +360,14 @@ export const diff_command = define_command({
             console.error(object_diff_result.value.stderr);
           }
 
+          cluster_report.control_plane = {
+            has_changes: object_diff_result.value.has_changes,
+            diff: object_diff_result.value.stdout ?? '',
+          };
+
           if (object_diff_result.value.has_changes) {
             has_changes = true;
+            cluster_report.has_changes = true;
           } else {
             console.log('    ✓ No Flux object changes');
           }
@@ -357,8 +409,17 @@ export const diff_command = define_command({
             console.error(workload_diff_result.value.stderr);
           }
 
+          cluster_report.kustomizations.push({
+            name: generated.name,
+            namespace: flux_namespace,
+            template: generated.template,
+            has_changes: workload_diff_result.value.has_changes,
+            diff: workload_diff_result.value.stdout ?? '',
+          });
+
           if (workload_diff_result.value.has_changes) {
             has_changes = true;
+            cluster_report.has_changes = true;
           }
         }
       } finally {
@@ -372,6 +433,16 @@ export const diff_command = define_command({
           );
         }
       }
+    }
+
+    if (json_output_path) {
+      const report: DiffJsonReport = {
+        schema_version: 1,
+        has_changes,
+        clusters: cluster_reports,
+      };
+      await mkdir(path.dirname(json_output_path), { recursive: true });
+      await writeFile(json_output_path, `${JSON.stringify(report, null, 2)}\n`, 'utf-8');
     }
 
     if (has_changes) {
