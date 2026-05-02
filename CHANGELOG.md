@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.1](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.14.0...kustodian-v1.14.1) (2026-05-02)
+
+
+### Bug Fixes
+
+* format renovate.json to satisfy biome lint ([#197](https://github.com/lucasilverentand/kustodian/issues/197)) ([a2f121f](https://github.com/lucasilverentand/kustodian/commit/a2f121f9a7f6a6b48b31340fc46daf3604d38383))
+
 ## [1.14.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.13.0...kustodian-v1.14.0) (2026-04-16)
 
 
