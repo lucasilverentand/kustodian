@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.15.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.14.0...kustodian-v1.15.0) (2026-05-07)
+
+
+### Features
+
+* per-cluster scheduling for templates and kustomizations ([#191](https://github.com/lucasilverentand/kustodian/issues/191)) ([01f82bf](https://github.com/lucasilverentand/kustodian/commit/01f82bf7fddddec02097a44f29a64e0d5c87eb50))
+
+
+### Bug Fixes
+
+* **deps:** update dependency astro to v6 [security] ([#199](https://github.com/lucasilverentand/kustodian/issues/199)) ([20e5243](https://github.com/lucasilverentand/kustodian/commit/20e524355a238928597931aa05b966447b95f84e))
+* format renovate.json to satisfy biome lint ([#197](https://github.com/lucasilverentand/kustodian/issues/197)) ([a2f121f](https://github.com/lucasilverentand/kustodian/commit/a2f121f9a7f6a6b48b31340fc46daf3604d38383))
+
 ## [1.14.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.13.0...kustodian-v1.14.0) (2026-04-16)
 
 
