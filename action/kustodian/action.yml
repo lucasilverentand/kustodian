@@ -109,7 +109,7 @@ runs:
         esac
 
     - name: Setup Bun
-      uses: oven-sh/setup-bun@v2
+      uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
 
     - name: Install kustodian
       shell: bash
@@ -130,7 +130,7 @@ runs:
 
     - name: Setup Flux CLI
       if: inputs.command == 'apply' || inputs.command == 'diff' || inputs.command == 'status'
-      uses: fluxcd/flux2/action@main
+      uses: fluxcd/flux2/action@abb86f161b5e6d037424db3ebdc02f27e6f95fca # main
 
     - name: Configure kubeconfig
       if: inputs.kubeconfig != ''
