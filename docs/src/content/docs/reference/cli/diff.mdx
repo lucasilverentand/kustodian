@@ -10,6 +10,8 @@ It compares:
 - Flux control-plane resources (OCIRepository, Kustomizations, and OCI auth resources when available)
 - Rendered workload output through `flux diff kustomization`
 
+When multiple clusters are diffed, `diff` prints a per-cluster summary table at the end listing each configured cluster, its status (`no changes`, `changed`, or `error`), the number of resources affected, and a git-status style line count (`+N -N`).
+
 ## Usage
 
 ```bash
@@ -23,6 +25,8 @@ kustodian diff [options]
 | `--cluster, -c <name>` | Target cluster (or all clusters if omitted) | All clusters |
 | `--project, -p <path>` | Path to project root | Current directory |
 | `--provider, -P <name>` | Cluster provider for kubeconfig retrieval | `k0s` |
+| `--kubeconfig, -k <path>` | Path to a kubeconfig file (skips provider/SSH) | — |
+| `--format, -f <name>` | Output format: `terminal` or `markdown` (PR-comment-ready) | `terminal` |
 
 ## Examples
 
@@ -44,13 +48,20 @@ kustodian diff
 kustodian diff --project ~/Developer/my-infra --cluster staging
 ```
 
+### Generate a PR-Ready Markdown Comment
+
+```bash
+kustodian diff --format markdown > pr-comment.md
+```
+
+Markdown mode emits a complete GitHub-flavored comment (with the summary table and collapsible per-cluster diffs) to `stdout`. All progress logging goes to `stderr` so the captured output is safe to post as a PR comment. The PR-diff GitHub Action uses this to keep a single comment updated with the latest diff.
+
 ## Exit Codes
 
 | Code | Meaning |
 |------|---------|
 | `0` | No differences found |
-| `1` | Differences found |
-| `2` | Diff failed (configuration, connectivity, or command error) |
+| `1` | Differences found, or the diff failed (configuration, connectivity, or command error) |
 
 ## Notes
 

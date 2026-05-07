@@ -348,7 +348,7 @@ Field merge semantics: scalars and lists **replace** at each lower level; `node_
 | `topology_spread` | Array | Topology spread constraints |
 | `priority_class` | String | `priorityClassName` applied to every workload |
 | `resources` | Object | Requests/limits applied to the primary container (`name: main`) |
-| `containers` | Map[string, { resources }] | Per-container resource overrides for multi-container pods |
+| `containers` | `Map[string, { resources }]` | Per-container resource overrides for multi-container pods |
 | `disabled` | Boolean | (kustomization level) Skip emitting scheduling patches |
 | `workloads` | Map[string, WorkloadScheduling] | Per-workload overrides keyed by `metadata.name` |
 
