@@ -292,5 +292,64 @@ describe('Generator', () => {
       );
       expect(after_kustomization_calls).toHaveLength(2);
     });
+
+    it('applies cluster-level scheduling to all generated kustomizations as patches', async () => {
+      const generator = create_generator();
+      const cluster: ClusterType = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'prod' },
+        spec: {
+          git: { owner: 'o', repository: 'r', branch: 'main' },
+          scheduling: {
+            node_selector: { 'kubernetes.io/arch': 'arm64' },
+            priority_class: 'high',
+          },
+          templates: [{ name: 'nginx' }],
+        },
+      };
+      const templates = [create_template('nginx', [{ name: 'web', path: './web' }])];
+
+      const result = await generator.generate(cluster, templates);
+      expect(result.success).toBe(true);
+      if (!result.success) return;
+      const patches = result.value.kustomizations[0]?.flux_kustomization.spec.patches ?? [];
+      expect(patches.length).toBeGreaterThan(0);
+      const deployment_patch = patches.find((p) => p.target.kind === 'Deployment');
+      expect(deployment_patch?.patch).toContain('arm64');
+      expect(deployment_patch?.patch).toContain('priorityClassName: high');
+    });
+
+    it('kustomization-level scheduling: disabled opts out of cluster defaults', async () => {
+      const generator = create_generator();
+      const cluster: ClusterType = {
+        apiVersion: 'kustodian.io/v1',
+        kind: 'Cluster',
+        metadata: { name: 'prod' },
+        spec: {
+          git: { owner: 'o', repository: 'r', branch: 'main' },
+          scheduling: { node_selector: { tier: 'app' }, priority_class: 'high' },
+          templates: [
+            {
+              name: 'nginx',
+              kustomizations: {
+                web: { scheduling: { disabled: true } },
+              },
+            },
+          ],
+        },
+      };
+      const templates = [create_template('nginx', [{ name: 'web', path: './web' }])];
+
+      const result = await generator.generate(cluster, templates);
+      expect(result.success).toBe(true);
+      if (!result.success) return;
+      const patches = result.value.kustomizations[0]?.flux_kustomization.spec.patches ?? [];
+      // Only preservation patches (stateful default) should remain, no scheduling ones.
+      for (const patch of patches) {
+        expect(patch.patch).not.toContain('priorityClassName');
+        expect(patch.patch).not.toContain('nodeSelector');
+      }
+    });
   });
 });

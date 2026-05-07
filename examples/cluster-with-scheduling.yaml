@@ -1,0 +1,76 @@
+---
+apiVersion: kustodian.io/v1
+kind: Cluster
+metadata:
+  name: production
+spec:
+  git:
+    owner: myorg
+    repository: infrastructure
+    branch: main
+
+  # Cluster-wide scheduling defaults — applied to every Deployment/StatefulSet/
+  # DaemonSet/Job/CronJob in every kustomization deployed by this cluster.
+  scheduling:
+    node_selector:
+      kubernetes.io/arch: arm64
+    tolerations:
+      - key: dedicated
+        operator: Equal
+        value: gitops
+        effect: NoSchedule
+    topology_spread:
+      - max_skew: 1
+        topology_key: topology.kubernetes.io/zone
+        when_unsatisfiable: ScheduleAnyway
+    priority_class: default
+    resources:
+      requests: { cpu: 100m, memory: 128Mi }
+      limits: { cpu: 1, memory: 512Mi }
+
+  templates:
+    - name: nginx
+      # Narrower scheduling at the template level — merges onto cluster defaults.
+      # Scalars/lists replace; node_selector shallow-merges.
+      scheduling:
+        node_selector:
+          disk: ssd
+        priority_class: high
+      kustomizations:
+        web:
+          # Per-kustomization scheduling — the narrowest level.
+          # Here we target a named workload for stricter pinning.
+          scheduling:
+            workloads:
+              nginx-canary:
+                # Declare the kind so only one patch is emitted (tight output).
+                # Omit `kind` to emit one patch per workload kind.
+                kind: Deployment
+                node_selector:
+                  canary: "true"
+                resources:
+                  requests: { cpu: 500m, memory: 256Mi }
+
+    - name: database
+      scheduling:
+        # Override the cluster-wide tolerations list entirely for this template.
+        tolerations:
+          - key: dedicated
+            operator: Equal
+            value: db
+            effect: NoSchedule
+        # Multi-container pod — target containers by name rather than relying
+        # on the default "main" primary container.
+        containers:
+          postgres:
+            resources:
+              requests: { cpu: 2, memory: 4Gi }
+              limits: { cpu: 4, memory: 8Gi }
+          exporter:
+            resources:
+              requests: { cpu: 50m, memory: 64Mi }
+      kustomizations:
+        legacy-job:
+          # Opt out of cluster-wide scheduling entirely for this one kustomization.
+          scheduling:
+            disabled: true
