@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import { parse } from 'yaml';
 import { failure, success } from '../../core/index.js';
 import { find_project_root } from '../../loader/index.js';
-import type { TemplateSourceType } from '../../schema/index.js';
+import { type TemplateSourceType, validate_project } from '../../schema/index.js';
 import {
   DEFAULT_CACHE_DIR,
   create_cache_manager,
@@ -14,26 +14,26 @@ import {
 import { define_command } from '../command.js';
 
 /**
- * Project configuration with template sources.
- */
-interface ProjectConfigType {
-  spec?: {
-    template_sources?: TemplateSourceType[];
-  };
-}
-
-/**
- * Reads template sources from project config.
+ * Reads and validates template sources from project config.
+ *
+ * Uses the project schema so GitHub shorthand and other refinements are
+ * applied uniformly across `apply`, `diff`, and the `sources` commands.
  */
 async function get_template_sources(project_root: string): Promise<TemplateSourceType[]> {
   const config_path = path.join(project_root, 'kustodian.yaml');
+  let raw: unknown;
   try {
     const content = await fs.readFile(config_path, 'utf-8');
-    const config = parse(content) as ProjectConfigType;
-    return config?.spec?.template_sources ?? [];
+    raw = parse(content);
   } catch {
     return [];
   }
+
+  const validation = validate_project(raw);
+  if (!validation.success) {
+    return [];
+  }
+  return validation.data.spec?.template_sources ?? [];
 }
 
 /**
@@ -205,10 +205,24 @@ export const sources_command = define_command({
 
           console.log('Configured sources:\n');
           for (const source of sources) {
-            const type = source.git ? 'git' : source.http ? 'http' : source.oci ? 'oci' : 'unknown';
-            console.log(`  ${source.name} (${type})`);
+            const display_type = source.github
+              ? 'github'
+              : source.git
+                ? 'git'
+                : source.http
+                  ? 'http'
+                  : source.oci
+                    ? 'oci'
+                    : 'unknown';
+            console.log(`  ${source.name} (${display_type})`);
 
-            if (source.git) {
+            if (source.github) {
+              const gh = source.github;
+              const ref = gh.ref.tag ?? gh.ref.branch ?? gh.ref.commit;
+              console.log(`    Repo: ${gh.repo}`);
+              console.log(`    Ref: ${ref}`);
+              if (gh.path) console.log(`    Path: ${gh.path}`);
+            } else if (source.git) {
               const ref = source.git.ref.tag ?? source.git.ref.branch ?? source.git.ref.commit;
               console.log(`    URL: ${source.git.url}`);
               console.log(`    Ref: ${ref}`);

@@ -19,6 +19,25 @@ const exec_file_async = promisify(execFile);
 const DEFAULT_TIMEOUT = 120_000; // 2 minutes
 
 /**
+ * Returns a copy of `process.env` with any `GIT_*` variables removed.
+ *
+ * Without this, calling `git clone` from inside another git operation
+ * (e.g. when kustodian is invoked from a Git pre-push hook) would
+ * inherit `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, etc. and
+ * misbehave — for instance, attempting to clone into the outer
+ * repository's index instead of the requested destination.
+ */
+function git_subprocess_env(): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined && !key.startsWith('GIT_')) {
+      env[key] = value;
+    }
+  }
+  return env;
+}
+
+/**
  * Creates a Git source fetcher.
  */
 export function create_git_fetcher(): SourceFetcherType {
@@ -96,7 +115,7 @@ class GitFetcher implements SourceFetcherType {
       // Inline exec_file_async for clone so the sanitized URL doesn't flow
       // through a generic wrapper — this lets static analysis see the full call.
       try {
-        await exec_file_async('git', clone_args, { timeout });
+        await exec_file_async('git', clone_args, { timeout, env: git_subprocess_env() });
       } catch (error) {
         if (error instanceof Error && 'killed' in error && (error as { killed?: boolean }).killed) {
           return failure(Errors.source_timeout(source.name, timeout));
@@ -107,7 +126,11 @@ class GitFetcher implements SourceFetcherType {
       // If fetching a specific commit, checkout that commit
       if (is_commit) {
         try {
-          await exec_file_async('git', ['checkout', '--', git_ref], { timeout, cwd: temp_dir });
+          await exec_file_async('git', ['checkout', '--', git_ref], {
+            timeout,
+            cwd: temp_dir,
+            env: git_subprocess_env(),
+          });
         } catch (error) {
           if (
             error instanceof Error &&
@@ -126,6 +149,7 @@ class GitFetcher implements SourceFetcherType {
         const { stdout } = await exec_file_async('git', ['rev-parse', 'HEAD'], {
           timeout,
           cwd: temp_dir,
+          env: git_subprocess_env(),
         });
         commit_sha = stdout.trim();
       } catch (error) {
@@ -188,6 +212,7 @@ class GitFetcher implements SourceFetcherType {
         ['ls-remote', '--tags', '--heads', '--', url],
         {
           timeout: DEFAULT_TIMEOUT,
+          env: git_subprocess_env(),
         },
       );
 

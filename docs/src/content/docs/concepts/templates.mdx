@@ -151,6 +151,37 @@ spec:
         - kustomization: monitoring/prometheus-instance
 ```
 
+## External template sources
+
+Templates do not have to live in the project repository. List them under
+`spec.template_sources` in `kustodian.yaml` and Kustodian will fetch them
+into a local cache and merge them with the templates in `templates/`:
+
+```yaml
+apiVersion: kustodian.io/v1
+kind: Project
+metadata:
+  name: my-infra
+spec:
+  template_sources:
+    # Pin a versioned template from a GitHub repo (shorthand form)
+    - name: nginx
+      github: lucasilverentand/kustodian-templates@v1.0.0:nginx
+
+    # Or use the explicit Git form for any host
+    - name: monitoring
+      git:
+        url: https://git.example.com/templates.git
+        ref:
+          tag: v2.3.4
+```
+
+A source repo can host either a single template (a `template.yaml` at the
+root) or many (one `template.yaml` per subdirectory). Tag and commit refs
+are immutable and cached forever; branch refs honour the optional `ttl`
+(default 1h). See the [Project reference](/reference/config/project/) for
+the full schema.
+
 ## Next Steps
 
 - [Creating Templates](/guides/creating-templates/) - Step-by-step guide

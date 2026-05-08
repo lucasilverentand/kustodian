@@ -1,7 +1,11 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { type KustodianErrorType, type ResultType, failure, success } from '../core/index.js';
-import { type TemplateSourceType, is_mutable_source } from '../schema/index.js';
+import {
+  type TemplateSourceType,
+  is_mutable_source,
+  normalize_template_source,
+} from '../schema/index.js';
 import { type CacheManagerType, create_cache_manager } from './cache/index.js';
 import { get_fetcher_for_source } from './fetchers/index.js';
 import type {
@@ -77,15 +81,18 @@ class SourceResolver implements SourceResolverType {
     options?: FetchOptionsType,
   ): Promise<ResultType<ResolvedSourceType, KustodianErrorType>> {
     const force_refresh = options?.force_refresh ?? false;
-    const fetcher_result = get_fetcher_for_source(source);
+    // Normalize once: GitHub sources get rewritten to git, then handled
+    // uniformly by the fetcher selection, cache key, and mutability logic.
+    const normalized = normalize_template_source(source);
+    const fetcher_result = get_fetcher_for_source(normalized);
     if (!fetcher_result.success) {
       return fetcher_result;
     }
     const fetcher = fetcher_result.value;
-    const mutable = is_mutable_source(source);
+    const mutable = is_mutable_source(normalized);
 
     // Cache key is based on the requested source ref (branch/tag/checksum/etc.)
-    const cache_key = this.get_source_version(source);
+    const cache_key = this.get_source_version(normalized);
 
     // Check cache first (unless force refresh)
     if (!force_refresh) {
@@ -104,7 +111,7 @@ class SourceResolver implements SourceResolverType {
     }
 
     // Fetch from remote
-    const fetch_result = await fetcher.fetch(source, options);
+    const fetch_result = await fetcher.fetch(normalized, options);
     if (!fetch_result.success) {
       return fetch_result;
     }
