@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example-git-web-app-config
+  namespace: example-git-web-app
+data:
+  MESSAGE: "served from an external git template"

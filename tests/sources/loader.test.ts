@@ -7,6 +7,35 @@ import * as path from 'node:path';
 import { load_project } from '../../src/loader/project.js';
 import { load_templates_from_sources } from '../../src/sources/loader.js';
 
+const EXAMPLE_GIT_TEMPLATE_REPO = path.join(
+  import.meta.dir,
+  '..',
+  'fixtures',
+  'example-git-template-repo',
+);
+
+function git_test_env(): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined && !key.startsWith('GIT_')) {
+      env[key] = value;
+    }
+  }
+  env.GIT_AUTHOR_NAME = 'Test';
+  env.GIT_AUTHOR_EMAIL = 'test@example.com';
+  env.GIT_COMMITTER_NAME = 'Test';
+  env.GIT_COMMITTER_EMAIL = 'test@example.com';
+  return env;
+}
+
+function commit_git_template_repo(repo_dir: string, env: Record<string, string>): void {
+  execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: repo_dir, env });
+  execFileSync('git', ['add', '.'], { cwd: repo_dir, env });
+  execFileSync('git', ['commit', '-q', '-m', 'init'], { cwd: repo_dir, env });
+  execFileSync('git', ['tag', 'v1.0.0'], { cwd: repo_dir, env });
+  execFileSync('git', ['config', 'uploadpack.allowFilter', 'true'], { cwd: repo_dir, env });
+}
+
 /**
  * Initializes a bare-style local git repo with the given file tree and
  * returns its `file://` URL. The repo has a single commit on `main` and
@@ -21,38 +50,26 @@ async function init_git_template_repo(
   const repo_dir = path.join(parent, name);
   await fs.mkdir(repo_dir, { recursive: true });
 
-  // Scrub any GIT_* variables that the parent process may have inherited
-  // (e.g. when these tests run inside a `git push` pre-push hook). Leaving
-  // GIT_DIR/GIT_WORK_TREE/etc. set would point our `git init` at the
-  // outer repository instead of the temp directory.
-  const env: Record<string, string> = {};
-  for (const [key, value] of Object.entries(process.env)) {
-    if (value !== undefined && !key.startsWith('GIT_')) {
-      env[key] = value;
-    }
-  }
-  env.GIT_AUTHOR_NAME = 'Test';
-  env.GIT_AUTHOR_EMAIL = 'test@example.com';
-  env.GIT_COMMITTER_NAME = 'Test';
-  env.GIT_COMMITTER_EMAIL = 'test@example.com';
-
-  execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: repo_dir, env });
-
   for (const [rel, contents] of Object.entries(files)) {
     const target = path.join(repo_dir, rel);
     await fs.mkdir(path.dirname(target), { recursive: true });
     await fs.writeFile(target, contents);
   }
 
-  execFileSync('git', ['add', '.'], { cwd: repo_dir, env });
-  execFileSync('git', ['commit', '-q', '-m', 'init'], { cwd: repo_dir, env });
-  execFileSync('git', ['tag', 'v1.0.0'], { cwd: repo_dir, env });
+  commit_git_template_repo(repo_dir, git_test_env());
 
-  // Allow file:// clones with --depth=1 (modern git refuses by default
-  // for local protocol unless we set this config or use the protocol
-  // explicitly via `file://` URL — we do both).
-  execFileSync('git', ['config', 'uploadpack.allowFilter', 'true'], { cwd: repo_dir, env });
+  return `file://${repo_dir}`;
+}
 
+async function init_git_template_repo_from_fixture(
+  parent: string,
+  name: string,
+  fixture_dir: string,
+): Promise<string> {
+  const repo_dir = path.join(parent, name);
+  await fs.mkdir(repo_dir, { recursive: true });
+  await fs.cp(fixture_dir, repo_dir, { recursive: true });
+  commit_git_template_repo(repo_dir, git_test_env());
   return `file://${repo_dir}`;
 }
 
@@ -229,6 +246,47 @@ spec:
     expect(sourced?.template.metadata.name).toBe('nginx');
     expect(result.value.resolved_sources).toHaveLength(1);
     expect(result.value.resolved_sources?.[0]?.name).toBe('integ-source');
+  });
+
+  it('integrates a committed example git template fixture into load_project', async () => {
+    const url = await init_git_template_repo_from_fixture(
+      work_dir,
+      'example-git-template-repo',
+      EXAMPLE_GIT_TEMPLATE_REPO,
+    );
+
+    const project_root = path.join(work_dir, 'project');
+    await fs.mkdir(project_root, { recursive: true });
+    await fs.writeFile(
+      path.join(project_root, 'kustodian.yaml'),
+      `apiVersion: kustodian.io/v1
+kind: Project
+metadata:
+  name: fixture-source
+spec:
+  template_sources:
+    - name: example-git-template
+      git:
+        url: ${url}
+        ref:
+          tag: v1.0.0
+`,
+    );
+
+    const result = await load_project(project_root, {
+      fetch_sources: true,
+      cache_dir: path.join(work_dir, '.cache'),
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    expect(result.value.templates).toHaveLength(1);
+    const [template] = result.value.templates;
+    expect(template?.source_name).toBe('example-git-template');
+    expect(template?.template.metadata.name).toBe('example-git-web-app');
+    expect(template?.template.spec.kustomizations.map((item) => item.path)).toEqual(['./app']);
+    expect(result.value.resolved_sources?.[0]?.name).toBe('example-git-template');
   });
 
   it('flags conflicts when a sourced template name shadows a local template', async () => {
