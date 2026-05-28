@@ -1,10 +1,12 @@
 import { failure, success } from '../../core/index.js';
 import {
   type SemanticErrorType,
+  type UsageIssueType,
   validate_cross_references,
   validate_dependency_graph,
   validate_semantics,
   validate_template_requirements,
+  validate_usage,
 } from '../../generator/index.js';
 import { filter_clusters, find_project_root, load_project } from '../../loader/index.js';
 
@@ -115,6 +117,29 @@ export const validate_command = define_command({
       return failure({
         code: 'CROSS_REFERENCE_VALIDATION_ERROR',
         message: 'Cross-reference validation failed',
+      });
+    }
+
+    // Validate unused/dead project source and configuration.
+    console.log('\nValidating unused resources and config...');
+    const usage_templates = cluster_filter
+      ? project.templates.filter((template) =>
+          clusters.some((cluster) =>
+            (cluster.cluster.spec.templates ?? []).some(
+              (ref) => (ref.template ?? ref.name) === template.template.metadata.name,
+            ),
+          ),
+        )
+      : project.templates;
+    const usage_result = await validate_usage(project_root, clusters, usage_templates, {
+      include_project_wide: !cluster_filter,
+    });
+
+    if (!usage_result.valid) {
+      print_usage_issues(usage_result.issues);
+      return failure({
+        code: 'USAGE_VALIDATION_ERROR',
+        message: 'Unused resource/config validation failed',
       });
     }
 
@@ -242,5 +267,19 @@ function print_semantic_errors(errors: SemanticErrorType[]): void {
       console.error(`    ✗ ${msg}  [${label}]`);
     }
     console.error('');
+  }
+}
+
+/**
+ * Prints unused/dead configuration issues.
+ */
+function print_usage_issues(issues: UsageIssueType[]): void {
+  const count = issues.length;
+  console.error(
+    `\nUnused resource/config validation failed (${count} ${count === 1 ? 'issue' : 'issues'}):\n`,
+  );
+
+  for (const issue of issues) {
+    console.error(`  ✗ ${issue.message}`);
   }
 }
