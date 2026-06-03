@@ -130,7 +130,7 @@ runs:
 
     - name: Setup Flux CLI
       if: inputs.command == 'apply' || inputs.command == 'diff' || inputs.command == 'status'
-      uses: fluxcd/flux2/action@abb86f161b5e6d037424db3ebdc02f27e6f95fca # main
+      uses: fluxcd/flux2/action@8c41d5b56d93d566cab8ae1ddc53580bb0da72c4 # main
 
     - name: Configure kubeconfig
       if: inputs.kubeconfig != ''
