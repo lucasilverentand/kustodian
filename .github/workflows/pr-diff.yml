@@ -1,5 +1,9 @@
 # PR Diff — compares rendered Kubernetes manifests between base and head.
 #
+# This workflow is manual-only in the kustodian repository because this repo does
+# not manage a live cluster. Downstream kustodian project repos can run the
+# action on pull requests when they provide a real kubeconfig.
+#
 # Usage in downstream kustodian repos:
 #
 #   name: PR Diff
@@ -22,15 +26,12 @@
 name: PR Diff
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'templates/**'
-      - 'clusters/**'
-      - 'kustodian.yaml'
-      - 'src/generator/**'
-      - 'src/loader/**'
-      - 'src/schema/**'
+  workflow_dispatch:
+    inputs:
+      kubeconfig:
+        description: 'Base64-encoded kubeconfig for manual PR diff testing'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -51,4 +52,5 @@ jobs:
       - uses: ./action/kustodian-pr-diff
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          kubeconfig: ${{ inputs.kubeconfig }}
           project-path: e2e/fixtures/valid-project

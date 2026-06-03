@@ -23,6 +23,13 @@ export type { SemanticErrorType, SemanticValidationResultType } from './semantic
 export { validate_semantics } from './semantic.js';
 export type { MissingDependencyErrorType } from './enablement.js';
 export { validate_enablement_dependencies } from './enablement.js';
+export type {
+  UsageIssueKindType,
+  UsageIssueType,
+  UsageValidationOptionsType,
+  UsageValidationResultType,
+} from './usage.js';
+export { validate_usage } from './usage.js';
 
 // Re-export functions
 export { build_dependency_graph, get_all_nodes, get_node } from './graph.js';

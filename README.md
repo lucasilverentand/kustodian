@@ -298,6 +298,11 @@ kustodian validate
 kustodian validate --cluster production
 ```
 
+Validation checks schema shape, cluster/template references, dependency graphs, template requirements,
+and dead project source. It fails when templates are never selected by a cluster, values do not match
+any declared version or substitution, kustomization paths point at missing files, resource/config files
+are not reachable from Kustomize, or manifests use undeclared `${...}` variables.
+
 ### Apply Full Configuration
 
 ```bash
