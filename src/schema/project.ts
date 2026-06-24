@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { api_version_schema, metadata_schema } from './common.js';
+import { template_source_schema } from './sources.js';
 
 /**
  * Project-level defaults that apply to all clusters.
@@ -27,6 +28,12 @@ export type ProjectDefaultsType = z.infer<typeof project_defaults_schema>;
  */
 export const project_spec_schema = z.object({
   defaults: project_defaults_schema.optional(),
+  /**
+   * External template sources (Git, GitHub, HTTP, OCI). Each entry is
+   * fetched, cached, and merged with templates loaded from the local
+   * `templates/` directory. Names must be unique across all sources.
+   */
+  template_sources: z.array(template_source_schema).optional(),
 });
 
 export type ProjectSpecType = z.infer<typeof project_spec_schema>;

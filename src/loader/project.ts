@@ -39,10 +39,15 @@ export const StandardDirs = {
 
 /**
  * Loaded template with its source path.
+ *
+ * `source_name` is set when the template was fetched from a configured
+ * external source (`spec.template_sources` in `kustodian.yaml`); it is
+ * absent for templates loaded from the local `templates/` directory.
  */
 export interface LoadedTemplateType {
   path: string;
   template: TemplateType;
+  source_name?: string;
 }
 
 /**
@@ -83,6 +88,10 @@ export function filter_clusters(
 
 /**
  * A fully loaded Kustodian project.
+ *
+ * `templates` contains both local templates (from `templates/`) and any
+ * templates fetched from `spec.template_sources` when sources were
+ * resolved. Source-fetched templates carry a `source_name`.
  */
 export interface ProjectType {
   root: string;
@@ -90,6 +99,32 @@ export interface ProjectType {
   templates: LoadedTemplateType[];
   clusters: LoadedClusterType[];
   profiles: Map<string, NodeProfileType>;
+  /** Resolved external sources, when sources were fetched. */
+  resolved_sources?: ResolvedSourceSummaryType[];
+}
+
+/**
+ * Summary of a resolved external source, attached to ProjectType when
+ * sources were fetched. Mirrors the shape needed by callers without
+ * pulling the full `sources` package types into the loader interface.
+ */
+export interface ResolvedSourceSummaryType {
+  name: string;
+  version: string;
+  from_cache: boolean;
+  fetched_at: Date;
+  path: string;
+}
+
+/**
+ * Options for `load_project`. By default no network I/O is performed —
+ * pass `fetch_sources: true` to also fetch and merge templates from
+ * `spec.template_sources`.
+ */
+export interface LoadProjectOptionsType {
+  fetch_sources?: boolean;
+  cache_dir?: string;
+  force_refresh?: boolean;
 }
 
 /**
@@ -268,8 +303,15 @@ export async function load_cluster(
 
 /**
  * Recursively finds all directories containing template.yaml files.
+ *
+ * Treats a directory as a template root as soon as it contains a
+ * `template.yaml`, and stops descending — kustomization sub-directories
+ * referenced from the template are not themselves templates.
+ *
+ * Exported so source-fetched repos (which may be single-template at the
+ * root or multi-template nested) can reuse the same discovery rules.
  */
-async function find_template_directories(dir: string): Promise<string[]> {
+export async function find_template_directories(dir: string): Promise<string[]> {
   const template_path = path.join(dir, StandardFiles.TEMPLATE);
 
   // If this directory has a template.yaml, return it
@@ -367,9 +409,16 @@ export async function load_all_clusters(
 
 /**
  * Loads a complete Kustodian project.
+ *
+ * Pass `options.fetch_sources` to also pull templates from any external
+ * sources configured under `spec.template_sources` in `kustodian.yaml`.
+ * Source-fetched templates are merged into `templates` and tagged with
+ * `source_name`; resolved source metadata is attached as
+ * `resolved_sources`.
  */
 export async function load_project(
   project_root: string,
+  options?: LoadProjectOptionsType,
 ): Promise<ResultType<ProjectType, KustodianErrorType>> {
   // Verify project exists
   const project_file = path.join(project_root, StandardFiles.PROJECT);
@@ -394,7 +443,7 @@ export async function load_project(
     return profiles_result;
   }
 
-  // Load templates
+  // Load local templates
   const templates_result = await load_all_templates(project_root);
   if (!is_success(templates_result)) {
     return templates_result;
@@ -406,15 +455,82 @@ export async function load_project(
     return clusters_result;
   }
 
+  const all_templates: LoadedTemplateType[] = [...templates_result.value];
+  let resolved_sources: ResolvedSourceSummaryType[] | undefined;
+
+  // Fetch external sources when requested
+  const sources = project_config?.spec?.template_sources ?? [];
+  if (options?.fetch_sources && sources.length > 0) {
+    // Dynamic import to avoid pulling the network/cache stack into callers
+    // that just need local project loading.
+    const { load_templates_from_sources, DEFAULT_CACHE_DIR } = await import('../sources/index.js');
+    const cache_dir = options.cache_dir ?? path.join(project_root, DEFAULT_CACHE_DIR);
+
+    const fetch_options: { cache_dir: string; force_refresh?: boolean } = { cache_dir };
+    if (options.force_refresh !== undefined) {
+      fetch_options.force_refresh = options.force_refresh;
+    }
+    const sources_result = await load_templates_from_sources(sources, fetch_options);
+    if (!is_success(sources_result)) {
+      return sources_result;
+    }
+
+    // Detect name collisions between local and sourced templates
+    const local_names = new Set(templates_result.value.map((t) => t.template.metadata.name));
+    const conflicts: string[] = [];
+    for (const sourced of sources_result.value.templates) {
+      if (local_names.has(sourced.template.metadata.name)) {
+        conflicts.push(
+          `${sourced.template.metadata.name} (from source '${sourced.source_name}' clashes with local template)`,
+        );
+        continue;
+      }
+      all_templates.push({
+        path: sourced.path,
+        template: sourced.template,
+        source_name: sourced.source_name,
+      });
+    }
+
+    // Detect collisions between sourced templates from different sources
+    const seen = new Map<string, string>();
+    for (const sourced of sources_result.value.templates) {
+      const existing = seen.get(sourced.template.metadata.name);
+      if (existing && existing !== sourced.source_name) {
+        conflicts.push(
+          `${sourced.template.metadata.name} (provided by both source '${existing}' and source '${sourced.source_name}')`,
+        );
+      }
+      seen.set(sourced.template.metadata.name, sourced.source_name);
+    }
+
+    if (conflicts.length > 0) {
+      return failure(
+        Errors.validation_error(`Template name conflicts:\n  ${conflicts.join('\n  ')}`),
+      );
+    }
+
+    resolved_sources = sources_result.value.resolved.map((r) => ({
+      name: r.source.name,
+      version: r.fetch_result.version,
+      from_cache: r.fetch_result.from_cache,
+      fetched_at: r.fetch_result.fetched_at,
+      path: r.fetch_result.path,
+    }));
+  }
+
   const result: ProjectType = {
     root: project_root,
-    templates: templates_result.value,
+    templates: all_templates,
     clusters: clusters_result.value,
     profiles: profiles_result.value,
   };
 
   if (project_config) {
     result.config = project_config;
+  }
+  if (resolved_sources) {
+    result.resolved_sources = resolved_sources;
   }
 
   return success(result);

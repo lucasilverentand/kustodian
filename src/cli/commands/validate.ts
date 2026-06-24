@@ -50,7 +50,7 @@ export const validate_command = define_command({
 
     // Load project
     console.log('Loading project...');
-    const project_result = await load_project(project_root);
+    const project_result = await load_project(project_root, { fetch_sources: true });
     if (!project_result.success) {
       console.error(`Validation failed: ${project_result.error.message}`);
       return project_result;

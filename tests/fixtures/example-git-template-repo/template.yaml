@@ -1,0 +1,8 @@
+apiVersion: kustodian.io/v1
+kind: Template
+metadata:
+  name: example-git-web-app
+spec:
+  kustomizations:
+    - name: app
+      path: ./app

@@ -6,7 +6,11 @@ import {
   is_success,
   success,
 } from '../core/index.js';
-import { type LoadedTemplateType, list_directories, load_template } from '../loader/index.js';
+import {
+  type LoadedTemplateType,
+  find_template_directories,
+  load_template,
+} from '../loader/index.js';
 import type { TemplateSourceType } from '../schema/index.js';
 import { type CreateResolverOptionsType, create_source_resolver } from './resolver.js';
 import type { FetchOptionsType, ResolvedSourceType } from './types.js';
@@ -92,20 +96,20 @@ export async function load_templates_from_sources(
 
 /**
  * Loads all templates from a directory path.
- * Looks for subdirectories containing template.yaml files.
+ *
+ * Walks the tree looking for `template.yaml` files. Stops at the first
+ * one found in a given branch, which lets the same logic handle both:
+ *
+ *   - Single-template repos (root has `template.yaml`)
+ *   - Multi-template repos (each subdirectory under the root or some
+ *     prefix path holds its own `template.yaml`)
  */
 async function load_templates_from_path(
   source_path: string,
 ): Promise<ResultType<LoadedTemplateType[], KustodianErrorType>> {
-  // List all subdirectories that might be templates
-  const dirs_result = await list_directories(source_path);
+  const template_dirs = await find_template_directories(source_path);
 
-  if (!is_success(dirs_result)) {
-    // Check if this path itself is a template
-    const direct_result = await load_template(source_path);
-    if (is_success(direct_result)) {
-      return success([direct_result.value]);
-    }
+  if (template_dirs.length === 0) {
     return failure({
       code: 'NOT_FOUND',
       message: `No templates found in ${source_path}`,
@@ -115,16 +119,13 @@ async function load_templates_from_path(
   const templates: LoadedTemplateType[] = [];
   const errors: string[] = [];
 
-  for (const dir of dirs_result.value) {
+  for (const dir of template_dirs) {
     const result = await load_template(dir);
     if (is_success(result)) {
       templates.push(result.value);
     } else {
-      // Only log errors for directories that look like templates
-      // (i.e., they have a template.yaml that failed validation)
-      if (result.error.code === 'SCHEMA_VALIDATION_ERROR') {
-        errors.push(`${path.basename(dir)}: ${result.error.message}`);
-      }
+      const relative = path.relative(source_path, dir) || '.';
+      errors.push(`${relative}: ${result.error.message}`);
     }
   }
 
