@@ -341,6 +341,9 @@ export function create_flux_client(options: FluxClientOptionsType = {}): FluxCli
       if (diff_options.ignore_paths && diff_options.ignore_paths.length > 0) {
         args.push('--ignore-paths', diff_options.ignore_paths.join(','));
       }
+      if (diff_options.ignore_not_found) {
+        args.push('--ignore-not-found');
+      }
 
       const result = await exec_command('flux', args, exec_options);
       if (!result.success) {

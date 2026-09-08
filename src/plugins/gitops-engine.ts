@@ -78,6 +78,7 @@ export interface GitOpsDiffOptionsType {
   kustomization_file?: string;
   namespace?: string;
   progress_bar?: boolean;
+  ignore_not_found?: boolean;
 }
 
 /**
