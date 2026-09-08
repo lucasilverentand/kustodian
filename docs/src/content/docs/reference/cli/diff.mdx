@@ -54,6 +54,8 @@ kustodian diff --project ~/Developer/my-infra --cluster staging
 kustodian diff --format markdown > pr-comment.md
 ```
 
+A Kustomization that exists in the project but not yet on the cluster is diffed as a new Kustomization: every rendered resource shows as created. This uses `flux diff kustomization --ignore-not-found`, which needs Flux CLI 2.9.0 or newer. On older CLIs the diff for that Kustomization fails with `failed to get kustomization object`.
+
 Markdown mode emits a complete GitHub-flavored comment (with the summary table and collapsible per-cluster diffs) to `stdout`. All progress logging goes to `stderr` so the captured output is safe to post as a PR comment. The PR-diff GitHub Action uses this to keep a single comment updated with the latest diff.
 
 ## Exit Codes

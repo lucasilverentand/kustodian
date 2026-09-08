@@ -434,6 +434,7 @@ export const diff_command = define_command({
             kustomization_file: flux_kustomization_file,
             namespace: flux_namespace,
             progress_bar: false,
+            ignore_not_found: true,
           });
 
           if (!is_success(workload_diff_result)) {
