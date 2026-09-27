@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.15.0...kustodian-v1.16.0) (2026-09-27)
+
+
+### Features
+
+* consume versioned templates from external sources ([#205](https://github.com/lucasilverentand/kustodian/issues/205)) ([963729d](https://github.com/lucasilverentand/kustodian/commit/963729d924e88699d876d3c2af17416ff0b82e73))
+
 ## [1.15.0](https://github.com/lucasilverentand/kustodian/compare/kustodian-v1.14.0...kustodian-v1.15.0) (2026-05-07)
 
 
