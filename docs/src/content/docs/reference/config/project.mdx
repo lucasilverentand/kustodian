@@ -12,6 +12,10 @@ apiVersion: kustodian.io/v1
 kind: Project
 metadata:
   name: <project-name>
+spec:
+  template_sources: # optional, see "External template sources"
+    - name: <source-name>
+      github: <owner>/<repo>@<ref>
 ```
 
 ## Fields
@@ -74,6 +78,76 @@ kind: Project
 metadata:
   name: production-infrastructure
 ```
+
+## External template sources
+
+`spec.template_sources` lets you consume templates that live in another Git
+repository, an HTTP archive, or an OCI registry. Each entry is fetched into
+the project's local cache (`.kustodian/templates-cache`) and merged with the
+templates found under `templates/`.
+
+A single source can host either:
+
+- **One template** — `template.yaml` at the root of the source path.
+- **Many templates** — each subdirectory contains its own `template.yaml`.
+
+Template names must be unique across all sources and the local `templates/`
+directory.
+
+### GitHub source
+
+```yaml
+spec:
+  template_sources:
+    # Shorthand: owner/repo@<branch|tag|commit>[:path]
+    - name: nginx
+      github: lucasilverentand/kustodian-templates@v1.0.0:nginx
+
+    # Object form
+    - name: monitoring
+      github:
+        repo: lucasilverentand/monitoring-templates
+        ref:
+          tag: v2.3.4
+        path: kube-prometheus-stack
+      ttl: 1h
+```
+
+The shorthand parser infers the ref kind:
+
+- 40-character hex strings → `commit`
+- Semver-shaped strings (e.g. `v1.2.3`, `1.0`) → `tag`
+- Anything else → `branch`
+
+### Git source
+
+```yaml
+spec:
+  template_sources:
+    - name: shared
+      git:
+        url: https://git.example.com/templates.git
+        ref:
+          tag: v1.0.0
+        path: production
+```
+
+Exactly one of `ref.branch`, `ref.tag`, or `ref.commit` must be set. Tags and
+commits are immutable and cached forever; branches are mutable and refreshed
+according to `ttl` (default 1h).
+
+### Working with sources
+
+```bash
+kustodian sources list           # show configured sources
+kustodian sources fetch          # populate the cache
+kustodian sources fetch --force  # refresh, ignoring TTL
+kustodian sources versions <name>
+kustodian sources cache info
+```
+
+Commands that load templates (`apply`, `diff`, `validate`, `update`) fetch
+configured sources automatically and report cache hits in their output.
 
 ## Location
 

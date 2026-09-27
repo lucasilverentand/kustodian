@@ -98,7 +98,7 @@ export const update_command = define_command({
       return root_result;
     }
 
-    const project_result = await load_project(root_result.value);
+    const project_result = await load_project(root_result.value, { fetch_sources: true });
     if (!is_success(project_result)) {
       return project_result;
     }
