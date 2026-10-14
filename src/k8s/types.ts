@@ -71,6 +71,8 @@ export interface FluxDiffKustomizationOptionsType {
   recursive?: boolean;
   strict_substitute?: boolean;
   ignore_paths?: string[];
+  /** Treat a missing live Kustomization as a new one and diff against the local file only (flux >= 2.9). */
+  ignore_not_found?: boolean;
 }
 
 /**
