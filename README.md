@@ -214,20 +214,12 @@ The provisioning process:
 
 Plugins extend Kustodian's functionality. They can:
 
-- **Generate resources** - Create additional Kubernetes resources (e.g., Authentik SSO blueprints)
-- **Provide secrets** - Integrate with secret managers (e.g., Doppler, 1Password)
+- **Generate resources** - Create additional Kubernetes resources
+- **Provide secrets** - Integrate with secret managers through custom plugins
 - **Validate configs** - Add custom validation rules
 - **Transform resources** - Modify resources before output
 
-```yaml
-# Using plugins in a cluster
-spec:
-  plugins:
-    - name: authentik-blueprints
-    - name: doppler-secrets
-      config:
-        project: my-project
-```
+See the [Authelia plugin](plugins/authelia/README.md) for authentication configuration and the [k0s plugin](plugins/k0s/README.md) for cluster provisioning.
 
 ## Packages
 
@@ -248,10 +240,8 @@ Kustodian is built as a collection of packages:
 
 | Plugin | Description |
 |--------|-------------|
-| `@kustodian/plugin-k0s` | k0s cluster provisioning (built-in) |
-| `@kustodian/plugin-authentik` | Generate Authentik SSO blueprints |
-| `@kustodian/plugin-doppler` | Doppler secret management |
-| `@kustodian/plugin-1password` | 1Password secret management |
+| `kustodian-k0s` | k0s cluster provisioning (built-in) |
+| `kustodian-authelia` | Authelia OIDC clients and access control rules |
 
 ## Installation
 
